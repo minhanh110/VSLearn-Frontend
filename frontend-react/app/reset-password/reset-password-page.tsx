@@ -14,6 +14,7 @@ import { BackgroundCard } from "../../components/background-card"
 import authService from "../services/auth.service"
 import { useRouter } from "next/navigation"
 import Cookies from 'js-cookie'
+
 export default function ResetPasswordPage() {
   const [showPasswords, setShowPasswords] = useState({
     new: false,

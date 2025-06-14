@@ -76,7 +76,7 @@ export default function ChangePasswordPage() {
       } else {
         toast.error(result.message || "Failed to change password");
       }
-    } catch (error: any) {s
+    } catch (error: any) {
       console.error("Change password error:", error);
       toast.error(error.message || "Failed to change password");
     } finally {
@@ -103,7 +103,7 @@ export default function ChangePasswordPage() {
             </div>
 
             {/* Change Password Form */}
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="currentPassword" className="text-sm font-medium text-gray-700">
                   Current Password
@@ -117,6 +117,7 @@ export default function ChangePasswordPage() {
                     onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
                     style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                    required
                   />
                   <button
                     type="button"
@@ -141,6 +142,7 @@ export default function ChangePasswordPage() {
                     onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
                     style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                    required
                   />
                   <button
                     type="button"
@@ -154,7 +156,7 @@ export default function ChangePasswordPage() {
 
               {/* Password Requirements - Real-time validation */}
               {formData.newPassword && (
-                <div className="bg-white/70 border border-gray-200 rounded-lg p-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <p className="text-sm font-medium text-gray-700 mb-3">Password Requirements:</p>
                   <div className="space-y-2">
                     {passwordRequirements.map((req, index) => (
@@ -186,6 +188,7 @@ export default function ChangePasswordPage() {
                     onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
                     style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                    required
                   />
                   <button
                     type="button"
@@ -200,7 +203,7 @@ export default function ChangePasswordPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90"
+                className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#93D6F6" }}
               >
                 {isLoading ? "Updating..." : "Update Password"}
