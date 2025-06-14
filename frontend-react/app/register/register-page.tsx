@@ -13,6 +13,7 @@ import { Logo } from "../../components/logo"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import authService from "../services/auth.service"
+import { Shield, Eye, EyeOff, CheckCircle, Check, X } from "lucide-react"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -27,6 +28,17 @@ export default function RegisterPage() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showPasswords, setShowPasswords] = useState({
+    password: false,
+    confirm: false,
+  })
+
+  const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
+    setShowPasswords((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }))
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -36,26 +48,31 @@ export default function RegisterPage() {
     }))
   }
 
+  // Password validation
+  const passwordRequirements = [
+    { text: "At least 8 characters", valid: formData.password.length >= 8 },
+    { text: "One uppercase letter", valid: /[A-Z]/.test(formData.password) },
+    { text: "One lowercase letter", valid: /[a-z]/.test(formData.password) },
+    { text: "One number", valid: /\d/.test(formData.password) },
+    { text: "One special character", valid: /[!@#$%^&*(),.?\":{}|<>]/.test(formData.password) },
+  ]
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
-    // Validate form
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match")
       setLoading(false)
       return
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters")
-      setLoading(false)
-      return
-    }
-
-    if (formData.username.length < 3) {
-      setError("Username must be at least 3 characters")
+    // Validate password requirements
+    const allRequirementsMet = passwordRequirements.every(req => req.valid)
+    if (!allRequirementsMet) {
+      setError("Please meet all password requirements")
       setLoading(false)
       return
     }
@@ -70,7 +87,7 @@ export default function RegisterPage() {
         phoneNumber: formData.phoneNumber,
         userRole: "ROLE_LEARNER"
       })
-      
+
       // Redirect to login page
       router.push("/login")
     } catch (err: any) {
@@ -192,36 +209,75 @@ export default function RegisterPage() {
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                   Password
                 </Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Create a strong password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  minLength={6}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPasswords.password ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    minLength={6}
+                    className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility("password")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPasswords.password ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
+
+              {/* Password Requirements - Real-time validation */}
+              {formData.password && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <p className="text-sm font-medium text-gray-700 mb-3">Password Requirements:</p>
+                  <div className="space-y-2">
+                    {passwordRequirements.map((req, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        {req.valid ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <X className="w-4 h-4 text-red-400" />
+                        )}
+                        <span className={`text-sm ${req.valid ? "text-green-600 font-medium" : "text-gray-600"}`}>
+                          {req.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
                   Confirm Password
                 </Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  minLength={6}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
-                />
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showPasswords.confirm ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    minLength={6}
+                    className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility("confirm")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center space-x-2">
