@@ -14,6 +14,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import authService from "../services/auth.service"
 import { Shield, Eye, EyeOff, CheckCircle, Check, X } from "lucide-react"
+import Cookies from "js-cookie"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -69,27 +70,20 @@ export default function RegisterPage() {
       return
     }
 
-    // Validate password requirements
-    const allRequirementsMet = passwordRequirements.every(req => req.valid)
-    if (!allRequirementsMet) {
-      setError("Please meet all password requirements")
-      setLoading(false)
-      return
-    }
-
     try {
-      await authService.register({
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phoneNumber: formData.phoneNumber,
-        userRole: "ROLE_LEARNER"
-      })
-
-      // Redirect to login page
-      router.push("/login")
+      // First request OTP
+      const otpResponse = await authService.requestSignupOtp(formData.email)
+      if (otpResponse.status === 200) {
+        // Store email and OTP in cookies for verification
+        Cookies.set("email-signup", formData.email, { expires: 5 / 1440 }) // 5 minutes
+        Cookies.set("otp-signup", otpResponse.data, { expires: 5 / 1440 })
+        
+        // Store registration data in localStorage
+        localStorage.setItem("registrationData", JSON.stringify(formData))
+        
+        // Redirect to OTP verification page
+        router.push("/signup-otp")
+      }
     } catch (err: any) {
       setError(err.message || "Registration failed")
     } finally {
