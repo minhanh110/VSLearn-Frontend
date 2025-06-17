@@ -9,20 +9,25 @@ import { BackgroundLayout } from "../../components/background-layout"
 import { BackgroundCard } from "../../components/background-card"
 import { Logo } from "../../components/logo"
 import authService from "../services/auth.service"
-import { useRouter } from "next/navigation"
-
-
-import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 
 export default function LoginPage() {
-
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    if (errorParam === 'oauth2_failed') {
+      setError('Google login failed. Please try again.')
+    }
+  }, [searchParams])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -46,6 +51,10 @@ export default function LoginPage() {
     } catch (err: any) {
       setError(err.message || "Registration failed")
     }
+  }
+
+  const handleGoogleLogin = () => {
+    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
   }
 
   return (
@@ -129,6 +138,7 @@ export default function LoginPage() {
             <Button
               variant="outline"
               className="w-full py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={handleGoogleLogin}
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
