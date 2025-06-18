@@ -41,7 +41,7 @@ export default function LoginPage() {
         password: formData.password,
       });
       if (jsonObj.status === 200) {
-        router.push("/lesson-path")
+        router.push("/homepage")
       }
     } catch (err: any) {
       setError(err.message || "Registration failed")
