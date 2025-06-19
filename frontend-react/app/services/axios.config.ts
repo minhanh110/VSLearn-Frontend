@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import Cookies from 'js-cookie';
 
 const instance = axios.create({
   baseURL: 'http://localhost:8080',
@@ -20,10 +19,10 @@ const isTokenExpired = (token: string) => {
 
 instance.interceptors.request.use(
   (config) => {
-    const token = Cookies.get('token');
+    const token = localStorage.getItem('token');
     if (token) {
       if (isTokenExpired(token)) {
-        Cookies.remove('token');
+        localStorage.removeItem('token');
         window.location.href = '/login';
         return Promise.reject('Token expired');
       }
@@ -42,7 +41,7 @@ instance.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      Cookies.remove('token');
+      localStorage.removeItem('token');
       window.location.href = '/login';
     }
     return Promise.reject(error);
