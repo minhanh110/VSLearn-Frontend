@@ -9,17 +9,18 @@ import Image from "next/image"
 
 export default function LessonPage() {
   const params = useParams()
-  const lessonId = params.id
+  const lessonId = params.id as string // Giữ kiểu string
 
-  const lessonData = {
-    1: { title: "Lesson 1: Greetings", content: "Learn basic greeting signs" },
-    2: { title: "Lesson 2: Family", content: "Learn family member signs" },
-    3: { title: "Test: Unit 1", content: "Test your knowledge of Unit 1" },
-    4: { title: "Lesson 4: Numbers", content: "Learn number signs" },
-    5: { title: "Lesson 5: Colors", content: "Learn color signs" },
+  // lessonData dùng key là string
+  const lessonData: Record<string, { title: string; content: string }> = {
+    "1": { title: "Lesson 1: Greetings", content: "Learn basic greeting signs" },
+    "2": { title: "Lesson 2: Family", content: "Learn family member signs" },
+    "3": { title: "Test: Unit 1", content: "Test your knowledge of Unit 1" },
+    "4": { title: "Lesson 4: Numbers", content: "Learn number signs" },
+    "5": { title: "Lesson 5: Colors", content: "Learn color signs" },
   }
 
-  const lesson = lessonData[lessonId as keyof typeof lessonData] || {
+  const lesson = lessonData[lessonId] || {
     title: "Unknown Lesson",
     content: "Lesson not found",
   }
