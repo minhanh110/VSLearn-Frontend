@@ -13,7 +13,7 @@ interface HeaderProps {
 
 export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false)
-  const username = "Mạnh Xinh Trai Đẹp Zai Nhất Thế Giới" // Example long username
+  const username = "Username" // Example long username
 
   const truncateUsername = (name: string, maxLength = 15) => {
     if (name.length <= maxLength) return name
