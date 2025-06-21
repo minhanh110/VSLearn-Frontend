@@ -28,8 +28,8 @@ export default function LogoutPage() {
 
           {/* Title */}
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">Sign Out</h1>
-            <p className="text-gray-600">Are you sure you want to sign out?</p>
+            <h1 className="text-2xl font-bold text-gray-900">Đăng xuất</h1>
+            <p className="text-gray-600">Bạn có chắc chắn muốn đăng xuất không?</p>
           </div>
 
           {/* Whale Character */}
@@ -52,7 +52,7 @@ export default function LogoutPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-xs text-gray-500">You'll be redirected to the login page</p>
+          <p className="text-xs text-gray-500">Bạn sẽ được chuyển hướng đến trang đăng nhập</p>
         </div>
       </BackgroundCard>
     </BackgroundLayout>

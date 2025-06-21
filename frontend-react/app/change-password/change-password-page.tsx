@@ -39,26 +39,24 @@ export default function ChangePasswordPage() {
 
   // Password validation
   const passwordRequirements = [
-    { text: "At least 8 characters", valid: formData.newPassword.length >= 8 },
-    { text: "One uppercase letter", valid: /[A-Z]/.test(formData.newPassword) },
-    { text: "One lowercase letter", valid: /[a-z]/.test(formData.newPassword) },
-    { text: "One number", valid: /\d/.test(formData.newPassword) },
-    { text: "One special character", valid: /[!@#$%^&*(),.?":{}|<>]/.test(formData.newPassword) },
+    { text: "Ít nhất 8 ký tự", valid: formData.newPassword.length >= 8 },
+    { text: "Ít nhất một chữ cái viết hoa", valid: /[A-Z]/.test(formData.newPassword) },
+    { text: "Ít nhất một chữ cái thường", valid: /[a-z]/.test(formData.newPassword) },
+    { text: "Ít nhất một chữ số", valid: /\d/.test(formData.newPassword) },
+    { text: "Ít nhất một ký tự đặc biệt", valid: /[!@#$%^&*(),.?":{}|<>]/.test(formData.newPassword) },
   ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate passwords match
     if (formData.newPassword !== formData.confirmPassword) {
-      toast.error("New passwords do not match");
+      toast.error("Mật khẩu mới không trùng khớp");
       return;
     }
 
-    // Validate password requirements
     const allRequirementsMet = passwordRequirements.every(req => req.valid);
     if (!allRequirementsMet) {
-      toast.error("Please meet all password requirements");
+      toast.error("Vui lòng đảm bảo mật khẩu đáp ứng tất cả yêu cầu");
       return;
     }
 
@@ -71,14 +69,14 @@ export default function ChangePasswordPage() {
       );
       
       if (result.status === 200) {
-        toast.success("Password changed successfully");
+        toast.success("Đổi mật khẩu thành công");
         router.push("/edit-profile");
       } else {
-        toast.error(result.message || "Failed to change password");
+        toast.error(result.message || "Đổi mật khẩu thất bại");
       }
     } catch (error: any) {
       console.error("Change password error:", error);
-      toast.error(error.message || "Failed to change password");
+      toast.error(error.message || "Đổi mật khẩu thất bại");
     } finally {
       setIsLoading(false);
     }
@@ -98,21 +96,21 @@ export default function ChangePasswordPage() {
               >
                 <Shield className="w-8 h-8" style={{ color: "#93D6F6" }} />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">Change Password</h1>
-              <p className="text-gray-600">Keep your account secure</p>
+              <h1 className="text-3xl font-bold text-gray-900">Đổi Mật Khẩu</h1>
+              <p className="text-gray-600">Giữ tài khoản của bạn an toàn</p>
             </div>
 
             {/* Change Password Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="currentPassword" className="text-sm font-medium text-gray-700">
-                  Current Password
+                  Mật khẩu hiện tại
                 </Label>
                 <div className="relative">
                   <Input
                     id="currentPassword"
                     type={showPasswords.current ? "text" : "password"}
-                    placeholder="Enter current password"
+                    placeholder="Nhập mật khẩu hiện tại"
                     value={formData.currentPassword}
                     onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
@@ -131,13 +129,13 @@ export default function ChangePasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">
-                  New Password
+                  Mật khẩu mới
                 </Label>
                 <div className="relative">
                   <Input
                     id="newPassword"
                     type={showPasswords.new ? "text" : "password"}
-                    placeholder="Enter new password"
+                    placeholder="Nhập mật khẩu mới"
                     value={formData.newPassword}
                     onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
@@ -157,7 +155,7 @@ export default function ChangePasswordPage() {
               {/* Password Requirements - Real-time validation */}
               {formData.newPassword && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-3">Password Requirements:</p>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Yêu cầu mật khẩu:</p>
                   <div className="space-y-2">
                     {passwordRequirements.map((req, index) => (
                       <div key={index} className="flex items-center gap-2">
@@ -177,13 +175,13 @@ export default function ChangePasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirm New Password
+                  Xác nhận mật khẩu mới
                 </Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showPasswords.confirm ? "text" : "password"}
-                    placeholder="Confirm new password"
+                    placeholder="Nhập lại mật khẩu mới"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                     className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
@@ -206,14 +204,14 @@ export default function ChangePasswordPage() {
                 className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#93D6F6" }}
               >
-                {isLoading ? "Updating..." : "Update Password"}
+                {isLoading ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
               </Button>
             </form>
 
             {/* Back Link */}
             <div className="text-center">
               <Link href="/edit-profile" className="text-sm text-gray-500 hover:text-gray-700">
-                ← Back to Edit Profile
+                ← Quay lại chỉnh sửa hồ sơ
               </Link>
             </div>
           </div>
@@ -221,7 +219,7 @@ export default function ChangePasswordPage() {
           {/* Right side - Whale Character */}
           <div className="hidden lg:block flex-1 flex justify-center items-center">
             <div className="relative">
-              <WhaleCharacter expression="happy" message="Stay secure!" size="md" />
+              <WhaleCharacter expression="happy" message="Giữ an toàn nhé!" size="md" />
             </div>
           </div>
         </div>
