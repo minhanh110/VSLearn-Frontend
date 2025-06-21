@@ -2,6 +2,7 @@
 
 import { Home, BookOpen, Camera, DollarSign, Settings, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 interface FooterProps {
   isOpen?: boolean
@@ -37,7 +38,7 @@ export function Footer({ isOpen = false, onClose }: FooterProps) {
           {/* Menu items */}
           <nav className="px-6 space-y-3 mt-4">
             {menuItems.map((item, index) => (
-              <a
+              <Link
                 key={index}
                 href={item.href}
                 className="flex items-center gap-4 px-5 py-4 rounded-xl text-gray-700 hover:bg-white/60 transition-all duration-200 hover:shadow-md group whitespace-nowrap"
@@ -45,7 +46,7 @@ export function Footer({ isOpen = false, onClose }: FooterProps) {
               >
                 <item.icon className="w-6 h-6 text-blue-600 flex-shrink-0" />
                 <span className="font-semibold text-sm">{item.label}</span>
-              </a>
+              </Link>
             ))}
           </nav>
         </aside>
@@ -55,13 +56,13 @@ export function Footer({ isOpen = false, onClose }: FooterProps) {
       <footer className="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-200 to-cyan-200 border-t border-blue-300 z-30">
         <nav className="flex items-center justify-around py-3">
           {menuItems.map((item, index) => (
-            <a
+            <Link
               key={index}
               href={item.href}
               className="flex flex-col items-center justify-center p-2 text-blue-600 hover:text-blue-800 transition-colors"
             >
               <item.icon className="w-6 h-6" />
-            </a>
+            </Link>
           ))}
         </nav>
       </footer>
