@@ -168,8 +168,8 @@ export default function EditProfilePage() {
           <div className="max-w-2xl mx-auto w-full space-y-6">
             {/* Title */}
             <div className="text-center space-y-2">
-              <h1 className="text-3xl font-bold text-gray-900">Edit Profile</h1>
-              <p className="text-gray-600">Update your personal information</p>
+              <h1 className="text-3xl font-bold text-gray-900">Chỉnh sửa hồ sơ</h1>
+              <p className="text-gray-600">Chỉnh sửa thông tin cá nhân</p>
             </div>
 
             {/* Avatar Selection */}
@@ -243,7 +243,7 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                    First Name *
+                    Tên *
                   </Label>
                   <Input
                     id="firstName"
@@ -254,12 +254,12 @@ export default function EditProfilePage() {
                     style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                     disabled={loading}
                     required
-                    placeholder="Enter your first name"
+                    placeholder="Nhập tên của bạn"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                    Last Name *
+                    Họ *
                   </Label>
                   <Input
                     id="lastName"
@@ -270,21 +270,21 @@ export default function EditProfilePage() {
                     style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                     disabled={loading}
                     required
-                    placeholder="Enter your last name"
+                    placeholder="Nhập họ của bạn"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
-                  Phone Number
+                  Số điện thoại
                 </Label>
                 <Input
                   id="phoneNumber"
                   type="tel"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
-                  placeholder="Enter your phone number"
+                  placeholder="Nhập số điện thoại"
                   className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
                   style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                   disabled={loading}
@@ -312,7 +312,7 @@ export default function EditProfilePage() {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Saving...
+                      Đang lưu...
                     </>
                   ) : (
                     "Save Changes"
@@ -325,7 +325,7 @@ export default function EditProfilePage() {
                   onClick={handleCancel}
                   disabled={loading}
                 >
-                  Cancel
+                  Hủy
                 </Button>
               </div>
             </form>
@@ -333,10 +333,10 @@ export default function EditProfilePage() {
             {/* Additional Options */}
             <div className="text-center space-y-2">
               <Link href="/change-password" className="text-sm block hover:opacity-80" style={{ color: "#93D6F6" }}>
-                Change Password
+                Đổi mật khẩu
               </Link>
               <Link href="/lesson-path" className="text-sm text-gray-500 hover:text-gray-700 block">
-                ← Back to Home Page
+                ← Quay về trang chính
               </Link>
             </div>
           </div>

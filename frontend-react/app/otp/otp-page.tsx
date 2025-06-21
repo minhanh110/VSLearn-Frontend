@@ -11,70 +11,52 @@ import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 
 export default function OTPPage() {
-  // Retrieve email from cookies
-  // This email is set when the user requests a password reset
   const email = Cookies.get("email-reset") || "";
   const otp_store = Cookies.get("otp") || "";
   const router = useRouter()
-  
-  // Create refs for each input
   const inputRefs = useRef<HTMLInputElement[]>([]);
-  
+
   if (!email) {
     return (
       <BackgroundLayout>
         <BackgroundCard>
           <div className="text-center text-gray-600">
-            <h1 className="text-2xl font-bold">No email found!</h1>
-            <p>Please request a password reset first.</p>
+            <h1 className="text-2xl font-bold">Không tìm thấy email!</h1>
+            <p>Vui lòng yêu cầu đặt lại mật khẩu trước.</p>
             <Link href="/forgot-password" className="text-blue-500 hover:underline">
-              Go to Forgot Password
+              Quay lại "Quên mật khẩu"
             </Link>
           </div>
         </BackgroundCard>
       </BackgroundLayout>
     );
   }
-  
+
   const [otp, setOtp] = useState(["","", "", "", "", ""]);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
   const [isVerifying, setIsVerifying] = useState(false);
-  
+
   const handleOtpChange = async (index: number, value: string) => {
-    // check if input is a number
-    if (!/^\d*$/.test(value)) {
-      return;
-    }
-    
+    if (!/^\d*$/.test(value)) return;
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    
-    // Auto focus to next input if current input has value and not the last input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-    
+
+    if (value && index < 5) inputRefs.current[index + 1]?.focus();
+
     const otp_string = newOtp.join("");
     if (otp_string.length === 6) {
       setIsVerifying(true);
-      
-      // Check if the OTP matches the stored OTP
       if (otp_string === otp_store) {
-        setMessage("OTP verified successfully! Redirecting...");
+        setMessage("Xác minh OTP thành công! Đang chuyển hướng...");
         setMessageType("success");
-        
-        // Delay before redirecting
-        setTimeout(() => {
-          router.push("/reset-password");
-        }, 2000);
+        setTimeout(() => router.push("/reset-password"), 2000);
       } else {
-        setMessage("Invalid OTP. Please try again.");
+        setMessage("OTP không hợp lệ. Vui lòng thử lại.");
         setMessageType("error");
         setIsVerifying(false);
-        
-        // Clear OTP inputs after error and focus first input
         setTimeout(() => {
           setOtp(["","", "", "", "", ""]);
           setMessage("");
@@ -83,24 +65,17 @@ export default function OTPPage() {
         }, 2000);
       }
     } else {
-      // Clear message when user is still typing
       setMessage("");
       setMessageType("");
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Handle backspace to move to previous input
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-    
-    // Handle arrow keys navigation
+    if (e.key === 'Backspace' && !otp[index] && index > 0) inputRefs.current[index - 1]?.focus();
     if (e.key === 'ArrowLeft' && index > 0) {
       e.preventDefault();
       inputRefs.current[index - 1]?.focus();
     }
-    
     if (e.key === 'ArrowRight' && index < 5) {
       e.preventDefault();
       inputRefs.current[index + 1]?.focus();
@@ -109,27 +84,20 @@ export default function OTPPage() {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, ''); // Remove non-digits
-    
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '');
     if (pastedData.length <= 6) {
       const newOtp = [...otp];
       for (let i = 0; i < 6; i++) {
         newOtp[i] = pastedData[i] || "";
       }
       setOtp(newOtp);
-      
-      // Focus the next empty input or the last input if all are filled
       const nextEmptyIndex = newOtp.findIndex(digit => digit === "");
       const focusIndex = nextEmptyIndex === -1 ? 5 : Math.min(nextEmptyIndex, 5);
       inputRefs.current[focusIndex]?.focus();
-      
-      // If we have 6 digits, trigger verification
-      if (pastedData.length === 6) {
-        handleOtpChange(5, pastedData[5]);
-      }
+      if (pastedData.length === 6) handleOtpChange(5, pastedData[5]);
     }
   };
-  
+
   return (
     <BackgroundLayout>
       <BackgroundCard>
@@ -139,9 +107,9 @@ export default function OTPPage() {
             <div className="max-w-sm mx-auto w-full space-y-6">
               {/* Title */}
               <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold text-gray-900">Verify Your Email</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Xác minh email của bạn</h1>
                 <p className="text-gray-600">
-                  We've sent a 6-digit code to{" "}
+                  Mã gồm 6 chữ số đã được gửi đến{" "}
                   <span className="font-medium" style={{ color: "#93D6F6" }}>
                     {email}
                   </span>
@@ -172,7 +140,7 @@ export default function OTPPage() {
                       />
                     ))}
                   </div>
-                  
+
                   {/* Message Box */}
                   {message && (
                     <div className={`p-3 rounded-lg text-center font-medium ${
@@ -193,37 +161,37 @@ export default function OTPPage() {
                   }`}
                   style={{ backgroundColor: "#93D6F6" }}
                 >
-                  {isVerifying ? "Verifying..." : "Verify Code"}
+                  {isVerifying ? "Đang xác minh..." : "Xác minh mã"}
                 </Button>
               </form>
 
               {/* Resend */}
               <div className="text-center space-y-2">
-                <p className="text-sm text-gray-600">Didn't receive the code?</p>
+                <p className="text-sm text-gray-600">Không nhận được mã?</p>
                 <Button 
                   variant="ghost" 
                   disabled={isVerifying}
                   className={`${isVerifying ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
                   style={{ color: "#93D6F6" }}
                 >
-                  Resend Code
+                  Gửi lại mã
                 </Button>
               </div>
 
               {/* Back Link */}
               <div className="text-center">
                 <Link href="/login" className="text-sm text-gray-500 hover:text-gray-700">
-                  ← Back to Login
+                  ← Quay lại đăng nhập
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Right side - Illustration */}
+          {/* Right side - Whale */}
           <div className="flex items-center justify-center relative overflow-hidden">
             <WhaleCharacter 
               expression={messageType === "success" ? "happy" : "winking"} 
-              message={messageType === "success" ? "Success!" : "Check your email!"} 
+              message={messageType === "success" ? "Thành công!" : "Kiểm tra email của bạn!"} 
             />
           </div>
         </div>

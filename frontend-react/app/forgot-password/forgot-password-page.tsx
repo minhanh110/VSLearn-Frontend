@@ -27,16 +27,15 @@ export default function ForgotPasswordPage() {
   const router = useRouter()
 
   const passwordTips = [
-    "At least 8 characters",
-    "One uppercase letter",
-    "One lowercase letter",
-    "One number",
-    "One special character",
+    "Ít nhất 8 ký tự",
+    "Một chữ cái viết hoa",
+    "Một chữ cái viết thường",
+    "Một chữ số",
+    "Một ký tự đặc biệt",
   ]
 
   const showNotification = (type: NotificationType, message: string) => {
     setNotification({ type, message })
-    // Auto hide after 5 seconds
     setTimeout(() => {
       setNotification({ type: null, message: "" })
     }, 5000)
@@ -45,22 +44,20 @@ export default function ForgotPasswordPage() {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    
+
     try {
       const data = await authService.forgotPassword(email)
       if(data.status === 200) {
-        Cookies.set("email-reset", email, { expires: 5 / 1440 }) // Store email for OTP verification in 5 minutes
-        Cookies.set("otp",data.data, { expires: 5 / 1440 }) // Store OTP for 5 minutes
-        showNotification('success', 'Reset instructions sent to your email. Please check your inbox.')
-        
-        // Navigate after showing notification
+        Cookies.set("email-reset", email, { expires: 5 / 1440 })
+        Cookies.set("otp",data.data, { expires: 5 / 1440 })
+        showNotification('success', 'Đã gửi hướng dẫn đặt lại mật khẩu đến email của bạn. Vui lòng kiểm tra hộp thư.')
         setTimeout(() => {
           router.push("/otp")
         }, 1500)
         return;
       }
     } catch (error) {
-      showNotification('error', 'Failed to send reset instructions. Please try again.')
+      showNotification('error', 'Gửi hướng dẫn thất bại. Vui lòng thử lại.')
     } finally {
       setIsLoading(false)
     }
@@ -69,7 +66,6 @@ export default function ForgotPasswordPage() {
   return (
     <BackgroundLayout>
       <BackgroundCard>
-        {/* Notification */}
         {notification.type && (
           <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border transition-all duration-300 ${
             notification.type === 'success' 
@@ -96,15 +92,12 @@ export default function ForgotPasswordPage() {
         )}
 
         <div className="flex items-center justify-between">
-          {/* Left side - Forgot Password Form */}
           <div className="w-full max-w-sm space-y-6">
-            {/* Back Button */}
             <Link href="/login" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Login
+              Quay lại đăng nhập
             </Link>
 
-            {/* Title */}
             <div className="text-center space-y-2">
               <div
                 className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4"
@@ -112,20 +105,19 @@ export default function ForgotPasswordPage() {
               >
                 <Mail className="w-8 h-8" style={{ color: "#93D6F6" }} />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">Forgot Password?</h1>
-              <p className="text-gray-600">No worries, we'll send you reset instructions</p>
+              <h1 className="text-3xl font-bold text-gray-900">Quên mật khẩu?</h1>
+              <p className="text-gray-600">Chúng tôi sẽ gửi hướng dẫn đặt lại mật khẩu đến email của bạn</p>
             </div>
 
-            {/* Forgot Password Form */}
             <form className="space-y-4" onSubmit={handleForgotPassword}>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email Address
+                  Địa chỉ email
                 </Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter your email address"
+                  placeholder="Nhập địa chỉ email của bạn"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onFocus={() => setShowPasswordTips(true)}
@@ -141,25 +133,23 @@ export default function ForgotPasswordPage() {
                 className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#93D6F6" }}
               >
-                {isLoading ? "Sending..." : "Send Reset Instructions"}
+                {isLoading ? "Đang gửi..." : "Gửi hướng dẫn đặt lại mật khẩu"}
               </Button>
             </form>
 
-            {/* Info Box */}
             <div className="p-4 rounded-lg border border-blue-200 bg-blue-50/50">
               <div className="flex items-start space-x-3">
                 <Mail className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: "#93D6F6" }} />
                 <div className="text-sm" style={{ color: "#000000" }}>
-                  <p className="font-medium mb-1">Check your email</p>
-                  <p>We'll send a password reset link to your email address if an account exists.</p>
+                  <p className="font-medium mb-1">Kiểm tra email của bạn</p>
+                  <p>Nếu có tài khoản tồn tại, chúng tôi sẽ gửi liên kết đặt lại mật khẩu đến địa chỉ email đó.</p>
                 </div>
               </div>
             </div>
 
-            {/* Password Requirements Tip */}
             {showPasswordTips && (
               <div className="bg-white/70 border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">When creating your new password, remember:</p>
+                <p className="text-sm font-medium text-gray-700 mb-3">Khi tạo mật khẩu mới, hãy nhớ:</p>
                 <div className="space-y-2">
                   {passwordTips.map((tip, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -173,27 +163,25 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-            {/* Alternative Options */}
             <div className="text-center space-y-2">
               <p className="text-sm text-gray-600">
-                Remember your password?{" "}
+                Nhớ mật khẩu rồi? {" "}
                 <Link href="/login" className="font-medium hover:opacity-80" style={{ color: "#93D6F6" }}>
-                  Sign in
+                  Đăng nhập
                 </Link>
               </p>
               <p className="text-sm text-gray-600">
-                Don't have an account?{" "}
+                Chưa có tài khoản? {" "}
                 <Link href="/register" className="font-medium hover:opacity-80" style={{ color: "#93D6F6" }}>
-                  Create one
+                  Tạo tài khoản
                 </Link>
               </p>
             </div>
           </div>
 
-          {/* Right side - Whale Character */}
           <div className="hidden lg:block flex-1 flex justify-center items-center">
             <div className="relative">
-              <WhaleCharacter expression="sleepy" message="Don't worry!" size="md" />
+              <WhaleCharacter expression="sleepy" message="Đừng lo lắng!" size="md" />
             </div>
           </div>
         </div>
