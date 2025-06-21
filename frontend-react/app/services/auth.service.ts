@@ -17,6 +17,7 @@ export interface LoginData {
   username: string;
   password: string;
 }
+
 class AuthService {
   async register(data: RegisterData) {
     try {
@@ -27,15 +28,22 @@ class AuthService {
     }
   }
 
-  async login(data: LoginData) {
+  async login(data: { username: string; password: string }) {
     try {
-      const response = await axiosInstance.post(`${API_URL}/signin`, data);
-      if (response.data) {
-        Cookies.set('token', response.data.data, { expires: 7 }); // Token hết hạn sau 7 ngày
+      const response = await fetch('http://localhost:8080/users/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      const jsonObj = await response.json();
+      if (jsonObj.status === 200) {
+        Cookies.set('token', jsonObj.data);
       }
-      return response.data;
+      return jsonObj;
     } catch (error: any) {
-      throw new Error(error.response?.data?.data.message || 'Login failed');
+      throw new Error(error.message || 'Login failed');
     }
   }
 
@@ -48,6 +56,7 @@ class AuthService {
       throw new Error(error.response?.data?.message || 'Forgot password failed');
     }
   }
+
   async resetPassword(otp: string, newPassword: string, confirmPassword: string) {
     try {
       const response = await axiosInstance.post(`${API_URL}/reset-password`, {
@@ -62,7 +71,6 @@ class AuthService {
     }
   }
 
-  
   logout() {
     Cookies.remove('token');
     Cookies.remove('email-reset');
@@ -77,7 +85,7 @@ class AuthService {
     return !!this.getCurrentToken();
   }
 
-   async changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
+  async changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
     try {
       const response = await axiosInstance.put(`${API_URL}/change-password`, {
         currentPassword,
@@ -93,6 +101,64 @@ class AuthService {
         throw new Error(error.response.data.message);
       }
       throw new Error('Change password failed');
+    }
+  }
+
+  async handleOAuth2Callback() {
+    try {
+      const response = await fetch('http://localhost:8080/users/oauth2/success', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Authentication failed');
+      }
+
+      const data = await response.json();
+      if (data.status === 200 && data.data) {
+        Cookies.set('token', data.data);
+        return data;
+      }
+      throw new Error(data.message || 'Authentication failed');
+    } catch (error: any) {
+      console.error('OAuth2 callback error:', error);
+      throw new Error(error.message || 'Authentication failed');
+    }
+  }
+
+  async requestSignupOtp(email: string) {
+    try {
+      const response = await axiosInstance.post(`${API_URL}/signup/request-otp`, null, {
+        params: { email }
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to send OTP');
+    }
+  }
+
+  async verifySignupOtp(email: string, otp: string) {
+    try {
+      const response = await axiosInstance.post(`${API_URL}/signup/verify-otp`, {
+        email,
+        otp
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to verify OTP');
+    }
+  }
+
+  async signup(data: RegisterData) {
+    try {
+      const response = await axiosInstance.post(`${API_URL}/signup`, data);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
   }
 }
