@@ -131,14 +131,25 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
     return false
   }
 
-  // Function để check lesson có thể hiện popup không
+  // NEW: Function để check lesson có thể hiện popup không (tất cả lesson trong unit không khóa)
   const canShowPopup = (lessonId: number, unitLessons: any[]) => {
     // Nếu unit bị lock thì không hiện popup
     if (isUnitLocked(unitLessons)) return false
 
-    // Chỉ current lesson mới hiện popup
+    // Unit không khóa thì tất cả lesson đều hiện popup
+    return true
+  }
+
+  // NEW: Function để check lesson có available để làm không
+  const isLessonAvailable = (lessonId: number, unitLessons: any[]) => {
+    // Nếu unit bị lock thì không available
+    if (isUnitLocked(unitLessons)) return false
+
     const currentLesson = getCurrentLesson(unitLessons)
-    return lessonId === currentLesson
+    const isCompleted = completedLessons.includes(lessonId)
+
+    // Available nếu: đã completed (có thể làm lại) HOẶC là current lesson
+    return isCompleted || lessonId === currentLesson
   }
 
   const handleLessonClick = (lessonId: number, isTest: boolean, unitLessons: any[], event: React.MouseEvent) => {
@@ -147,16 +158,10 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
       return
     }
 
+    // Tất cả lesson trong unit không khóa đều hiện popup
     if (isTest) {
-      // Test lessons show test popup if available
-      if (canShowPopup(lessonId, unitLessons)) {
-        setSelectedTest(lessonId)
-      }
-      return
-    }
-
-    // Regular lessons chỉ hiện popup nếu là current lesson
-    if (canShowPopup(lessonId, unitLessons)) {
+      setSelectedTest(lessonId)
+    } else {
       setSelectedLesson(lessonId)
     }
   }
@@ -223,6 +228,7 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
               const isCompleted = completedLessons.includes(lesson.id)
               const isCurrent = lesson.id === currentLesson
               const canPopup = canShowPopup(lesson.id, lessons)
+              const isAvailable = isLessonAvailable(lesson.id, lessons)
 
               return (
                 <div key={lesson.id} className={`relative mb-12 ${getPositionClass(index)}`}>
@@ -331,7 +337,7 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
                           </div>
                         </button>
 
-                        {/* LESSON POPUP chỉ hiện cho lesson có thể làm */}
+                        {/* LESSON POPUP - hiện cho tất cả lesson trong unit không khóa */}
                         {selectedLesson === lesson.id && !lesson.isTest && canPopup && (
                           <LessonPopup
                             isOpen={true}
@@ -351,10 +357,11 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
                                 : undefined
                             }
                             lessonId={selectedLesson}
+                            isAvailable={isAvailable} // Pass availability status
                           />
                         )}
 
-                        {/* TEST POPUP chỉ hiện cho test có thể làm */}
+                        {/* TEST POPUP - hiện cho tất cả test trong unit không khóa */}
                         {selectedTest === lesson.id && lesson.isTest && canPopup && (
                           <TestPopup
                             isOpen={true}
@@ -373,6 +380,7 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
                                 : undefined
                             }
                             testId={selectedTest}
+                            isAvailable={isAvailable} // Pass availability status
                           />
                         )}
                       </div>
