@@ -9,7 +9,7 @@ interface FooterProps {
 }
 
 const menuItems = [
-  { icon: Home, label: "Học theo chủ đề", href: "/learn" },
+  { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
   { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
   { icon: Camera, label: "Thực hành Camera", href: "/practice" },
   { icon: DollarSign, label: "Các gói học", href: "/packages" },

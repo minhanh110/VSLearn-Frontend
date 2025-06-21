@@ -4,7 +4,7 @@ import type React from "react"
 
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ChevronUp, Trophy } from "lucide-react"
+import { ChevronUp } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { LessonPopup } from "./lesson-popup"
 import { TestPopup } from "./test-popup"
@@ -19,15 +19,14 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
   const [selectedTest, setSelectedTest] = useState<number | null>(null)
   const lessonRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({})
 
-  // State để track completed lessons - load từ localStorage
-  const [completedLessons, setCompletedLessons] = useState<number[]>([])
+  // State để track completed lessons - FORCE lesson 1 và 2 completed
+  const [completedLessons, setCompletedLessons] = useState<number[]>([1, 2])
 
   // Load completed lessons từ localStorage khi component mount
   useEffect(() => {
-    const saved = localStorage.getItem("completedLessons")
-    if (saved) {
-      setCompletedLessons(JSON.parse(saved))
-    }
+    // FORCE set lesson 1 và 2 là completed để test popup hiện
+    setCompletedLessons([1, 2])
+    localStorage.setItem("completedLessons", JSON.stringify([1, 2]))
   }, [])
 
   // Save completed lessons vào localStorage khi state thay đổi
@@ -82,30 +81,30 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
   }
 
   // Lesson data with word counts
-const lessonData: Record<string, { title: string; wordCount: number }> = {
-  "1": { title: "Bảng chữ cái", wordCount: 20 },
-  "2": { title: "Chào hỏi cơ bản", wordCount: 15 },
-  "4": { title: "Gia đình", wordCount: 18 },
-  "5": { title: "Thức ăn và đồ uống", wordCount: 25 },
-}
+  const lessonData: Record<string, { title: string; wordCount: number }> = {
+    "1": { title: "Bảng chữ cái", wordCount: 20 },
+    "2": { title: "Chào hỏi cơ bản", wordCount: 15 },
+    "4": { title: "Gia đình", wordCount: 18 },
+    "5": { title: "Thức ăn và đồ uống", wordCount: 25 },
+  }
 
-// Test data
-const testData: Record<string, { title: string; questionCount: number }> = {
-  "3": { title: "Unit 1 Test", questionCount: 10 },
-  "6": { title: "Unit 2 Test", questionCount: 12 },
-}
+  // Test data
+  const testData: Record<string, { title: string; questionCount: number }> = {
+    "3": { title: "Unit 1 Test", questionCount: 10 },
+    "6": { title: "Unit 2 Test", questionCount: 12 },
+  }
 
-const unit1Lessons = [
-  { id: "1", isTest: false },
-  { id: "2", isTest: false },
-  { id: "3", isTest: true },
-]
+  const unit1Lessons = [
+    { id: 1, isTest: false },
+    { id: 2, isTest: false },
+    { id: 3, isTest: true },
+  ]
 
-const unit2Lessons = [
-  { id: "4", isTest: false },
-  { id: "5", isTest: false },
-  { id: "6", isTest: true },
-]
+  const unit2Lessons = [
+    { id: 4, isTest: false },
+    { id: 5, isTest: false },
+    { id: 6, isTest: true },
+  ]
 
   // Function để get current lesson (lesson tiếp theo cần làm)
   const getCurrentLesson = (unitLessons: any[]) => {
@@ -180,21 +179,6 @@ const unit2Lessons = [
       lessonNumber,
       totalLessons: regularLessons.length,
     }
-  }
-  const getLessonPopupPosition = () => {
-    if (selectedLesson !== null && lessonRefs.current[selectedLesson]) {
-      const rect = lessonRefs.current[selectedLesson]!.getBoundingClientRect()
-      return { x: rect.left + rect.width / 2, y: rect.top }
-    }
-    return undefined
-  }
-
-  const getTestPopupPosition = () => {
-    if (selectedTest !== null && lessonRefs.current[selectedTest]) {
-      const rect = lessonRefs.current[selectedTest]!.getBoundingClientRect()
-      return { x: rect.left + rect.width / 2, y: rect.top }
-    }
-    return undefined
   }
 
   const renderUnit = (lessons: any[], unitNumber: number, title: string, description: string) => {
@@ -302,7 +286,11 @@ const unit2Lessons = [
                               <div className="relative">
                                 <div
                                   className={`w-20 h-20 rounded-full border-4 flex items-center justify-center overflow-hidden transition-all duration-500 ${
-                                    isCompleted ? "border-yellow-500 bg-yellow-50" : "border-gray-400 bg-gray-100"
+                                    isCompleted
+                                      ? "border-yellow-500 bg-yellow-50"
+                                      : isCurrent
+                                        ? "border-orange-500 bg-orange-50 animate-pulse"
+                                        : "border-gray-400 bg-gray-100"
                                   }`}
                                 >
                                   <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -315,20 +303,17 @@ const unit2Lessons = [
                                     />
                                   </div>
                                 </div>
-
-                                {/* Trophy icon chỉ khi completed */}
-                                {isCompleted && (
-                                  <div className="absolute -top-2 -left-2 w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                                    <Trophy className="w-3 h-3 text-white" />
-                                  </div>
-                                )}
                               </div>
                             ) : (
                               /* Regular lesson - màu dựa trên completed state */
                               <div className="relative">
                                 <div
                                   className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-all duration-500 ${
-                                    isCompleted ? "border-green-500 bg-green-50" : "border-gray-400 bg-gray-100"
+                                    isCompleted
+                                      ? "border-green-500 bg-green-50"
+                                      : isCurrent
+                                        ? "border-blue-500 bg-blue-50 animate-pulse"
+                                        : "border-gray-400 bg-gray-100"
                                   }`}
                                 >
                                   <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -341,13 +326,6 @@ const unit2Lessons = [
                                     />
                                   </div>
                                 </div>
-
-                                {/* Checkmark chỉ khi completed */}
-                                {isCompleted && (
-                                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                                    <span className="text-white text-sm">✓</span>
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
