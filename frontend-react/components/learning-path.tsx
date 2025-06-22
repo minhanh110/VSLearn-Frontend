@@ -4,10 +4,11 @@ import type React from "react"
 
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ChevronUp } from "lucide-react"
+import { ChevronUp, Lock } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { LessonPopup } from "./lesson-popup"
 import { TestPopup } from "./test-popup"
+import { UpgradeModal } from "./upgrade-modal"
 
 interface LearningPathProps {
   sidebarOpen?: boolean
@@ -22,6 +23,7 @@ interface Lesson {
   wordCount?: number;
   questionCount?: number;
   isTest: boolean;
+  accessible?: boolean;
 }
 
 interface Unit {
@@ -29,12 +31,20 @@ interface Unit {
   title: string;
   description: string;
   lessons: Lesson[];
+  accessible?: boolean;
+  lockReason?: string;
 }
 
 export function LearningPath({ sidebarOpen = false, units, completedLessons, markLessonCompleted }: LearningPathProps) {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeModalData, setUpgradeModalData] = useState<{
+    userType: 'guest' | 'registered';
+    currentTopicCount: number;
+    maxTopicCount: number;
+  }>({ userType: 'guest', currentTopicCount: 0, maxTopicCount: 1 })
   const lessonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
 
   // Debug: Log props
@@ -86,50 +96,43 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     return null
   }
 
-  // Function để check xem unit có bị lock không
-  const isUnitLocked = (unitLessons: any[], unitIndex: number) => {
-    // Unit đầu tiên (index 0) luôn unlock
-    if (unitIndex === 0) return false
-
-    // Các unit khác cần hoàn thành tất cả lessons trong unit trước đó
-    const previousUnit = units[unitIndex - 1]
-    if (!previousUnit) return false
-
-    return !previousUnit.lessons.every((lesson) => completedLessons.includes(lesson.id.toString()))
+  // Function để check lesson có thể hiện popup không
+  const canShowPopup = (lesson: any) => {
+    // Nếu có accessible field thì sử dụng, không thì mặc định là true
+    return lesson.accessible !== false
   }
 
-  // NEW: Function để check lesson có thể hiện popup không (tất cả lesson trong unit không khóa)
-  const canShowPopup = (lessonId: string, unitLessons: any[], unitIndex: number) => {
-    // Nếu unit bị lock thì không hiện popup
-    if (isUnitLocked(unitLessons, unitIndex)) return false
+  // Function để check lesson có available để làm không
+  const isLessonAvailable = (lesson: any) => {
+    // Nếu có accessible field và false thì không available
+    if (lesson.accessible === false) return false
 
-    // Unit không khóa thì tất cả lesson đều hiện popup
-    return true
+    const isCompleted = completedLessons.includes(lesson.id.toString())
+    return isCompleted
   }
 
-  // NEW: Function để check lesson có available để làm không
-  const isLessonAvailable = (lessonId: string, unitLessons: any[], unitIndex: number) => {
-    // Nếu unit bị lock thì không available
-    if (isUnitLocked(unitLessons, unitIndex)) return false
-
-    const currentLesson = getCurrentLesson(unitLessons)
-    const isCompleted = completedLessons.includes(lessonId)
-
-    // Available nếu: đã completed (có thể làm lại) HOẶC là current lesson
-    return isCompleted || lessonId === currentLesson
-  }
-
-  const handleLessonClick = (lessonId: string, isTest: boolean, unitLessons: any[], unitIndex: number, event: React.MouseEvent) => {
-    // Nếu unit bị locked thì không làm gì
-    if (isUnitLocked(unitLessons, unitIndex)) {
+  const handleLessonClick = (lesson: any, event: React.MouseEvent) => {
+    // Nếu lesson không accessible thì hiện upgrade modal
+    if (lesson.accessible === false) {
+      // Xác định loại user và thông tin upgrade
+      const accessibleUnits = units.filter(unit => unit.accessible !== false)
+      const userType = accessibleUnits.length === 1 ? 'guest' : 'registered'
+      const maxTopicCount = accessibleUnits.length === 1 ? 1 : 2
+      
+      setUpgradeModalData({
+        userType,
+        currentTopicCount: accessibleUnits.length,
+        maxTopicCount
+      })
+      setShowUpgradeModal(true)
       return
     }
 
-    // Tất cả lesson trong unit không khóa đều hiện popup
-    if (isTest) {
-      setSelectedTest(lessonId)
+    // Nếu accessible thì hiện popup bình thường
+    if (lesson.isTest) {
+      setSelectedTest(lesson.id.toString())
     } else {
-      setSelectedLesson(lessonId)
+      setSelectedLesson(lesson.id.toString())
     }
   }
 
@@ -153,10 +156,9 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     }
   }
 
-  const renderUnit = (lessons: any[], unitNumber: number, title: string, description: string) => {
-    const unitIndex = unitNumber - 1 // Convert unit number to array index
-    const unitLocked = isUnitLocked(lessons, unitIndex)
-    const currentLesson = getCurrentLesson(lessons)
+  const renderUnit = (unit: Unit, unitNumber: number) => {
+    const currentLesson = getCurrentLesson(unit.lessons)
+    const isUnitAccessible = unit.accessible !== false
 
     return (
       <div className="mb-16">
@@ -164,24 +166,26 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
         <div className="px-4 mb-8">
           <div
             className={`rounded-xl p-6 mx-auto max-w-md shadow-lg ${
-              unitLocked ? "bg-gradient-to-r from-gray-200 to-gray-300" : "bg-gradient-to-r from-pink-200 to-purple-200"
+              !isUnitAccessible ? "bg-gradient-to-r from-gray-200 to-gray-300" : "bg-gradient-to-r from-pink-200 to-purple-200"
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
-                <h2 className={`text-xl font-bold ${unitLocked ? "text-gray-600" : "text-gray-800"}`}>
-                  Unit {unitNumber}
-                  {unitLocked && <span className="ml-2">🔒</span>}
+                <h2 className={`text-xl font-bold ${!isUnitAccessible ? "text-gray-600" : "text-gray-800"}`}>
+                  {unit.title}
+                  {!isUnitAccessible && <span className="ml-2">🔒</span>}
                 </h2>
-                <p className={`text-sm mt-1 ${unitLocked ? "text-gray-500" : "text-gray-600"}`}>{description}</p>
+                <p className={`text-sm mt-1 ${!isUnitAccessible ? "text-gray-500" : "text-gray-600"}`}>
+                  {isUnitAccessible ? unit.description : unit.lockReason || "Chủ đề này bị khóa"}
+                </p>
               </div>
               <Button
                 className={`font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg border-0 ${
-                  unitLocked
+                  !isUnitAccessible
                     ? "bg-gray-300 hover:bg-gray-400 text-gray-600 cursor-not-allowed"
                     : "bg-gradient-to-r from-pink-300 to-purple-300 hover:from-pink-400 hover:to-purple-400 text-gray-800"
                 }`}
-                disabled={unitLocked}
+                disabled={!isUnitAccessible}
               >
                 📖 GUIDEBOOK
               </Button>
@@ -192,11 +196,12 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
         {/* Lessons - Zigzag layout */}
         <div className="px-4">
           <div className="max-w-2xl mx-auto">
-            {lessons.map((lesson, index) => {
+            {unit.lessons.map((lesson, index) => {
               const isCompleted = completedLessons.includes(lesson.id.toString())
               const isCurrent = lesson.id.toString() === currentLesson
-              const canPopup = canShowPopup(lesson.id.toString(), lessons, unitIndex)
-              const isAvailable = isLessonAvailable(lesson.id.toString(), lessons, unitIndex)
+              const canPopup = canShowPopup(lesson)
+              const isAvailable = isLessonAvailable(lesson)
+              const isLessonAccessible = lesson.accessible !== false
 
               return (
                 <div key={lesson.id} className={`relative mb-12 ${getPositionClass(index)}`}>
@@ -205,53 +210,60 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                     className="relative z-10 flex justify-center"
                     style={{ zIndex: selectedLesson === lesson.id.toString() || selectedTest === lesson.id.toString() ? 1000 : 10 }}
                   >
-                    {unitLocked ? (
-                      // Unit bị lock - hiển thị locked state
+                    {!isLessonAccessible ? (
+                      // Lesson bị lock - hiển thị locked state
                       <div className="relative">
-                        {lesson.isTest ? (
-                          <div className="relative">
-                            <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100 overflow-hidden">
-                              <div className="w-16 h-16 rounded-full overflow-hidden">
-                                <Image
-                                  src="/images/test-mascot-final.png"
-                                  alt="Test"
-                                  width={64}
-                                  height={64}
-                                  className="object-cover w-full h-full grayscale opacity-50"
-                                />
+                        <button
+                          onClick={(e) => handleLessonClick(lesson, e)}
+                          className="block relative cursor-pointer"
+                        >
+                          <div className="relative hover:scale-105 transition-transform">
+                            {lesson.isTest ? (
+                              <div className="relative">
+                                <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100 overflow-hidden">
+                                  <div className="w-16 h-16 rounded-full overflow-hidden">
+                                    <Image
+                                      src="/images/test-mascot-final.png"
+                                      alt="Test"
+                                      width={64}
+                                      height={64}
+                                      className="object-cover w-full h-full grayscale opacity-50"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Lock className="w-6 h-6 text-gray-600" />
+                                </div>
                               </div>
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-gray-600 text-2xl">🔒</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100">
-                              <div className="w-16 h-16 rounded-full overflow-hidden">
-                                <Image
-                                  src="/images/lesson-button.png"
-                                  alt="Lesson mascot"
-                                  width={64}
-                                  height={64}
-                                  className="object-cover w-full h-full grayscale opacity-50"
-                                />
+                            ) : (
+                              <div className="relative">
+                                <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100">
+                                  <div className="w-16 h-16 rounded-full overflow-hidden">
+                                    <Image
+                                      src="/images/lesson-button.png"
+                                      alt="Lesson mascot"
+                                      width={64}
+                                      height={64}
+                                      className="object-cover w-full h-full grayscale opacity-50"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Lock className="w-6 h-6 text-gray-600" />
+                                </div>
                               </div>
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-gray-600 text-2xl">🔒</span>
-                            </div>
+                            )}
                           </div>
-                        )}
+                        </button>
                       </div>
                     ) : (
-                      // Unit không bị lock - hiển thị normal state
+                      // Lesson accessible - hiển thị normal state
                       <div className="relative">
                         <button
                           ref={(el) => {
                             lessonRefs.current[lesson.id.toString()] = el
                           }}
-                          onClick={(e) => handleLessonClick(lesson.id.toString(), lesson.isTest, lessons, unitIndex, e)}
+                          onClick={(e) => handleLessonClick(lesson, e)}
                           className="block relative cursor-pointer"
                         >
                           <div className="relative hover:scale-105 transition-transform">
@@ -305,13 +317,13 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                           </div>
                         </button>
 
-                        {/* LESSON POPUP - hiện cho tất cả lesson trong unit không khóa */}
+                        {/* LESSON POPUP - chỉ hiện cho lesson accessible */}
                         {selectedLesson === lesson.id.toString() && !lesson.isTest && canPopup && selectedLesson && (
                           <LessonPopup
                             isOpen={true}
                             onClose={() => setSelectedLesson(null)}
-                            lessonNumber={getLessonInfo(selectedLesson, lessons).lessonNumber}
-                            totalLessons={getLessonInfo(selectedLesson, lessons).totalLessons}
+                            lessonNumber={getLessonInfo(selectedLesson, unit.lessons).lessonNumber}
+                            totalLessons={getLessonInfo(selectedLesson, unit.lessons).totalLessons}
                             wordCount={lesson.wordCount || 0}
                             lessonTitle={lesson.title || ""}
                             position={
@@ -328,7 +340,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                           />
                         )}
 
-                        {/* TEST POPUP - hiện cho tất cả test trong unit không khóa */}
+                        {/* TEST POPUP - chỉ hiện cho test accessible */}
                         {selectedTest === lesson.id.toString() && lesson.isTest && canPopup && selectedTest && (
                           <TestPopup
                             isOpen={true}
@@ -399,53 +411,47 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
       >
         <div className="animate-bounce">
           <Image
-            src="/images/whale-with-book-new.png"
-            alt="Whale with book"
-            width={100}
-            height={100}
-            className="lg:w-32 lg:h-32 object-contain drop-shadow-2xl"
+            src="/images/whale-character.png"
+            alt="Whale character"
+            width={120}
+            height={120}
+            className="object-contain drop-shadow-2xl"
           />
         </div>
       </div>
 
-      {/* Beautiful scroll to top button - không chèn lên footer */}
-      {showScrollTop && (
-        <div className="fixed bottom-20 lg:bottom-8 right-8 z-20">
-          <Button
-            onClick={scrollToTop}
-            className="group relative w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110 border-0 overflow-hidden"
-            size="sm"
-          >
-            {/* Background glow effect */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-
-            {/* Ripple effect */}
-            <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping opacity-75"></div>
-
-            {/* Arrow icon */}
-            <ChevronUp className="w-6 h-6 relative z-10 group-hover:scale-110 transition-transform duration-200" />
-
-            {/* Subtle inner shadow */}
-            <div className="absolute inset-1 rounded-full border border-white/10"></div>
-          </Button>
+      {/* Main content */}
+      <div className="relative z-10">
+        {/* Title */}
+        <div className="text-center mb-12 px-4">
+          <h1 className="text-3xl md:text-4xl font-bold text-blue-700 mb-4">Lộ trình học tập</h1>
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+            Khám phá ngôn ngữ ký hiệu qua các chủ đề thú vị và thực hành với các bài tập tương tác
+          </p>
         </div>
+
+        {/* Units */}
+        {units.map((unit, index) => renderUnit(unit, index + 1))}
+      </div>
+
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 lg:bottom-12 lg:right-12 z-50 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl"
+        >
+          <ChevronUp className="w-6 h-6" />
+        </button>
       )}
 
-      {/* Main content */}
-      <div className="relative z-10 pt-8">
-        {/* Render all units dynamically */}
-        {units && units.length > 0 ? (
-          units.map((unit, index) => (
-            <div key={unit.unitId}>
-              {renderUnit(unit.lessons, unit.unitId, unit.title, unit.description)}
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-20">
-            <div className="text-gray-500 text-xl">Không có dữ liệu units</div>
-          </div>
-        )}
-      </div>
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        userType={upgradeModalData.userType}
+        currentTopicCount={upgradeModalData.currentTopicCount}
+        maxTopicCount={upgradeModalData.maxTopicCount}
+      />
     </div>
   )
-}
+} 

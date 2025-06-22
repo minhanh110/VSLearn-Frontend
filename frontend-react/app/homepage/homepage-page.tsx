@@ -5,6 +5,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { LearningPath } from "@/components/learning-path"
 import axiosInstance from "@/app/services/axios.config"
+import authService from "@/app/services/auth.service"
 
 export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -12,6 +13,7 @@ export default function HomePage() {
   const [completedLessons, setCompletedLessons] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userType, setUserType] = useState<'guest' | 'registered' | 'premium'>('guest')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -20,8 +22,43 @@ export default function HomePage() {
       try {
         console.log("🔄 Fetching learning path data...")
         
+        // Xác định loại user
+        const token = authService.getCurrentToken()
+        const isAuthenticated = authService.isAuthenticated()
+        
+        if (!isAuthenticated) {
+          setUserType('guest')
+          console.log("👤 User type: Guest (no authentication)")
+        } else {
+          // Kiểm tra subscription status từ backend
+          try {
+            const subscriptionRes = await axiosInstance.get("/users/subscription-status", {
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+            
+            if (subscriptionRes.data && subscriptionRes.data.data) {
+              const subscriptionData = subscriptionRes.data.data
+              setUserType(subscriptionData.userType)
+              console.log("👤 User type:", subscriptionData.userType)
+              console.log("👤 Has subscription:", subscriptionData.hasSubscription)
+            } else {
+              setUserType('registered')
+              console.log("👤 User type: Registered user (fallback)")
+            }
+          } catch (subscriptionError) {
+            console.warn("⚠️ Error fetching subscription status:", subscriptionError)
+            setUserType('registered')
+            console.log("👤 User type: Registered user (fallback)")
+          }
+        }
+        
         // Gọi API learning-path để lấy dữ liệu units từ database
-        const res1 = await axiosInstance.get("/learning-path")
+        const headers: Record<string, string> = {}
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        
+        const res1 = await axiosInstance.get("/learning-path", { headers })
         console.log("📊 Learning path response:", res1.data)
         console.log("📊 Response status:", res1.status)
         console.log("📊 Response headers:", res1.headers)
@@ -147,6 +184,64 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-cyan-50">
       {/* Fixed Header */}
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} showMenuButton={true} />
+
+      {/* User Type Notification */}
+      {userType === 'guest' && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <strong>Chế độ khách:</strong> Bạn chỉ có thể học chủ đề đầu tiên. 
+                <a href="/login" className="font-medium underline text-yellow-700 hover:text-yellow-600 ml-1">
+                  Đăng nhập
+                </a> để học thêm chủ đề!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userType === 'registered' && units.length <= 2 && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                <strong>Tài khoản miễn phí:</strong> Bạn có thể học 2 chủ đề đầu tiên. 
+                <a href="/packages" className="font-medium underline text-blue-700 hover:text-blue-600 ml-1">
+                  Nâng cấp gói học
+                </a> để truy cập tất cả chủ đề!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userType === 'premium' && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-green-700">
+                <strong>Gói học Premium:</strong> Bạn có thể truy cập tất cả chủ đề học tập!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex">
         {/* Footer component handles both sidebar (desktop) and footer (mobile) */}
