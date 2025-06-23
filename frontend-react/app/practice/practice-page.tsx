@@ -277,7 +277,9 @@ export default function PracticePage() {
 
   // Xử lý popup bắt đầu subtopic mới
   const handleStartSubtopic = () => {
-    router.push("/flashcard")
+    // Sử dụng lessonId làm subtopicId
+    const subtopicId = lessonId || testId;
+    router.push(`/flashcard?subtopicId=${subtopicId}`)
   }
 
   const handleStartSubtopicClose = () => {

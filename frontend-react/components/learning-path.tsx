@@ -15,6 +15,7 @@ interface LearningPathProps {
   units: Unit[]
   completedLessons: string[]
   markLessonCompleted: (lessonId: string) => void
+  userType?: 'guest' | 'registered' | 'premium'
 }
 
 interface Lesson {
@@ -35,16 +36,20 @@ interface Unit {
   lockReason?: string;
 }
 
-export function LearningPath({ sidebarOpen = false, units, completedLessons, markLessonCompleted }: LearningPathProps) {
+export function LearningPath({ sidebarOpen = false, units, completedLessons, markLessonCompleted, userType }: LearningPathProps) {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeModalData, setUpgradeModalData] = useState<{
-    userType: 'guest' | 'registered';
+    userType: 'guest' | 'registered' | 'premium';
     currentTopicCount: number;
     maxTopicCount: number;
-  }>({ userType: 'guest', currentTopicCount: 0, maxTopicCount: 1 })
+  }>({
+    userType: 'guest',
+    currentTopicCount: 1,
+    maxTopicCount: 2,
+  })
   const lessonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
 
   // Debug: Log props
@@ -112,26 +117,40 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
   }
 
   const handleLessonClick = (lesson: any, event: React.MouseEvent) => {
-    // Nếu lesson không accessible thì hiện upgrade modal
-    if (lesson.accessible === false) {
-      // Xác định loại user và thông tin upgrade
-      const accessibleUnits = units.filter(unit => unit.accessible !== false)
-      const userType = accessibleUnits.length === 1 ? 'guest' : 'registered'
-      const maxTopicCount = accessibleUnits.length === 1 ? 1 : 2
+    console.log("Lesson clicked:", { id: lesson.id, title: lesson.title, isTest: lesson.isTest });
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (!lesson.accessible) {
+      console.log("Lesson not accessible");
       
-      setUpgradeModalData({
-        userType,
-        currentTopicCount: accessibleUnits.length,
-        maxTopicCount
-      })
-      setShowUpgradeModal(true)
+      if (userType === 'guest') {
+        // User chưa đăng nhập - chuyển hướng sang trang đăng nhập
+        console.log("User not authenticated, redirecting to login");
+        setShowUpgradeModal(true)
+        setUpgradeModalData({
+          userType: "guest",
+          currentTopicCount: 1,
+          maxTopicCount: 2,
+        })
+      } else {
+        // User đã đăng nhập nhưng chưa mua gói học - chuyển hướng sang trang gói học
+        console.log("User authenticated but no subscription, redirecting to pricing");
+        setShowUpgradeModal(true)
+        setUpgradeModalData({
+          userType: "registered",
+          currentTopicCount: 1,
+          maxTopicCount: 2,
+        })
+      }
       return
     }
 
-    // Nếu accessible thì hiện popup bình thường
     if (lesson.isTest) {
+      console.log("Test lesson clicked, setting selectedTest");
       setSelectedTest(lesson.id.toString())
     } else {
+      console.log("Regular lesson clicked, setting selectedLesson");
       setSelectedLesson(lesson.id.toString())
     }
   }
@@ -318,27 +337,41 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                         </button>
 
                         {/* LESSON POPUP - chỉ hiện cho lesson accessible */}
-                        {selectedLesson === lesson.id.toString() && !lesson.isTest && canPopup && selectedLesson && (
-                          <LessonPopup
-                            isOpen={true}
-                            onClose={() => setSelectedLesson(null)}
-                            lessonNumber={getLessonInfo(selectedLesson, unit.lessons).lessonNumber}
-                            totalLessons={getLessonInfo(selectedLesson, unit.lessons).totalLessons}
-                            wordCount={lesson.wordCount || 0}
-                            lessonTitle={lesson.title || ""}
-                            position={
-                              lessonRefs.current[selectedLesson]
-                                ? {
-                                    x:
-                                      lessonRefs.current[selectedLesson]!.getBoundingClientRect().left +
-                                      lessonRefs.current[selectedLesson]!.getBoundingClientRect().width / 2,
-                                    y: lessonRefs.current[selectedLesson]!.getBoundingClientRect().top,
-                                  }
-                                : undefined
+                        {selectedLesson === lesson.id.toString() && !lesson.isTest && canPopup && selectedLesson && (() => {
+                          let popupDirection: "up" | "down" = "down";
+                          let popupPosition = undefined;
+                          if (lessonRefs.current[selectedLesson]) {
+                            const rect = lessonRefs.current[selectedLesson]!.getBoundingClientRect();
+                            const popupHeight = 190; // chiều cao ước lượng của popup
+                            if (rect.bottom + popupHeight > window.innerHeight) {
+                              popupDirection = "up";
+                              popupPosition = {
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                              };
+                            } else {
+                              popupDirection = "down";
+                              popupPosition = {
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                              };
                             }
-                            lessonId={parseInt(selectedLesson)}
-                          />
-                        )}
+                          }
+                          return (
+                            <LessonPopup
+                              isOpen={true}
+                              onClose={() => setSelectedLesson(null)}
+                              lessonNumber={getLessonInfo(selectedLesson, unit.lessons).lessonNumber}
+                              totalLessons={getLessonInfo(selectedLesson, unit.lessons).totalLessons}
+                              wordCount={lesson.wordCount || 0}
+                              lessonTitle={lesson.title || ""}
+                              position={popupPosition}
+                              direction={popupDirection}
+                              lessonId={parseInt(selectedLesson)}
+                              subtopicId={lesson.id}
+                            />
+                          );
+                        })()}
 
                         {/* TEST POPUP - chỉ hiện cho test accessible */}
                         {selectedTest === lesson.id.toString() && lesson.isTest && canPopup && selectedTest && (

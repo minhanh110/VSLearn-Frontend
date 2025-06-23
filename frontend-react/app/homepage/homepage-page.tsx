@@ -6,6 +6,7 @@ import { Footer } from "@/components/footer"
 import { LearningPath } from "@/components/learning-path"
 import axiosInstance from "@/app/services/axios.config"
 import authService from "@/app/services/auth.service"
+import { useRouter } from "next/navigation"
 
 export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -14,6 +15,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userType, setUserType] = useState<'guest' | 'registered' | 'premium'>('guest')
+  const router = useRouter()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -21,6 +23,14 @@ export default function HomePage() {
       setError(null)
       try {
         console.log("🔄 Fetching learning path data...")
+        
+        // Kiểm tra token expiration
+        if (authService.isTokenExpiringSoon()) {
+          console.log("⚠️ Token will expire soon, logging out...");
+          authService.logout();
+          router.push('/login');
+          return;
+        }
         
         // Xác định loại user
         const token = authService.getCurrentToken()
@@ -45,10 +55,18 @@ export default function HomePage() {
               setUserType('registered')
               console.log("👤 User type: Registered user (fallback)")
             }
-          } catch (subscriptionError) {
+          } catch (subscriptionError: any) {
             console.warn("⚠️ Error fetching subscription status:", subscriptionError)
-            setUserType('registered')
-            console.log("👤 User type: Registered user (fallback)")
+            
+            // Nếu lỗi 401 (Unauthorized), có thể token hết hạn
+            if (subscriptionError.response?.status === 401) {
+              console.log("🔑 Token expired or invalid, setting user type to guest")
+              authService.logout()
+              setUserType('guest')
+            } else {
+              setUserType('registered')
+              console.log("👤 User type: Registered user (fallback)")
+            }
           }
         }
         
@@ -63,35 +81,48 @@ export default function HomePage() {
         console.log("📊 Response status:", res1.status)
         console.log("📊 Response headers:", res1.headers)
         
-        if (res1.data && res1.data.data && Array.isArray(res1.data.data)) {
-          console.log("✅ Valid data structure found")
-          console.log("✅ Units data:", JSON.stringify(res1.data.data, null, 2))
+        if (res1.data && res1.data.data) {
           setUnits(res1.data.data)
-          console.log("✅ Set units:", res1.data.data.length, "units")
+          console.log("📊 Units loaded:", res1.data.data.length, "units")
         } else {
-          console.warn("⚠️ Invalid data structure:", res1.data)
-          console.warn("⚠️ Data type:", typeof res1.data)
-          console.warn("⚠️ Data.data type:", typeof res1.data?.data)
-          console.warn("⚠️ Is array:", Array.isArray(res1.data?.data))
+          console.warn("⚠️ No units data in response")
           setUnits([])
         }
         
-        // Gọi API demo progress để lấy danh sách lesson đã hoàn thành (không cần auth)
-        console.log("🔄 Fetching progress data...")
-        const res2 = await axiosInstance.get("/demo/progress")
-        console.log("📊 Progress response:", res2.data)
+        // Chỉ gọi API progress nếu user đã đăng nhập
+        if (isAuthenticated && token) {
+          const res2 = await axiosInstance.get("/progress", { headers })
+          console.log("📊 Progress response:", res2.data)
+          
+          if (res2.data && res2.data.data) {
+            setCompletedLessons(res2.data.data)
+            console.log("📊 Completed lessons loaded:", res2.data.data.length, "lessons")
+          } else {
+            console.warn("⚠️ No progress data in response")
+            setCompletedLessons([])
+          }
+        } else {
+          // Guest user - sử dụng demo endpoint
+          try {
+            const res2 = await axiosInstance.get("/progress/demo")
+            console.log("📊 Demo progress response:", res2.data)
+            
+            if (res2.data && res2.data.data) {
+              setCompletedLessons(res2.data.data)
+              console.log("📊 Demo completed lessons loaded:", res2.data.data.length, "lessons")
+            } else {
+              setCompletedLessons([])
+              console.log("👤 Guest user - no demo progress data")
+            }
+          } catch (error) {
+            setCompletedLessons([])
+            console.log("👤 Guest user - error loading demo progress")
+          }
+        }
         
-        // Chuyển đổi từ Long sang String để tương thích với frontend
-        const completedIds = res2.data.data.map((id: number) => id.toString())
-        setCompletedLessons(completedIds)
-        console.log("✅ Set completed lessons:", completedIds)
-        
-      } catch (err: any) {
-        console.error("❌ Error fetching data:", err)
-        console.error("❌ Error response:", err.response)
-        console.error("❌ Error message:", err.message)
-        console.error("❌ Error stack:", err.stack)
-        setError(err.message || "Lỗi tải dữ liệu")
+      } catch (error: any) {
+        console.error("❌ Error fetching data:", error)
+        setError(error.message || "Failed to load data")
       } finally {
         setLoading(false)
         console.log("🏁 Finished loading data")
@@ -100,7 +131,20 @@ export default function HomePage() {
       }
     }
     fetchData()
-  }, [])
+  }, [router])
+
+  // Kiểm tra token định kỳ mỗi phút
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (authService.isTokenExpiringSoon()) {
+        console.log("⚠️ Token will expire soon, logging out...");
+        authService.logout();
+        router.push('/login');
+      }
+    }, 60000); // Kiểm tra mỗi phút
+
+    return () => clearInterval(interval);
+  }, [router]);
 
   const markLessonCompleted = async (lessonId: string) => {
     try {
@@ -254,6 +298,7 @@ export default function HomePage() {
             units={units}
             completedLessons={completedLessons}
             markLessonCompleted={markLessonCompleted}
+            userType={userType}
           />
         </main>
       </div>

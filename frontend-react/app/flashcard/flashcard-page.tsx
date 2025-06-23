@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -8,44 +9,119 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
 
+interface Flashcard {
+  id: number;
+  front: {
+    type: "video" | "image";
+    content: string;
+    title: string;
+  };
+  back: {
+    word: string;
+    description: string;
+  };
+}
+
+interface SubtopicInfo {
+  id: number;
+  subTopicName: string;
+  topicName: string;
+  status: string;
+}
+
 export default function FlashcardPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isFlipped, setIsFlipped] = useState(false)
   const [currentCard, setCurrentCard] = useState(0)
+  const [mode, setMode] = useState<"learn" | "practice">("learn")
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
+  const [isLoading, setIsLoading] = useState(true);
+  const [subtopicInfo, setSubtopicInfo] = useState<SubtopicInfo | null>(null);
 
-  // Sample flashcard data
-  const flashcards = [
-    {
-      id: 1,
-      front: {
-        type: "video",
-        content: "/placeholder.svg?height=400&width=600",
-        title: "Xin chào",
-      },
-      back: {
-        word: "XIN CHÀO",
-        description: "Mô tả: Gio tay lên vẫy",
-      },
-    },
-    {
-      id: 2,
-      front: {
-        type: "video",
-        content: "/placeholder.svg?height=400&width=600",
-        title: "Cảm ơn",
-      },
-      back: {
-        word: "CẢM ÔN",
-        description: "Mô tả: Đặt tay lên ngực và cúi đầu",
-      },
-    },
-  ]
+  // Lấy subtopicId từ URL params
+  const subtopicId = searchParams.get('subtopicId') || "1";
+
+  // Tạo key để force re-render khi subtopicId thay đổi
+  const componentKey = useMemo(() => `flashcard-${subtopicId}`, [subtopicId]);
+
+  useEffect(() => {
+    console.log("🚀 Starting fetch for subtopicId:", subtopicId);
+    console.log("🔍 URL searchParams:", searchParams.toString());
+    
+    // Reset state khi subtopicId thay đổi
+    setCurrentCard(0);
+    setIsFlipped(false);
+    setMode("learn");
+    setFlashcards([]);
+    setSubtopicInfo(null);
+    setIsLoading(true);
+    
+    const fetchSubtopicInfo = async () => {
+      try {
+        console.log("📡 Fetching subtopic info for:", subtopicId);
+        const response = await fetch(`http://localhost:8080/api/v1/flashcards/subtopic/${subtopicId}/info`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Subtopic info received:", data);
+          setSubtopicInfo(data);
+        } else {
+          console.error("❌ Failed to fetch subtopic info:", response.status);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching subtopic info:", error);
+      }
+    };
+
+    const fetchFlashcards = async () => {
+      console.log("📡 Fetching flashcards for subtopicId:", subtopicId);
+      try {
+        const response = await fetch(`http://localhost:8080/api/v1/flashcards/subtopic/${subtopicId}`);
+        console.log("📡 Response status:", response.status);
+        if (!response.ok) {
+          throw new Error("Failed to fetch flashcards");
+        }
+        const data = await response.json();
+        console.log("✅ Fetched flashcards:", data.length, "cards");
+        console.log("✅ First card:", data[0]);
+        setFlashcards(data);
+      } catch (error) {
+        console.error("❌ Error fetching flashcards:", error);
+        // Handle error state in UI
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (subtopicId) {
+      fetchSubtopicInfo();
+      fetchFlashcards();
+    }
+  }, [searchParams.toString()]); // Chỉ sử dụng searchParams.toString() để đảm bảo reload khi URL thay đổi
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+  
+  if (flashcards.length === 0) {
+    return <div className="min-h-screen flex items-center justify-center">No flashcards found for this subtopic.</div>;
+  }
+
+  const totalCards = flashcards.length;
+  const practiceInterval = Math.floor(totalCards / 3);
 
   const currentFlashcard = flashcards[currentCard]
 
   const nextCard = () => {
-    setCurrentCard((prev) => (prev + 1) % flashcards.length)
-    setIsFlipped(false)
+    const nextCardIndex = currentCard + 1;
+    // Check if it's time for practice
+    if (practiceInterval > 0 && nextCardIndex % practiceInterval === 0 && nextCardIndex < totalCards) {
+      setMode("practice");
+    } else {
+      setCurrentCard((prev) => (prev + 1) % flashcards.length)
+      setIsFlipped(false)
+    }
   }
 
   const prevCard = () => {
@@ -57,8 +133,26 @@ export default function FlashcardPage() {
     setIsFlipped(!isFlipped)
   }
 
+  const handlePracticeComplete = () => {
+    setMode("learn");
+    setCurrentCard((prev) => (prev + 1) % flashcards.length);
+    setIsFlipped(false);
+  };
+
+  if (mode === "practice") {
+    const practiceCards = flashcards.slice(currentCard + 1 - practiceInterval, currentCard + 1);
+    return (
+      <PracticeView
+        key={`practice-${componentKey}-${currentCard}`}
+        practiceCards={practiceCards}
+        allCards={flashcards}
+        onComplete={handlePracticeComplete}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden">
+    <div key={componentKey} className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden">
       {/* Decorative Stars Background */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Large stars */}
@@ -83,6 +177,16 @@ export default function FlashcardPage() {
 
       {/* Header */}
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+
+      {/* Subtopic Info - Desktop */}
+      {subtopicInfo && (
+        <div className="hidden lg:block absolute top-24 left-8 bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg">
+          <div className="text-center">
+            <p className="text-blue-600 font-semibold text-sm">{subtopicInfo.topicName}</p>
+            <p className="text-blue-700 font-bold text-base">{subtopicInfo.subTopicName}</p>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Container */}
       <div className="pt-20 pb-28 lg:pb-20 px-4 min-h-screen relative z-10">
@@ -129,16 +233,10 @@ export default function FlashcardPage() {
                         loop
                         muted
                         className="w-full h-full object-cover"
-                        poster={currentFlashcard.front.content}
+                        src={currentFlashcard.front.content}
+                        controls
                       >
-                        <source src="/videos/sign-language-demo.mp4" type="video/mp4" />
-                        <Image
-                          src={currentFlashcard.front.content || "/placeholder.svg"}
-                          alt={currentFlashcard.front.title}
-                          width={400}
-                          height={400}
-                          className="w-full h-full object-cover"
-                        />
+                        Trình duyệt của bạn không hỗ trợ video.
                       </video>
                     </div>
                   </div>
@@ -183,6 +281,16 @@ export default function FlashcardPage() {
 
         {/* Mobile Layout */}
         <div className="lg:hidden flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] gap-6">
+          {/* Subtopic Info - Mobile */}
+          {subtopicInfo && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
+              <div className="text-center">
+                <p className="text-blue-600 font-semibold text-xs">{subtopicInfo.topicName}</p>
+                <p className="text-blue-700 font-bold text-sm">{subtopicInfo.subTopicName}</p>
+              </div>
+            </div>
+          )}
+
           {/* Flashcard */}
           <div className="relative w-full max-w-sm aspect-square">
             <div
@@ -213,16 +321,10 @@ export default function FlashcardPage() {
                       loop
                       muted
                       className="w-full h-full object-cover"
-                      poster={currentFlashcard.front.content}
+                      src={currentFlashcard.front.content}
+                      controls
                     >
-                      <source src="/videos/sign-language-demo.mp4" type="video/mp4" />
-                      <Image
-                        src={currentFlashcard.front.content || "/placeholder.svg"}
-                        alt={currentFlashcard.front.title}
-                        width={300}
-                        height={300}
-                        className="w-full h-full object-cover"
-                      />
+                      Trình duyệt của bạn không hỗ trợ video.
                     </video>
                   </div>
                 </div>
@@ -305,4 +407,89 @@ export default function FlashcardPage() {
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </div>
   )
+}
+
+// Define the PracticeView component
+function PracticeView({ practiceCards, allCards, onComplete }: {
+  practiceCards: Flashcard[],
+  allCards: Flashcard[],
+  onComplete: () => void
+}) {
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
+  const generateOptions = (correctCard: Flashcard) => {
+    const correctWord = correctCard.back.word;
+    const distractors = allCards
+      .filter((card) => card.id !== correctCard.id)
+      .map((card) => card.back.word);
+    
+    // Shuffle distractors and pick 3
+    const shuffledDistractors = distractors.sort(() => 0.5 - Math.random());
+    const finalDistractors = shuffledDistractors.slice(0, 3);
+
+    const options = [correctWord, ...finalDistractors];
+    return options.sort(() => 0.5 - Math.random());
+  };
+
+  const handleSelectAnswer = (cardId: number, answer: string) => {
+    setSelectedAnswers((prev) => ({ ...prev, [cardId]: answer }));
+  };
+
+  const checkAnswers = () => {
+    let allCorrect = true;
+    for (const card of practiceCards) {
+      if (selectedAnswers[card.id] !== card.back.word) {
+        allCorrect = false;
+        break;
+      }
+    }
+    setIsCorrect(allCorrect);
+    if (allCorrect) {
+      setTimeout(() => {
+        onComplete();
+      }, 1000); // Wait a bit to show success
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-100 via-teal-100 to-emerald-100 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-8">
+        <h1 className="text-3xl font-bold text-center text-teal-700 mb-6">Luyện tập</h1>
+        <div className="space-y-6">
+          {practiceCards.map((card) => (
+            <div key={card.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <p className="text-lg font-semibold text-gray-800 mb-3">"{card.front.title}" có nghĩa là gì?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {generateOptions(card).map((option) => (
+                  <Button
+                    key={option}
+                    onClick={() => handleSelectAnswer(card.id, option)}
+                    className={`justify-start w-full text-left h-auto py-3 px-4 transition-colors ${
+                      selectedAnswers[card.id] === option
+                        ? "bg-blue-500 text-white"
+                        : "bg-white hover:bg-gray-100"
+                    }`}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 text-center">
+          <Button onClick={checkAnswers} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 text-lg rounded-full shadow-lg">
+            Kiểm tra
+          </Button>
+          {isCorrect === false && (
+            <p className="text-red-500 mt-4 font-semibold">Chưa đúng hết. Hãy thử lại nhé!</p>
+          )}
+          {isCorrect === true && (
+            <p className="text-green-500 mt-4 font-semibold">Chính xác! Bạn sẽ được chuyển tới bài tiếp theo.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
