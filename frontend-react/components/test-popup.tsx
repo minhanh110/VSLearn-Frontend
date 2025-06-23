@@ -55,7 +55,7 @@ export function TestPopup({ isOpen, onClose, testNumber, questionCount, testTitl
             <p className="text-orange-500 text-xs font-bold mb-2">{questionCount} CÂU HỎI</p>
 
             {/* Start test button */}
-            <Link href={`/practice?testId=${testId}`} className="block">
+            <Link href={`/test-start`} className="block">
               <Button
                 className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-bold py-1.5 px-3 rounded-md shadow-sm transition-all duration-200 hover:shadow-md text-xs"
                 onClick={onClose}

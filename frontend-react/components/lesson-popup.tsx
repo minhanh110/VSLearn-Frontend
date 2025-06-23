@@ -13,6 +13,8 @@ interface LessonPopupProps {
   lessonTitle: string
   position?: { x: number; y: number }
   lessonId: number
+  subtopicId?: number
+  direction?: "up" | "down"
 }
 
 export function LessonPopup({
@@ -24,7 +26,11 @@ export function LessonPopup({
   lessonTitle,
   position,
   lessonId,
+  subtopicId,
+  direction = "down",
 }: LessonPopupProps) {
+  console.log("LessonPopup props:", { lessonId, subtopicId, lessonTitle, direction });
+  
   if (!isOpen) return null
 
   return (
@@ -36,7 +42,13 @@ export function LessonPopup({
         className="fixed z-50"
         style={{
           left: position?.x ? `${position.x}px` : "50%",
-          top: position?.y ? `${position.y + 90}px` : "50%",
+          top: direction === "up"
+            ? position?.y
+              ? `${position.y - 190}px` // hiển thị phía trên
+              : "50%"
+            : position?.y
+              ? `${position.y + 90}px` // hiển thị phía dưới
+              : "50%",
           transform: position?.x ? "translateX(-50%)" : "translate(-50%, -50%)",
         }}
       >
@@ -65,10 +77,13 @@ export function LessonPopup({
             <p className="text-blue-500 text-xs font-bold mb-2">{wordCount} TỪ VỰNG</p>
 
             {/* Start button - very small */}
-            <Link href="/flashcard" className="block">
+            <Link href={`/flashcard?subtopicId=${subtopicId || lessonId}`} className="block">
               <Button
                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-1.5 px-3 rounded-md shadow-sm transition-all duration-200 hover:shadow-md text-xs"
-                onClick={onClose}
+                onClick={() => {
+                  console.log("Navigating to flashcard with subtopicId:", subtopicId || lessonId);
+                  onClose();
+                }}
               >
                 BẮT ĐẦU
               </Button>

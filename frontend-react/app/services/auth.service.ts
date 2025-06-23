@@ -1,5 +1,6 @@
 import axiosInstance from './axios.config';
 import Cookies from 'js-cookie';
+import { jwtDecode } from 'jwt-decode';
 
 const API_URL = 'http://localhost:8080/users';
 
@@ -82,7 +83,31 @@ class AuthService {
   }
 
   isAuthenticated() {
-    return !!this.getCurrentToken();
+    const token = this.getCurrentToken();
+    if (!token) return false;
+    
+    try {
+      const decoded = jwtDecode(token);
+      return decoded.exp ? decoded.exp * 1000 > Date.now() : false;
+    } catch {
+      return false;
+    }
+  }
+
+  isTokenExpiringSoon() {
+    const token = this.getCurrentToken();
+    if (!token) return false;
+    
+    try {
+      const decoded = jwtDecode(token);
+      if (!decoded.exp) return false;
+      
+      // Kiểm tra nếu token sẽ hết hạn trong 5 phút tới
+      const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
+      return decoded.exp * 1000 < fiveMinutesFromNow;
+    } catch {
+      return false;
+    }
   }
 
   async changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
@@ -115,10 +140,12 @@ class AuthService {
       });
       
       if (!response.ok) {
-        throw new Error('Authentication failed');
+        const errorText = await response.text()
+        throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      
       if (data.status === 200 && data.data) {
         Cookies.set('token', data.data);
         return data;

@@ -49,13 +49,12 @@ export default function RegisterPage() {
     }))
   }
 
-  // Password validation
   const passwordRequirements = [
-    { text: "At least 8 characters", valid: formData.password.length >= 8 },
-    { text: "One uppercase letter", valid: /[A-Z]/.test(formData.password) },
-    { text: "One lowercase letter", valid: /[a-z]/.test(formData.password) },
-    { text: "One number", valid: /\d/.test(formData.password) },
-    { text: "One special character", valid: /[!@#$%^&*(),.?\":{}|<>]/.test(formData.password) },
+    { text: "Ít nhất 8 ký tự", valid: formData.password.length >= 8 },
+    { text: "Ít nhất 1 chữ cái viết hoa", valid: /[A-Z]/.test(formData.password) },
+    { text: "Ít nhất 1 chữ cái viết thường", valid: /[a-z]/.test(formData.password) },
+    { text: "Ít nhất 1 số", valid: /\d/.test(formData.password) },
+    { text: "Ít nhất 1 ký tự đặc biệt", valid: /[!@#$%^&*(),.?\":{}|<>]/.test(formData.password) },
   ]
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,29 +62,22 @@ export default function RegisterPage() {
     setError("")
     setLoading(true)
 
-    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
+      setError("Mật khẩu xác nhận không khớp")
       setLoading(false)
       return
     }
 
     try {
-      // First request OTP
       const otpResponse = await authService.requestSignupOtp(formData.email)
       if (otpResponse.status === 200) {
-        // Store email and OTP in cookies for verification
-        Cookies.set("email-signup", formData.email, { expires: 5 / 1440 }) // 5 minutes
+        Cookies.set("email-signup", formData.email, { expires: 5 / 1440 })
         Cookies.set("otp-signup", otpResponse.data, { expires: 5 / 1440 })
-        
-        // Store registration data in localStorage
         localStorage.setItem("registrationData", JSON.stringify(formData))
-        
-        // Redirect to OTP verification page
         router.push("/signup-otp")
       }
     } catch (err: any) {
-      setError(err.message || "Registration failed")
+      setError(err.message || "Đăng ký thất bại")
     } finally {
       setLoading(false)
     }
@@ -95,141 +87,113 @@ export default function RegisterPage() {
     <BackgroundLayout>
       <BackgroundCard>
         <div className="flex items-center justify-between">
-          {/* Left side - Register Form */}
+          {/* Form đăng ký */}
           <div className="w-full max-w-sm space-y-6">
-            {/* Logo and Title */}
             <div className="text-center space-y-4">
               <Logo size="lg" />
               <div className="space-y-2">
-                <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
-                <p className="text-gray-600">Join our community today!</p>
+                <h1 className="text-3xl font-bold text-gray-900">Tạo tài khoản</h1>
+                <p className="text-gray-600">Tham gia cộng đồng của chúng tôi ngay hôm nay!</p>
               </div>
             </div>
 
-            {/* Error message */}
             {error && (
               <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
-            {/* Register Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                    First Name
-                  </Label>
+                  <Label htmlFor="firstName">Họ</Label>
                   <Input
                     id="firstName"
                     name="firstName"
                     type="text"
-                    placeholder="John"
+                    placeholder="Nguyễn"
                     value={formData.firstName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                    Last Name
-                  </Label>
+                  <Label htmlFor="lastName">Tên</Label>
                   <Input
                     id="lastName"
                     name="lastName"
                     type="text"
-                    placeholder="Doe"
+                    placeholder="An"
                     value={formData.lastName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">
-                  Username
-                </Label>
+                <Label htmlFor="username">Tên đăng nhập</Label>
                 <Input
                   id="username"
                   name="username"
                   type="text"
-                  placeholder="johndoe"
+                  placeholder="nguyenan"
                   value={formData.username}
                   onChange={handleChange}
                   required
                   minLength={3}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email
-                </Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="john@example.com"
+                  placeholder="an@example.com"
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
-                  Phone Number
-                </Label>
+                <Label htmlFor="phoneNumber">Số điện thoại</Label>
                 <Input
                   id="phoneNumber"
                   name="phoneNumber"
                   type="tel"
-                  placeholder="+1234567890"
+                  placeholder="0123456789"
                   value={formData.phoneNumber}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
-                </Label>
+                <Label htmlFor="password">Mật khẩu</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     name="password"
                     type={showPasswords.password ? "text" : "password"}
-                    placeholder="Create a strong password"
+                    placeholder="Nhập mật khẩu mạnh"
                     value={formData.password}
                     onChange={handleChange}
                     required
                     minLength={6}
-                    className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                   />
                   <button
                     type="button"
                     onClick={() => togglePasswordVisibility("password")}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
                     {showPasswords.password ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
-              {/* Password Requirements - Real-time validation */}
               {formData.password && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-3">Password Requirements:</p>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Yêu cầu mật khẩu:</p>
                   <div className="space-y-2">
                     {passwordRequirements.map((req, index) => (
                       <div key={index} className="flex items-center gap-2">
@@ -248,26 +212,22 @@ export default function RegisterPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirm Password
-                </Label>
+                <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
                     type={showPasswords.confirm ? "text" : "password"}
-                    placeholder="Confirm your password"
+                    placeholder="Nhập lại mật khẩu"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     required
                     minLength={6}
-                    className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                   />
                   <button
                     type="button"
                     onClick={() => togglePasswordVisibility("confirm")}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
                     {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -277,13 +237,13 @@ export default function RegisterPage() {
               <div className="flex items-center space-x-2">
                 <Checkbox id="terms" required />
                 <Label htmlFor="terms" className="text-sm text-gray-600">
-                  I agree to the{" "}
+                  Tôi đồng ý với{" "}
                   <Link href="/terms" className="hover:opacity-80" style={{ color: "#93D6F6" }}>
-                    Terms of Service
+                    Điều khoản dịch vụ
                   </Link>{" "}
-                  and{" "}
+                  và{" "}
                   <Link href="/privacy" className="hover:opacity-80" style={{ color: "#93D6F6" }}>
-                    Privacy Policy
+                    Chính sách bảo mật
                   </Link>
                 </Label>
               </div>
@@ -294,23 +254,22 @@ export default function RegisterPage() {
                 className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90"
                 style={{ backgroundColor: "#93D6F6" }}
               >
-                {loading ? "Creating Account..." : "Create Account"}
+                {loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
               </Button>
             </form>
 
-            {/* Login Link */}
             <p className="text-center text-sm text-gray-600">
-              Already have an account?{" "}
+              Đã có tài khoản?{" "}
               <Link href="/login" className="font-medium hover:opacity-80" style={{ color: "#93D6F6" }}>
-                Sign in here
+                Đăng nhập tại đây
               </Link>
             </p>
           </div>
 
-          {/* Right side - Whale Character */}
+          {/* Hình ảnh bên phải */}
           <div className="hidden lg:block flex-1 flex justify-center items-center">
             <div className="relative">
-              <WhaleCharacter expression="excited" message="Welcome aboard!" size="lg" />
+              <WhaleCharacter expression="excited" message="Chào mừng bạn đến với chúng tôi!" size="lg" />
             </div>
           </div>
         </div>

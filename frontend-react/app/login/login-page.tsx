@@ -25,7 +25,9 @@ export default function LoginPage() {
   useEffect(() => {
     const errorParam = searchParams.get('error')
     if (errorParam === 'oauth2_failed') {
-      setError('Google login failed. Please try again.')
+      setError('Đăng nhập Google thất bại. Vui lòng thử lại hoặc sử dụng tài khoản email.')
+    } else if (errorParam === 'true') {
+      setError('Có lỗi xảy ra. Vui lòng thử lại.')
     }
   }, [searchParams])
 
@@ -46,7 +48,7 @@ export default function LoginPage() {
         password: formData.password,
       });
       if (jsonObj.status === 200) {
-        router.push("/lesson-path")
+        router.push("/homepage")
       }
     } catch (err: any) {
       setError(err.message || "Registration failed")
@@ -66,7 +68,7 @@ export default function LoginPage() {
             {/* Logo and Title */}
             <div className="text-center space-y-4">
               <Logo size="lg" />
-              <h1 className="text-3xl font-bold text-gray-900">Login</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Đăng nhập</h1>
             </div>
             {error && (
               <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm">
@@ -77,7 +79,7 @@ export default function LoginPage() {
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-sm font-medium text-gray-700">
-                  Email or username
+                  Tên đăng nhập
                 </Label>
                 <Input
                   value={formData.username}
@@ -85,7 +87,7 @@ export default function LoginPage() {
                   onChange={handleChange}
                   id="username"
                   type="text"
-                  placeholder="Enter your email or username"
+                  placeholder="Nhập tên đăng nhập của bạn"
                   className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
                   style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                 />
@@ -93,7 +95,7 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
+                  Mật khẩu
                 </Label>
                 <Input
                   value={formData.password}
@@ -101,7 +103,7 @@ export default function LoginPage() {
                   onChange={handleChange}
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="Nhập mật khẩu của bạn"
                   className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
                   style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
                 />
@@ -109,7 +111,7 @@ export default function LoginPage() {
 
               <div className="text-right">
                 <Link href="/forgot-password" className="text-sm hover:opacity-80" style={{ color: "#93D6F6" }}>
-                  Forgot Password?
+                  Quên mật khẩu?
                 </Link>
               </div>
 
@@ -119,7 +121,7 @@ export default function LoginPage() {
                 className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90"
                 style={{ backgroundColor: "#93D6F6" }}
               >
-                {loading ? "Sign in..." : "Sign in"}
+                {loading ? "Đăng nhập..." : "Đăng nhập"}
 
               </Button>
             </form>
@@ -130,7 +132,7 @@ export default function LoginPage() {
                 <div className="w-full border-t border-gray-200"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white/80 text-gray-500">Or Continue With</span>
+                <span className="px-4 bg-white/80 text-gray-500">Hoặc đăng nhập với</span>
               </div>
             </div>
 
@@ -158,14 +160,14 @@ export default function LoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              Continue with Google
+              Đăng nhập với Google
             </Button>
 
             {/* Register Link */}
             <p className="text-center text-sm text-gray-600">
-              {"Don't have an account yet? "}
+              {"Bạn chưa có tài khoản? "}
               <Link href="/register" className="font-medium hover:opacity-80" style={{ color: "#93D6F6" }}>
-                Register for free
+                Đăng ký
               </Link>
             </p>
           </div>

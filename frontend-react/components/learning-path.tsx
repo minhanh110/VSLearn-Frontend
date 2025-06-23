@@ -4,58 +4,66 @@ import type React from "react"
 
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ChevronUp, Trophy } from "lucide-react"
+import { ChevronUp, Lock } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { LessonPopup } from "./lesson-popup"
 import { TestPopup } from "./test-popup"
+import { UpgradeModal } from "./upgrade-modal"
 
 interface LearningPathProps {
   sidebarOpen?: boolean
+  units: Unit[]
+  completedLessons: string[]
+  markLessonCompleted: (lessonId: string) => void
+  userType?: 'guest' | 'registered' | 'premium'
 }
 
-export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
+interface Lesson {
+  id: number;
+  title: string;
+  wordCount?: number;
+  questionCount?: number;
+  isTest: boolean;
+  accessible?: boolean;
+}
+
+interface Unit {
+  unitId: number;
+  title: string;
+  description: string;
+  lessons: Lesson[];
+  accessible?: boolean;
+  lockReason?: string;
+}
+
+export function LearningPath({ sidebarOpen = false, units, completedLessons, markLessonCompleted, userType }: LearningPathProps) {
   const [showScrollTop, setShowScrollTop] = useState(false)
-  const [selectedLesson, setSelectedLesson] = useState<number | null>(null)
-  const [selectedTest, setSelectedTest] = useState<number | null>(null)
-  const lessonRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({})
+  const [selectedLesson, setSelectedLesson] = useState<string | null>(null)
+  const [selectedTest, setSelectedTest] = useState<string | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeModalData, setUpgradeModalData] = useState<{
+    userType: 'guest' | 'registered' | 'premium';
+    currentTopicCount: number;
+    maxTopicCount: number;
+  }>({
+    userType: 'guest',
+    currentTopicCount: 1,
+    maxTopicCount: 2,
+  })
+  const lessonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
 
-  // State để track completed lessons - load từ localStorage
-  const [completedLessons, setCompletedLessons] = useState<number[]>([])
+  // Debug: Log props
+  console.log("🎯 LearningPath component received props:")
+  console.log("  - sidebarOpen:", sidebarOpen)
+  console.log("  - units:", units)
+  console.log("  - units length:", units?.length)
+  console.log("  - completedLessons:", completedLessons)
+  console.log("  - markLessonCompleted:", typeof markLessonCompleted)
 
-  // Load completed lessons từ localStorage khi component mount
-  useEffect(() => {
-    const saved = localStorage.getItem("completedLessons")
-    if (saved) {
-      setCompletedLessons(JSON.parse(saved))
-    }
-  }, [])
-
-  // Save completed lessons vào localStorage khi state thay đổi
-  useEffect(() => {
-    localStorage.setItem("completedLessons", JSON.stringify(completedLessons))
-  }, [completedLessons])
-
-  // Function để mark lesson as completed
-  const markLessonCompleted = (lessonId: number) => {
-    setCompletedLessons((prev) => {
-      if (!prev.includes(lessonId)) {
-        return [...prev, lessonId]
-      }
-      return prev
-    })
+  // Debug: Log units structure
+  if (units && units.length > 0) {
+    console.log("📋 First unit structure:", JSON.stringify(units[0], null, 2))
   }
-
-  // Listen for lesson completion events
-  useEffect(() => {
-    const handleLessonComplete = (event: CustomEvent) => {
-      markLessonCompleted(event.detail.lessonId)
-    }
-
-    window.addEventListener("lessonCompleted", handleLessonComplete as EventListener)
-    return () => {
-      window.removeEventListener("lessonCompleted", handleLessonComplete as EventListener)
-    }
-  }, [])
 
   // Show scroll to top button when user scrolls down
   useEffect(() => {
@@ -81,84 +89,69 @@ export function LearningPath({ sidebarOpen = false }: LearningPathProps) {
     })
   }
 
-  // Lesson data with word counts
-const lessonData: Record<string, { title: string; wordCount: number }> = {
-  "1": { title: "Bảng chữ cái", wordCount: 20 },
-  "2": { title: "Chào hỏi cơ bản", wordCount: 15 },
-  "4": { title: "Gia đình", wordCount: 18 },
-  "5": { title: "Thức ăn và đồ uống", wordCount: 25 },
-}
-
-// Test data
-const testData: Record<string, { title: string; questionCount: number }> = {
-  "3": { title: "Unit 1 Test", questionCount: 10 },
-  "6": { title: "Unit 2 Test", questionCount: 12 },
-}
-
-const unit1Lessons = [
-  { id: "1", isTest: false },
-  { id: "2", isTest: false },
-  { id: "3", isTest: true },
-]
-
-const unit2Lessons = [
-  { id: "4", isTest: false },
-  { id: "5", isTest: false },
-  { id: "6", isTest: true },
-]
-
   // Function để get current lesson (lesson tiếp theo cần làm)
   const getCurrentLesson = (unitLessons: any[]) => {
     // Tìm lesson đầu tiên chưa completed trong unit
     for (const lesson of unitLessons) {
-      if (!completedLessons.includes(lesson.id)) {
-        return lesson.id
+      if (!completedLessons.includes(lesson.id.toString())) {
+        return lesson.id.toString()
       }
     }
     // Nếu tất cả đã completed thì return null
     return null
   }
 
-  // Function để check xem unit có bị lock không
-  const isUnitLocked = (unitLessons: any[]) => {
-    // Unit 1 luôn unlock
-    if (unitLessons[0].id === 1) return false
-
-    // Unit 2 cần Unit 1 hoàn thành (tất cả lessons trong unit1)
-    if (unitLessons[0].id === 4) {
-      return !unit1Lessons.every((lesson) => completedLessons.includes(lesson.id))
-    }
-
-    return false
-  }
-
   // Function để check lesson có thể hiện popup không
-  const canShowPopup = (lessonId: number, unitLessons: any[]) => {
-    // Nếu unit bị lock thì không hiện popup
-    if (isUnitLocked(unitLessons)) return false
-
-    // Chỉ current lesson mới hiện popup
-    const currentLesson = getCurrentLesson(unitLessons)
-    return lessonId === currentLesson
+  const canShowPopup = (lesson: any) => {
+    // Nếu có accessible field thì sử dụng, không thì mặc định là true
+    return lesson.accessible !== false
   }
 
-  const handleLessonClick = (lessonId: number, isTest: boolean, unitLessons: any[], event: React.MouseEvent) => {
-    // Nếu unit bị locked thì không làm gì
-    if (isUnitLocked(unitLessons)) {
-      return
-    }
+  // Function để check lesson có available để làm không
+  const isLessonAvailable = (lesson: any) => {
+    // Nếu có accessible field và false thì không available
+    if (lesson.accessible === false) return false
 
-    if (isTest) {
-      // Test lessons show test popup if available
-      if (canShowPopup(lessonId, unitLessons)) {
-        setSelectedTest(lessonId)
+    const isCompleted = completedLessons.includes(lesson.id.toString())
+    return isCompleted
+  }
+
+  const handleLessonClick = (lesson: any, event: React.MouseEvent) => {
+    console.log("Lesson clicked:", { id: lesson.id, title: lesson.title, isTest: lesson.isTest });
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (!lesson.accessible) {
+      console.log("Lesson not accessible");
+      
+      if (userType === 'guest') {
+        // User chưa đăng nhập - chuyển hướng sang trang đăng nhập
+        console.log("User not authenticated, redirecting to login");
+        setShowUpgradeModal(true)
+        setUpgradeModalData({
+          userType: "guest",
+          currentTopicCount: 1,
+          maxTopicCount: 2,
+        })
+      } else {
+        // User đã đăng nhập nhưng chưa mua gói học - chuyển hướng sang trang gói học
+        console.log("User authenticated but no subscription, redirecting to pricing");
+        setShowUpgradeModal(true)
+        setUpgradeModalData({
+          userType: "registered",
+          currentTopicCount: 1,
+          maxTopicCount: 2,
+        })
       }
       return
     }
 
-    // Regular lessons chỉ hiện popup nếu là current lesson
-    if (canShowPopup(lessonId, unitLessons)) {
-      setSelectedLesson(lessonId)
+    if (lesson.isTest) {
+      console.log("Test lesson clicked, setting selectedTest");
+      setSelectedTest(lesson.id.toString())
+    } else {
+      console.log("Regular lesson clicked, setting selectedLesson");
+      setSelectedLesson(lesson.id.toString())
     }
   }
 
@@ -172,34 +165,19 @@ const unit2Lessons = [
   }
 
   // Function to get lesson number within unit and total lessons in unit
-  const getLessonInfo = (lessonId: number, unitLessons: any[]) => {
-    const lessonIndex = unitLessons.findIndex((lesson) => lesson.id === lessonId)
+  const getLessonInfo = (lessonId: string, unitLessons: any[]) => {
+    const lessonIndex = unitLessons.findIndex((lesson) => lesson.id.toString() === lessonId)
     const regularLessons = unitLessons.filter((lesson) => !lesson.isTest)
-    const lessonNumber = regularLessons.findIndex((lesson) => lesson.id === lessonId) + 1
+    const lessonNumber = regularLessons.findIndex((lesson) => lesson.id.toString() === lessonId) + 1
     return {
       lessonNumber,
       totalLessons: regularLessons.length,
     }
   }
-  const getLessonPopupPosition = () => {
-    if (selectedLesson !== null && lessonRefs.current[selectedLesson]) {
-      const rect = lessonRefs.current[selectedLesson]!.getBoundingClientRect()
-      return { x: rect.left + rect.width / 2, y: rect.top }
-    }
-    return undefined
-  }
 
-  const getTestPopupPosition = () => {
-    if (selectedTest !== null && lessonRefs.current[selectedTest]) {
-      const rect = lessonRefs.current[selectedTest]!.getBoundingClientRect()
-      return { x: rect.left + rect.width / 2, y: rect.top }
-    }
-    return undefined
-  }
-
-  const renderUnit = (lessons: any[], unitNumber: number, title: string, description: string) => {
-    const unitLocked = isUnitLocked(lessons)
-    const currentLesson = getCurrentLesson(lessons)
+  const renderUnit = (unit: Unit, unitNumber: number) => {
+    const currentLesson = getCurrentLesson(unit.lessons)
+    const isUnitAccessible = unit.accessible !== false
 
     return (
       <div className="mb-16">
@@ -207,24 +185,26 @@ const unit2Lessons = [
         <div className="px-4 mb-8">
           <div
             className={`rounded-xl p-6 mx-auto max-w-md shadow-lg ${
-              unitLocked ? "bg-gradient-to-r from-gray-200 to-gray-300" : "bg-gradient-to-r from-pink-200 to-purple-200"
+              !isUnitAccessible ? "bg-gradient-to-r from-gray-200 to-gray-300" : "bg-gradient-to-r from-pink-200 to-purple-200"
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
-                <h2 className={`text-xl font-bold ${unitLocked ? "text-gray-600" : "text-gray-800"}`}>
-                  Unit {unitNumber}
-                  {unitLocked && <span className="ml-2">🔒</span>}
+                <h2 className={`text-xl font-bold ${!isUnitAccessible ? "text-gray-600" : "text-gray-800"}`}>
+                  {unit.title}
+                  {!isUnitAccessible && <span className="ml-2">🔒</span>}
                 </h2>
-                <p className={`text-sm mt-1 ${unitLocked ? "text-gray-500" : "text-gray-600"}`}>{description}</p>
+                <p className={`text-sm mt-1 ${!isUnitAccessible ? "text-gray-500" : "text-gray-600"}`}>
+                  {isUnitAccessible ? unit.description : unit.lockReason || "Chủ đề này bị khóa"}
+                </p>
               </div>
               <Button
                 className={`font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg border-0 ${
-                  unitLocked
+                  !isUnitAccessible
                     ? "bg-gray-300 hover:bg-gray-400 text-gray-600 cursor-not-allowed"
                     : "bg-gradient-to-r from-pink-300 to-purple-300 hover:from-pink-400 hover:to-purple-400 text-gray-800"
                 }`}
-                disabled={unitLocked}
+                disabled={!isUnitAccessible}
               >
                 📖 GUIDEBOOK
               </Button>
@@ -235,65 +215,74 @@ const unit2Lessons = [
         {/* Lessons - Zigzag layout */}
         <div className="px-4">
           <div className="max-w-2xl mx-auto">
-            {lessons.map((lesson, index) => {
-              const isCompleted = completedLessons.includes(lesson.id)
-              const isCurrent = lesson.id === currentLesson
-              const canPopup = canShowPopup(lesson.id, lessons)
+            {unit.lessons.map((lesson, index) => {
+              const isCompleted = completedLessons.includes(lesson.id.toString())
+              const isCurrent = lesson.id.toString() === currentLesson
+              const canPopup = canShowPopup(lesson)
+              const isAvailable = isLessonAvailable(lesson)
+              const isLessonAccessible = lesson.accessible !== false
 
               return (
                 <div key={lesson.id} className={`relative mb-12 ${getPositionClass(index)}`}>
                   {/* Lesson circle */}
                   <div
                     className="relative z-10 flex justify-center"
-                    style={{ zIndex: selectedLesson === lesson.id || selectedTest === lesson.id ? 1000 : 10 }}
+                    style={{ zIndex: selectedLesson === lesson.id.toString() || selectedTest === lesson.id.toString() ? 1000 : 10 }}
                   >
-                    {unitLocked ? (
-                      // Unit bị lock - hiển thị locked state
+                    {!isLessonAccessible ? (
+                      // Lesson bị lock - hiển thị locked state
                       <div className="relative">
-                        {lesson.isTest ? (
-                          <div className="relative">
-                            <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100 overflow-hidden">
-                              <div className="w-16 h-16 rounded-full overflow-hidden">
-                                <Image
-                                  src="/images/test-mascot-final.png"
-                                  alt="Test"
-                                  width={64}
-                                  height={64}
-                                  className="object-cover w-full h-full grayscale opacity-50"
-                                />
+                        <button
+                          onClick={(e) => handleLessonClick(lesson, e)}
+                          className="block relative cursor-pointer"
+                        >
+                          <div className="relative hover:scale-105 transition-transform">
+                            {lesson.isTest ? (
+                              <div className="relative">
+                                <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100 overflow-hidden">
+                                  <div className="w-16 h-16 rounded-full overflow-hidden">
+                                    <Image
+                                      src="/images/test-mascot-final.png"
+                                      alt="Test"
+                                      width={64}
+                                      height={64}
+                                      className="object-cover w-full h-full grayscale opacity-50"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Lock className="w-6 h-6 text-gray-600" />
+                                </div>
                               </div>
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-gray-600 text-2xl">🔒</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100">
-                              <div className="w-16 h-16 rounded-full overflow-hidden">
-                                <Image
-                                  src="/images/lesson-button.png"
-                                  alt="Lesson mascot"
-                                  width={64}
-                                  height={64}
-                                  className="object-cover w-full h-full grayscale opacity-50"
-                                />
+                            ) : (
+                              <div className="relative">
+                                <div className="w-20 h-20 rounded-full border-4 border-gray-400 flex items-center justify-center bg-gray-100">
+                                  <div className="w-16 h-16 rounded-full overflow-hidden">
+                                    <Image
+                                      src="/images/lesson-button.png"
+                                      alt="Lesson mascot"
+                                      width={64}
+                                      height={64}
+                                      className="object-cover w-full h-full grayscale opacity-50"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Lock className="w-6 h-6 text-gray-600" />
+                                </div>
                               </div>
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-gray-600 text-2xl">🔒</span>
-                            </div>
+                            )}
                           </div>
-                        )}
+                        </button>
                       </div>
                     ) : (
-                      // Unit không bị lock - hiển thị normal state
+                      // Lesson accessible - hiển thị normal state
                       <div className="relative">
                         <button
                           ref={(el) => {
-                            lessonRefs.current[lesson.id] = el
+                            lessonRefs.current[lesson.id.toString()] = el
                           }}
-                          onClick={(e) => handleLessonClick(lesson.id, lesson.isTest, lessons, e)}
+                          onClick={(e) => handleLessonClick(lesson, e)}
                           className="block relative cursor-pointer"
                         >
                           <div className="relative hover:scale-105 transition-transform">
@@ -302,7 +291,11 @@ const unit2Lessons = [
                               <div className="relative">
                                 <div
                                   className={`w-20 h-20 rounded-full border-4 flex items-center justify-center overflow-hidden transition-all duration-500 ${
-                                    isCompleted ? "border-yellow-500 bg-yellow-50" : "border-gray-400 bg-gray-100"
+                                    isCompleted
+                                      ? "border-yellow-500 bg-yellow-50"
+                                      : isCurrent
+                                        ? "border-orange-500 bg-orange-50 animate-pulse"
+                                        : "border-gray-400 bg-gray-100"
                                   }`}
                                 >
                                   <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -315,20 +308,17 @@ const unit2Lessons = [
                                     />
                                   </div>
                                 </div>
-
-                                {/* Trophy icon chỉ khi completed */}
-                                {isCompleted && (
-                                  <div className="absolute -top-2 -left-2 w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                                    <Trophy className="w-3 h-3 text-white" />
-                                  </div>
-                                )}
                               </div>
                             ) : (
                               /* Regular lesson - màu dựa trên completed state */
                               <div className="relative">
                                 <div
                                   className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-all duration-500 ${
-                                    isCompleted ? "border-green-500 bg-green-50" : "border-gray-400 bg-gray-100"
+                                    isCompleted
+                                      ? "border-green-500 bg-green-50"
+                                      : isCurrent
+                                        ? "border-blue-500 bg-blue-50 animate-pulse"
+                                        : "border-gray-400 bg-gray-100"
                                   }`}
                                 >
                                   <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -341,49 +331,56 @@ const unit2Lessons = [
                                     />
                                   </div>
                                 </div>
-
-                                {/* Checkmark chỉ khi completed */}
-                                {isCompleted && (
-                                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                                    <span className="text-white text-sm">✓</span>
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
                         </button>
 
-                        {/* LESSON POPUP chỉ hiện cho lesson có thể làm */}
-                        {selectedLesson === lesson.id && !lesson.isTest && canPopup && (
-                          <LessonPopup
-                            isOpen={true}
-                            onClose={() => setSelectedLesson(null)}
-                            lessonNumber={getLessonInfo(selectedLesson, lessons).lessonNumber}
-                            totalLessons={getLessonInfo(selectedLesson, lessons).totalLessons}
-                            wordCount={lessonData[selectedLesson as keyof typeof lessonData]?.wordCount || 0}
-                            lessonTitle={lessonData[selectedLesson as keyof typeof lessonData]?.title || ""}
-                            position={
-                              lessonRefs.current[selectedLesson]
-                                ? {
-                                    x:
-                                      lessonRefs.current[selectedLesson]!.getBoundingClientRect().left +
-                                      lessonRefs.current[selectedLesson]!.getBoundingClientRect().width / 2,
-                                    y: lessonRefs.current[selectedLesson]!.getBoundingClientRect().top,
-                                  }
-                                : undefined
+                        {/* LESSON POPUP - chỉ hiện cho lesson accessible */}
+                        {selectedLesson === lesson.id.toString() && !lesson.isTest && canPopup && selectedLesson && (() => {
+                          let popupDirection: "up" | "down" = "down";
+                          let popupPosition = undefined;
+                          if (lessonRefs.current[selectedLesson]) {
+                            const rect = lessonRefs.current[selectedLesson]!.getBoundingClientRect();
+                            const popupHeight = 190; // chiều cao ước lượng của popup
+                            if (rect.bottom + popupHeight > window.innerHeight) {
+                              popupDirection = "up";
+                              popupPosition = {
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                              };
+                            } else {
+                              popupDirection = "down";
+                              popupPosition = {
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                              };
                             }
-                            lessonId={selectedLesson}
-                          />
-                        )}
+                          }
+                          return (
+                            <LessonPopup
+                              isOpen={true}
+                              onClose={() => setSelectedLesson(null)}
+                              lessonNumber={getLessonInfo(selectedLesson, unit.lessons).lessonNumber}
+                              totalLessons={getLessonInfo(selectedLesson, unit.lessons).totalLessons}
+                              wordCount={lesson.wordCount || 0}
+                              lessonTitle={lesson.title || ""}
+                              position={popupPosition}
+                              direction={popupDirection}
+                              lessonId={parseInt(selectedLesson)}
+                              subtopicId={lesson.id}
+                            />
+                          );
+                        })()}
 
-                        {/* TEST POPUP chỉ hiện cho test có thể làm */}
-                        {selectedTest === lesson.id && lesson.isTest && canPopup && (
+                        {/* TEST POPUP - chỉ hiện cho test accessible */}
+                        {selectedTest === lesson.id.toString() && lesson.isTest && canPopup && selectedTest && (
                           <TestPopup
                             isOpen={true}
                             onClose={() => setSelectedTest(null)}
                             testNumber={lesson.id}
-                            questionCount={testData[selectedTest as keyof typeof testData]?.questionCount || 10}
-                            testTitle={testData[selectedTest as keyof typeof testData]?.title || ""}
+                            questionCount={lesson.questionCount || 10}
+                            testTitle={lesson.title || ""}
                             position={
                               lessonRefs.current[selectedTest]
                                 ? {
@@ -394,7 +391,7 @@ const unit2Lessons = [
                                   }
                                 : undefined
                             }
-                            testId={selectedTest}
+                            testId={parseInt(selectedTest)}
                           />
                         )}
                       </div>
@@ -447,46 +444,47 @@ const unit2Lessons = [
       >
         <div className="animate-bounce">
           <Image
-            src="/images/whale-with-book-new.png"
-            alt="Whale with book"
-            width={100}
-            height={100}
-            className="lg:w-32 lg:h-32 object-contain drop-shadow-2xl"
+            src="/images/whale-character.png"
+            alt="Whale character"
+            width={120}
+            height={120}
+            className="object-contain drop-shadow-2xl"
           />
         </div>
       </div>
 
-      {/* Beautiful scroll to top button - không chèn lên footer */}
-      {showScrollTop && (
-        <div className="fixed bottom-20 lg:bottom-8 right-8 z-20">
-          <Button
-            onClick={scrollToTop}
-            className="group relative w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110 border-0 overflow-hidden"
-            size="sm"
-          >
-            {/* Background glow effect */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-
-            {/* Ripple effect */}
-            <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping opacity-75"></div>
-
-            {/* Arrow icon */}
-            <ChevronUp className="w-6 h-6 relative z-10 group-hover:scale-110 transition-transform duration-200" />
-
-            {/* Subtle inner shadow */}
-            <div className="absolute inset-1 rounded-full border border-white/10"></div>
-          </Button>
+      {/* Main content */}
+      <div className="relative z-10">
+        {/* Title */}
+        <div className="text-center mb-12 px-4">
+          <h1 className="text-3xl md:text-4xl font-bold text-blue-700 mb-4">Lộ trình học tập</h1>
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+            Khám phá ngôn ngữ ký hiệu qua các chủ đề thú vị và thực hành với các bài tập tương tác
+          </p>
         </div>
+
+        {/* Units */}
+        {units.map((unit, index) => renderUnit(unit, index + 1))}
+      </div>
+
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 lg:bottom-12 lg:right-12 z-50 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl"
+        >
+          <ChevronUp className="w-6 h-6" />
+        </button>
       )}
 
-      {/* Main content */}
-      <div className="relative z-10 pt-8">
-        {/* Unit 1 */}
-        {renderUnit(unit1Lessons, 1, "Unit 1", "Form basic sentences, greet people")}
-
-        {/* Unit 2 */}
-        {renderUnit(unit2Lessons, 2, "Unit 2", "Learn about food and drinks")}
-      </div>
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        userType={upgradeModalData.userType}
+        currentTopicCount={upgradeModalData.currentTopicCount}
+        maxTopicCount={upgradeModalData.maxTopicCount}
+      />
     </div>
   )
-}
+} 
