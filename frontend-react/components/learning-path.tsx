@@ -464,7 +464,11 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
         </div>
 
         {/* Units */}
-        {units.map((unit, index) => renderUnit(unit, index + 1))}
+        {units.map((unit, unitIdx) => (
+          <div className="mb-16" key={unit.unitId}>
+            {renderUnit(unit, unitIdx)}
+          </div>
+        ))}
       </div>
 
       {/* Scroll to top button */}

@@ -7,18 +7,26 @@ import Image from "next/image"
 import { CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter, useSearchParams } from "next/navigation"
+import axios from "axios"
+
+// Định nghĩa kiểu dữ liệu cho đáp án
+interface PracticeOption {
+  text: string;
+  videoUrl?: string;
+  imageUrl?: string;
+}
 
 // Định nghĩa kiểu dữ liệu cho câu hỏi
 interface Question {
-  id: number
-  type: "multiple-choice" | "sentence-building"
-  videoUrl: string
-  imageUrl: string
-  question: string
-  options?: string[] // Cho multiple choice
-  correctAnswer: string
-  words?: string[] // Cho sentence building
-  correctSentence?: string[] // Thứ tự đúng của các từ
+  id: number;
+  type: "multiple-choice" | "sentence-building";
+  videoUrl: string;
+  imageUrl: string;
+  question: string;
+  options?: PracticeOption[]; // Sửa lại
+  correctAnswer: string;
+  words?: string[];
+  correctSentence?: string[];
 }
 
 // Interface cho từ với vị trí gốc
@@ -48,47 +56,39 @@ export default function PracticePage() {
   const [availableWords, setAvailableWords] = useState<WordWithPosition[]>([])
   const [animatingWord, setAnimatingWord] = useState<string | null>(null)
 
-  // Function để mark lesson/test completed
-  const markCompleted = (id: string) => {
-    const completedEvent = new CustomEvent("lessonCompleted", {
-      detail: { lessonId: Number.parseInt(id) },
-    })
-    window.dispatchEvent(completedEvent)
-  }
+  // State cho câu hỏi multiple choice lấy từ backend
+  const [multipleChoiceQuestions, setMultipleChoiceQuestions] = useState<Question[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Tách riêng câu hỏi multiple choice và sentence building
-  const multipleChoiceQuestions: Question[] = useMemo(
-    () => [
-      {
-        id: 1,
-        type: "multiple-choice",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "Đây là từ gì?",
-        options: ["XIN CHÀO", "XIN LỖI", "CẢM ƠN"],
-        correctAnswer: "XIN CHÀO",
-      },
-      {
-        id: 2,
-        type: "multiple-choice",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "Đây là từ gì?",
-        options: ["CẢM ƠN", "TẠM BIỆT", "XIN LỖI"],
-        correctAnswer: "CẢM ƠN",
-      },
-      {
-        id: 3,
-        type: "multiple-choice",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "Đây là từ gì?",
-        options: ["TẠM BIỆT", "XIN CHÀO", "CẢM ƠN", "XIN LỖI"],
-        correctAnswer: "TẠM BIỆT",
-      },
-    ],
-    [],
-  )
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      if (!lessonId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        // Gọi trực tiếp backend (dev)
+        const res = await axios.get(`http://localhost:8080/api/v1/flashcards/subtopic/${lessonId}/practice`);
+        const data = res.data;
+        // Map về đúng định dạng Question
+        const mapped: Question[] = data.map((q: any) => ({
+          id: q.id,
+          type: "multiple-choice",
+          videoUrl: q.videoUrl,
+          imageUrl: q.imageUrl,
+          question: q.question,
+          options: q.options, // options là mảng object
+          correctAnswer: q.correctAnswer,
+        }));
+        setMultipleChoiceQuestions(mapped);
+      } catch (e: any) {
+        setError("Không thể tải câu hỏi luyện tập");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQuestions();
+  }, [lessonId]);
 
   const sentenceBuildingQuestions: Question[] = useMemo(
     () => [
@@ -128,12 +128,15 @@ export default function PracticePage() {
 
   // Lấy danh sách câu hỏi hiện tại dựa trên phase
   const getCurrentQuestions = useMemo(() => {
-    return currentPhase === "multiple-choice" ? multipleChoiceQuestions : sentenceBuildingQuestions
-  }, [currentPhase, multipleChoiceQuestions, sentenceBuildingQuestions])
+    if (currentPhase === "multiple-choice") {
+      return multipleChoiceQuestions;
+    }
+    return sentenceBuildingQuestions;
+  }, [currentPhase, multipleChoiceQuestions, sentenceBuildingQuestions]);
 
   const currentQuestion = useMemo(() => {
-    return getCurrentQuestions[currentQuestionIndex]
-  }, [getCurrentQuestions, currentQuestionIndex])
+    return getCurrentQuestions[currentQuestionIndex];
+  }, [getCurrentQuestions, currentQuestionIndex]);
 
   // Khởi tạo available words khi câu hỏi thay đổi
   useEffect(() => {
@@ -286,6 +289,20 @@ export default function PracticePage() {
     router.push("/homepage")
   }
 
+  // Function để mark lesson/test completed
+  const markCompleted = (id: string) => {
+    const completedEvent = new CustomEvent("lessonCompleted", {
+      detail: { lessonId: Number.parseInt(id) },
+    })
+    window.dispatchEvent(completedEvent)
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-screen text-xl">Đang tải câu hỏi luyện tập...</div>;
+  if (error) return <div className="flex items-center justify-center h-screen text-xl text-red-500">{error}</div>;
+  if (currentPhase === "multiple-choice" && multipleChoiceQuestions.length === 0) {
+    return <div className="flex items-center justify-center h-screen text-xl text-gray-500">Không có câu hỏi luyện tập nào cho bài học này.</div>;
+  }
+
   return (
     <div className="h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden flex flex-col">
       {/* Decorative Stars Background */}
@@ -313,14 +330,22 @@ export default function PracticePage() {
                 <div className="absolute bottom-2 left-2 w-3 h-3 text-green-400 z-10">⭐</div>
                 <div className="absolute bottom-2 right-2 w-4 h-4 text-purple-400 z-10">⭐</div>
 
-                {/* Video/Image */}
+                {/* Video hoặc Image chính của câu hỏi */}
                 <div className="absolute inset-4 rounded-xl overflow-hidden bg-blue-900 flex items-center justify-center">
-                  <Image
-                    src={currentQuestion?.imageUrl || "/placeholder.svg"}
-                    alt="Sign language demonstration"
-                    fill
-                    className="object-cover"
-                  />
+                  {currentQuestion?.videoUrl ? (
+                    <video
+                      src={currentQuestion.videoUrl}
+                      controls
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <Image
+                      src={currentQuestion?.imageUrl || "/placeholder.svg"}
+                      alt="Sign language demonstration"
+                      fill
+                      className="object-cover"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -339,20 +364,20 @@ export default function PracticePage() {
                     {currentQuestion.options!.map((option, index) => (
                       <button
                         key={index}
-                        onClick={() => handleSelectAnswer(option)}
+                        onClick={() => handleSelectAnswer(option.text)}
                         disabled={selectedAnswer !== null}
                         className={`relative py-2 sm:py-3 px-4 sm:px-5 rounded-full border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-all duration-200 font-bold text-blue-700 text-center text-sm sm:text-base whitespace-nowrap flex-1 ${
-                          selectedAnswer === option
-                            ? option === currentQuestion.correctAnswer
+                          selectedAnswer === option.text
+                            ? option.text === currentQuestion.correctAnswer
                               ? "bg-green-100 border-green-500 text-green-700"
                               : "bg-red-100 border-red-500 text-red-700"
                             : ""
                         }`}
                       >
-                        {option}
-                        {selectedAnswer === option && (
+                        <span>{option.text}</span>
+                        {selectedAnswer === option.text && (
                           <span className="absolute -top-1 -right-1">
-                            {option === currentQuestion.correctAnswer ? (
+                            {option.text === currentQuestion.correctAnswer ? (
                               <CheckCircle className="w-4 h-4 text-green-500" />
                             ) : (
                               <XCircle className="w-4 h-4 text-red-500" />
@@ -368,20 +393,20 @@ export default function PracticePage() {
                     {currentQuestion.options!.map((option, index) => (
                       <button
                         key={index}
-                        onClick={() => handleSelectAnswer(option)}
+                        onClick={() => handleSelectAnswer(option.text)}
                         disabled={selectedAnswer !== null}
                         className={`relative py-2 sm:py-3 px-3 sm:px-4 rounded-full border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-all duration-200 font-bold text-blue-700 text-center text-sm sm:text-base whitespace-nowrap ${
-                          selectedAnswer === option
-                            ? option === currentQuestion.correctAnswer
+                          selectedAnswer === option.text
+                            ? option.text === currentQuestion.correctAnswer
                               ? "bg-green-100 border-green-500 text-green-700"
                               : "bg-red-100 border-red-500 text-red-700"
                             : ""
                         }`}
                       >
-                        {option}
-                        {selectedAnswer === option && (
+                        <span>{option.text}</span>
+                        {selectedAnswer === option.text && (
                           <span className="absolute -top-1 -right-1">
-                            {option === currentQuestion.correctAnswer ? (
+                            {option.text === currentQuestion.correctAnswer ? (
                               <CheckCircle className="w-4 h-4 text-green-500" />
                             ) : (
                               <XCircle className="w-4 h-4 text-red-500" />
