@@ -57,76 +57,71 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     }
   }, [subtopicId]);
 
-  // Generate timeline
+  // Generate timeline from backend
   useEffect(() => {
     const generateTimeline = async () => {
+      if (flashcards.length === 0) return;
+      
       try {
-        const apiTimeline = await FlashcardService.getTimeline(subtopicId);
-        if (apiTimeline.length > 0) {
-          setTimeline(apiTimeline);
-          console.log('📊 Generated timeline:', apiTimeline);
+        console.log("🔧 Fetching timeline from backend for", flashcards.length, "cards");
+        const backendTimeline = await FlashcardService.getTimeline(subtopicId);
+        console.log("📊 Backend timeline:", backendTimeline);
+        
+        if (backendTimeline && backendTimeline.length > 0) {
+          console.log("📊 Using backend timeline:", backendTimeline);
+          setTimeline(backendTimeline);
           return;
         }
       } catch (error) {
-        console.warn('Timeline API failed, using frontend logic');
+        console.error("❌ Failed to fetch timeline from backend, using fallback:", error);
       }
-
-      // Fallback: tạo timeline ở frontend
+      
+      // Fallback: tạo timeline đơn giản
       const totalCards = flashcards.length;
+      console.log("🔧 Creating fallback timeline for", totalCards, "cards");
       
-      console.log("🔧 Creating frontend timeline:");
-      console.log("  - totalCards:", totalCards);
-      
-      // Logic đơn giản: chia đều thành 3-4 nhóm
-      let numGroups = 3; // Bắt đầu với 3 nhóm
-      
-      if (totalCards <= 9) {
+      let numGroups = 3;
+      if (totalCards <= 6) {
+        numGroups = 2;
+      } else if (totalCards <= 9) {
         numGroups = 3;
       } else if (totalCards <= 12) {
         numGroups = 4;
       } else {
-        numGroups = 4; // Tối đa 4 nhóm
+        numGroups = 4;
       }
       
       const groupSize = Math.ceil(totalCards / numGroups);
-      
       console.log("  - numGroups:", numGroups);
       console.log("  - groupSize:", groupSize);
 
-      const frontendTimeline: TimelineStep[] = [];
-      let i = 0;
+      const fallbackTimeline: TimelineStep[] = [];
+      let currentIndex = 0;
       
-      // Tạo các nhóm flashcard và practice
-      for (let group = 0; group < numGroups; group++) {
-        const groupStart = i;
-        const remainingCards = totalCards - i;
-        
-        if (remainingCards <= 0) break;
-        
+      for (let group = 0; group < numGroups && currentIndex < totalCards; group++) {
+        const groupStart = currentIndex;
+        const remainingCards = totalCards - currentIndex;
         const currentGroupSize = Math.min(groupSize, remainingCards);
         
-        console.log(`  - Group ${group + 1}: taking ${currentGroupSize} cards (${i} to ${i + currentGroupSize - 1})`);
+        console.log(`  - Group ${group + 1}: taking ${currentGroupSize} cards (${currentIndex} to ${currentIndex + currentGroupSize - 1})`);
         
         // Thêm flashcards cho nhóm này
         for (let j = 0; j < currentGroupSize; j++) {
-          frontendTimeline.push({ type: "flashcard", index: i });
-          i++;
+          fallbackTimeline.push({ type: "flashcard", index: currentIndex });
+          currentIndex++;
         }
         
-        // Thêm practice cho nhóm vừa thêm
-        console.log(`    - Adding practice for cards ${groupStart} to ${i}`);
-        frontendTimeline.push({ type: "practice", start: groupStart, end: i });
+        // Thêm practice cho nhóm vừa thêm (chỉ khi có ít nhất 2 flashcard)
+        if (currentGroupSize >= 2) {
+          console.log(`    - Adding practice for cards ${groupStart} to ${currentIndex}`);
+          fallbackTimeline.push({ type: "practice", start: groupStart, end: currentIndex });
+        } else {
+          console.log(`    - Skipping practice for single card group`);
+        }
       }
       
-      console.log("📊 Final frontend timeline:", frontendTimeline);
-      console.log(`✅ Total cards covered: ${i}/${totalCards}`);
-      
-      // Kiểm tra cuối cùng
-      if (i !== totalCards) {
-        console.error(`❌ ERROR: Expected ${totalCards} cards but got ${i}`);
-      }
-      
-      setTimeline(frontendTimeline);
+      console.log("📊 Fallback timeline:", fallbackTimeline);
+      setTimeline(fallbackTimeline);
     };
 
     if (flashcards.length > 0) {

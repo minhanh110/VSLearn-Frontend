@@ -1,3 +1,6 @@
+import { jwtDecode } from 'jwt-decode';
+import Cookies from 'js-cookie';
+
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 
 export interface Flashcard {
@@ -114,12 +117,27 @@ export class FlashcardService {
   // Lưu trạng thái học tập
   static async saveProgress(subtopicId: string, progress: ProgressRequest): Promise<ProgressResponse> {
     try {
+      // Lấy userId từ JWT token
+      const token = Cookies.get('token');
+      let userId = 'default-user';
+      if (token) {
+        try {
+          const decoded = jwtDecode(token) as any;
+          userId = decoded.id || 'default-user';
+        } catch (error) {
+          console.warn('Failed to decode token:', error);
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/flashcards/subtopic/${subtopicId}/progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(progress),
+        body: JSON.stringify({
+          ...progress,
+          userId: userId
+        }),
       });
       
       if (response.ok) {
@@ -144,7 +162,19 @@ export class FlashcardService {
   // Lấy trạng thái học tập
   static async getProgress(subtopicId: string): Promise<ProgressResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/flashcards/subtopic/${subtopicId}/progress`);
+      // Lấy userId từ JWT token
+      const token = Cookies.get('token');
+      let userId = 'default-user';
+      if (token) {
+        try {
+          const decoded = jwtDecode(token) as any;
+          userId = decoded.id || 'default-user';
+        } catch (error) {
+          console.warn('Failed to decode token:', error);
+        }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/flashcards/subtopic/${subtopicId}/progress?userId=${userId}`);
       if (response.ok) {
         return await response.json();
       }

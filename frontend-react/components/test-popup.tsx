@@ -12,9 +12,10 @@ interface TestPopupProps {
   testTitle: string
   position?: { x: number; y: number }
   testId: number
+  topicId: number
 }
 
-export function TestPopup({ isOpen, onClose, testNumber, questionCount, testTitle, position, testId }: TestPopupProps) {
+export function TestPopup({ isOpen, onClose, testNumber, questionCount, testTitle, position, testId, topicId }: TestPopupProps) {
   if (!isOpen) return null
 
   return (
@@ -55,7 +56,7 @@ export function TestPopup({ isOpen, onClose, testNumber, questionCount, testTitl
             <p className="text-orange-500 text-xs font-bold mb-2">{questionCount} CÂU HỎI</p>
 
             {/* Start test button */}
-            <Link href={`/test-start`} className="block">
+            <Link href={`/test-start?topicId=${topicId}`} className="block">
               <Button
                 className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-bold py-1.5 px-3 rounded-md shadow-sm transition-all duration-200 hover:shadow-md text-xs"
                 onClick={onClose}

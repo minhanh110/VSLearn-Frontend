@@ -4,22 +4,48 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { testService } from "@/app/services/testService"
 
 export function TestStartPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const testId = searchParams.get("testId")
+  const topicId = searchParams.get("topicId") || testId // Use testId as topicId if topicId not provided
+  const userId = searchParams.get("userId") || "1" // Default user ID for testing
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [topicName, setTopicName] = useState<string>("Đang tải...")
+
+  // Load topic name when component mounts
+  useEffect(() => {
+    const loadTopicName = async () => {
+      if (topicId) {
+        try {
+          const name = await testService.getTopicName(parseInt(topicId))
+          setTopicName(name)
+        } catch (error) {
+          console.error("Error loading topic name:", error)
+          setTopicName("Chủ đề không xác định")
+        }
+      }
+    }
+
+    loadTopicName()
+  }, [topicId])
 
   const handleGoBack = () => {
     router.back()
   }
 
   const handleStartTest = () => {
-    // Navigate to actual test page
-    router.push(`/test-topic`)
+    // Navigate to test page with all necessary parameters
+    const params = new URLSearchParams({
+      testId: testId || "",
+      topicId: topicId || "",
+      userId: userId
+    })
+    router.push(`/test-topic?${params.toString()}`)
   }
 
   return (
@@ -45,6 +71,24 @@ export function TestStartPage() {
 
           {/* Title */}
           <h1 className="text-2xl font-bold text-gray-800 text-center mb-8">BẮT ĐẦU BÀI TEST</h1>
+
+          {/* Test Info */}
+          <div className="bg-blue-50 rounded-xl p-4 mb-6">
+            <div className="text-sm text-gray-600 space-y-2">
+              <div className="flex justify-between">
+                <span>Chủ đề:</span>
+                <span className="font-medium">{topicName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Số câu hỏi:</span>
+                <span className="font-medium">20 câu</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Điểm đạt:</span>
+                <span className="font-medium text-green-600">≥ 90%</span>
+              </div>
+            </div>
+          </div>
 
           {/* Action buttons */}
           <div className="flex gap-4">

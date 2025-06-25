@@ -42,7 +42,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeModalData, setUpgradeModalData] = useState<{
-    userType: 'guest' | 'registered' | 'premium';
+    userType: 'guest' | 'registered';
     currentTopicCount: number;
     maxTopicCount: number;
   }>({
@@ -178,6 +178,10 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
   const renderUnit = (unit: Unit, unitNumber: number) => {
     const currentLesson = getCurrentLesson(unit.lessons)
     const isUnitAccessible = unit.accessible !== false
+    // Tìm lesson test trong unit
+    const testLesson = unit.lessons.find((lesson) => lesson.isTest)
+
+    const allLessonsCompleted = unit.lessons.every(l => completedLessons.includes(l.id.toString()));
 
     return (
       <div className="mb-16">
@@ -392,6 +396,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                                 : undefined
                             }
                             testId={parseInt(selectedTest)}
+                            topicId={unit.unitId}
                           />
                         )}
                       </div>
@@ -400,6 +405,49 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                 </div>
               )
             })}
+
+            {/* Nút test lớn ở cuối unit, luôn hiển thị nếu unit accessible */}
+            {isUnitAccessible && (
+              <div className="flex justify-center mt-8">
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedTest(`unit-test-${unit.unitId}`);
+                    }}
+                    className="block relative cursor-pointer"
+                  >
+                    <div className="relative hover:scale-105 transition-transform">
+                      <div className={`w-24 h-24 rounded-full border-4 border-orange-400 bg-yellow-50 flex items-center justify-center overflow-hidden shadow-lg ${!allLessonsCompleted ? 'animate-pulse-fast' : ''}`}>
+                        <div className="w-20 h-20 rounded-full overflow-hidden">
+                          <Image
+                            src="/images/test-mascot-final.png"
+                            alt="Test"
+                            width={80}
+                            height={80}
+                            className="object-cover w-full h-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                  {/* TEST POPUP cho nút test lớn cuối unit */}
+                  {selectedTest === `unit-test-${unit.unitId}` && (
+                    <TestPopup
+                      isOpen={true}
+                      onClose={() => setSelectedTest(null)}
+                      testNumber={unit.unitId}
+                      questionCount={testLesson?.questionCount || 20}
+                      testTitle={unit.title || ""}
+                      position={undefined}
+                      testId={testLesson?.id || unit.unitId}
+                      topicId={unit.unitId}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -485,7 +533,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
-        userType={upgradeModalData.userType}
+        userType={upgradeModalData.userType === 'premium' ? 'registered' : upgradeModalData.userType}
         currentTopicCount={upgradeModalData.currentTopicCount}
         maxTopicCount={upgradeModalData.maxTopicCount}
       />
