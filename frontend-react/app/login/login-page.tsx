@@ -48,10 +48,18 @@ export default function LoginPage() {
         password: formData.password,
       });
       if (jsonObj.status === 200) {
-        router.push("/homepage")
+        // Check if there's a returnUrl parameter
+        const returnUrl = searchParams.get('returnUrl')
+        if (returnUrl) {
+          router.push(decodeURIComponent(returnUrl))
+        } else {
+          router.push("/homepage")
+        }
       }
     } catch (err: any) {
       setError(err.message || "Registration failed")
+    } finally {
+      setLoading(false)
     }
   }
 

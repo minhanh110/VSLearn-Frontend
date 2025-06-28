@@ -9,6 +9,8 @@ import { useState, useEffect, useRef } from "react"
 import { LessonPopup } from "./lesson-popup"
 import { TestPopup } from "./test-popup"
 import { UpgradeModal } from "./upgrade-modal"
+import { FlashcardService } from "@/app/services/flashcard.service"
+import { useRouter } from "next/navigation"
 
 interface LearningPathProps {
   sidebarOpen?: boolean
@@ -40,9 +42,10 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
+  const [selectedSentenceBuilding, setSelectedSentenceBuilding] = useState<number | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeModalData, setUpgradeModalData] = useState<{
-    userType: 'guest' | 'registered' | 'premium';
+    userType: 'guest' | 'registered';
     currentTopicCount: number;
     maxTopicCount: number;
   }>({
@@ -50,7 +53,10 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     currentTopicCount: 1,
     maxTopicCount: 2,
   })
+  const [sentenceBuildingInfo, setSentenceBuildingInfo] = useState<{[topicId: number]: boolean}>({})
+  const [loadingSentenceBuilding, setLoadingSentenceBuilding] = useState<{[topicId: number]: boolean}>({})
   const lessonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
+  const router = useRouter()
 
   // Debug: Log props
   console.log("🎯 LearningPath component received props:")
@@ -65,6 +71,36 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     console.log("📋 First unit structure:", JSON.stringify(units[0], null, 2))
   }
 
+  // Kiểm tra sentence building cho mỗi topic
+  useEffect(() => {
+    const checkSentenceBuilding = async () => {
+      if (!units || units.length === 0) return;
+      
+      const unitsToCheck = units.filter(unit => 
+        !loadingSentenceBuilding[unit.unitId] && 
+        sentenceBuildingInfo[unit.unitId] === undefined
+      );
+      
+      if (unitsToCheck.length === 0) return;
+      
+      for (const unit of unitsToCheck) {
+        setLoadingSentenceBuilding(prev => ({ ...prev, [unit.unitId]: true }));
+        
+        try {
+          const hasSentenceBuilding = await FlashcardService.hasSentenceBuildingForTopic(unit.unitId);
+          setSentenceBuildingInfo(prev => ({ ...prev, [unit.unitId]: hasSentenceBuilding }));
+        } catch (error) {
+          console.warn(`Failed to check sentence building for topic ${unit.unitId}:`, error);
+          setSentenceBuildingInfo(prev => ({ ...prev, [unit.unitId]: false }));
+        } finally {
+          setLoadingSentenceBuilding(prev => ({ ...prev, [unit.unitId]: false }));
+        }
+      }
+    };
+    
+    checkSentenceBuilding();
+  }, [units]); // Chỉ dependency units
+
   // Show scroll to top button when user scrolls down
   useEffect(() => {
     const handleScroll = () => {
@@ -76,11 +112,14 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
       if (selectedTest) {
         setSelectedTest(null)
       }
+      if (selectedSentenceBuilding) {
+        setSelectedSentenceBuilding(null)
+      }
     }
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [selectedLesson, selectedTest])
+  }, []) // Không có dependency để tránh vòng lặp
 
   const scrollToTop = () => {
     window.scrollTo({
@@ -175,9 +214,18 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     }
   }
 
+  const handleSentenceBuildingClick = (topicId: number) => {
+    console.log("Sentence building clicked for topic:", topicId);
+    setSelectedSentenceBuilding(topicId);
+  }
+
   const renderUnit = (unit: Unit, unitNumber: number) => {
     const currentLesson = getCurrentLesson(unit.lessons)
     const isUnitAccessible = unit.accessible !== false
+    // Tìm lesson test trong unit
+    const testLesson = unit.lessons.find((lesson) => lesson.isTest)
+
+    const allLessonsCompleted = unit.lessons.every(l => completedLessons.includes(l.id.toString()));
 
     return (
       <div className="mb-16">
@@ -198,23 +246,57 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                   {isUnitAccessible ? unit.description : unit.lockReason || "Chủ đề này bị khóa"}
                 </p>
               </div>
-              <Button
-                className={`font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg border-0 ${
-                  !isUnitAccessible
-                    ? "bg-gray-300 hover:bg-gray-400 text-gray-600 cursor-not-allowed"
-                    : "bg-gradient-to-r from-pink-300 to-purple-300 hover:from-pink-400 hover:to-purple-400 text-gray-800"
-                }`}
-                disabled={!isUnitAccessible}
-              >
-                📖 GUIDEBOOK
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className={`font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg border-0 ${
+                    !isUnitAccessible
+                      ? "bg-gray-300 hover:bg-gray-400 text-gray-600 cursor-not-allowed"
+                      : "bg-gradient-to-r from-pink-300 to-purple-300 hover:from-pink-400 hover:to-purple-400 text-gray-800"
+                  }`}
+                  disabled={!isUnitAccessible}
+                >
+                  📖 GUIDEBOOK
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Lessons - Zigzag layout */}
         <div className="px-4">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto relative">
+            {/* Nút Thực hành ghép câu - bên phải danh sách subtopics */}
+            {isUnitAccessible && sentenceBuildingInfo[unit.unitId] && (
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 z-20">
+                <div className="relative">
+                  <button
+                    onClick={() => handleSentenceBuildingClick(unit.unitId)}
+                    className="block relative cursor-pointer"
+                    disabled={loadingSentenceBuilding[unit.unitId]}
+                    data-sentence-building={unit.unitId}
+                  >
+                    <div className="relative hover:scale-105 transition-transform">
+                      <div className="w-20 h-20 rounded-full border-4 border-cyan-400 bg-gradient-to-r from-cyan-50 to-blue-50 flex items-center justify-center overflow-hidden shadow-md transition-all duration-200 hover:shadow-lg">
+                        <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center">
+                          {loadingSentenceBuilding[unit.unitId] ? (
+                            <div className="w-4 h-4 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Image
+                              src="/images/lesson-button.png"
+                              alt="Sentence building"
+                              width={64}
+                              height={64}
+                              className="object-cover w-full h-full"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+            
             {unit.lessons.map((lesson, index) => {
               const isCompleted = completedLessons.includes(lesson.id.toString())
               const isCurrent = lesson.id.toString() === currentLesson
@@ -392,6 +474,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                                 : undefined
                             }
                             testId={parseInt(selectedTest)}
+                            topicId={unit.unitId}
                           />
                         )}
                       </div>
@@ -400,6 +483,132 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                 </div>
               )
             })}
+
+            {/* Nút test lớn ở cuối unit, luôn hiển thị nếu unit accessible */}
+            {isUnitAccessible && (
+              <div className="flex justify-center mt-8">
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedTest(`unit-test-${unit.unitId}`);
+                    }}
+                    className="block relative cursor-pointer"
+                  >
+                    <div className="relative hover:scale-105 transition-transform">
+                      <div className={`w-24 h-24 rounded-full border-4 border-orange-400 bg-yellow-50 flex items-center justify-center overflow-hidden shadow-lg ${!allLessonsCompleted ? 'animate-pulse-fast' : ''}`}>
+                        <div className="w-20 h-20 rounded-full overflow-hidden">
+                          <Image
+                            src="/images/test-mascot-final.png"
+                            alt="Test"
+                            width={80}
+                            height={80}
+                            className="object-cover w-full h-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                  {/* TEST POPUP cho nút test lớn cuối unit */}
+                  {selectedTest === `unit-test-${unit.unitId}` && (
+                    <TestPopup
+                      isOpen={true}
+                      onClose={() => setSelectedTest(null)}
+                      testNumber={unit.unitId}
+                      questionCount={testLesson?.questionCount || 20}
+                      testTitle={unit.title || ""}
+                      position={undefined}
+                      testId={testLesson?.id || unit.unitId}
+                      topicId={unit.unitId}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SENTENCE BUILDING POPUP */}
+            {selectedSentenceBuilding === unit.unitId && (() => {
+              let popupDirection: "up" | "down" = "down";
+              let popupPosition = undefined;
+              // Tính toán vị trí popup giống như subtopic
+              const buttonElement = document.querySelector(`[data-sentence-building="${unit.unitId}"]`) as HTMLElement;
+              if (buttonElement) {
+                const rect = buttonElement.getBoundingClientRect();
+                const popupHeight = 190; // chiều cao ước lượng của popup
+                if (rect.bottom + popupHeight > window.innerHeight) {
+                  popupDirection = "up";
+                  popupPosition = {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top,
+                  };
+                } else {
+                  popupDirection = "down";
+                  popupPosition = {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top,
+                  };
+                }
+              }
+              return (
+                <>
+                  {/* Invisible overlay to detect clicks outside */}
+                  <div className="fixed inset-0 z-40" onClick={() => setSelectedSentenceBuilding(null)} />
+
+                  <div
+                    className="fixed z-50"
+                    style={{
+                      left: popupPosition?.x ? `${popupPosition.x}px` : "50%",
+                      top: popupDirection === "up"
+                        ? popupPosition?.y
+                          ? `${popupPosition.y - 190}px` // hiển thị phía trên
+                          : "50%"
+                        : popupPosition?.y
+                          ? `${popupPosition.y + 90}px` // hiển thị phía dưới
+                          : "50%",
+                      transform: popupPosition?.x ? "translateX(-50%)" : "translate(-50%, -50%)",
+                    }}
+                  >
+                    {/* New popup design - very small */}
+                    <div className="relative">
+                      {/* Cyan pastel rounded popup - very small */}
+                      <div className="bg-cyan-50 rounded-lg px-3 py-3 text-center shadow-lg min-w-[180px] border-2 border-cyan-200">
+                        {/* New Study mascot - very small */}
+                        <div className="flex justify-center mb-1">
+                          <Image
+                            src="/images/study-mascot-new.png"
+                            alt="Study mascot"
+                            width={45}
+                            height={45}
+                            className="object-contain"
+                          />
+                        </div>
+
+                        {/* Main title - very small */}
+                        <h2 className="text-sm font-bold text-cyan-700 mb-1">THỰC HÀNH GHÉP CÂU !!!</h2>
+
+                        {/* Lesson topic - very small */}
+                        <p className="text-cyan-600 text-xs font-semibold mb-1">CHỦ ĐỀ: {unit.title.toUpperCase()}</p>
+
+                        {/* Word count - very small */}
+                        <p className="text-cyan-500 text-xs font-bold mb-2">GHÉP TỪ THÀNH CÂU</p>
+
+                        {/* Start button - very small */}
+                        <Button
+                          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-1.5 px-3 rounded-md shadow-sm transition-all duration-200 hover:shadow-md text-xs"
+                          onClick={() => {
+                            setSelectedSentenceBuilding(null);
+                            router.push(`/practice?topicId=${unit.unitId}&mode=sentence-building`);
+                          }}
+                        >
+                          BẮT ĐẦU
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -464,7 +673,11 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
         </div>
 
         {/* Units */}
-        {units.map((unit, index) => renderUnit(unit, index + 1))}
+        {units.map((unit, unitIdx) => (
+          <div className="mb-16" key={unit.unitId}>
+            {renderUnit(unit, unitIdx)}
+          </div>
+        ))}
       </div>
 
       {/* Scroll to top button */}
