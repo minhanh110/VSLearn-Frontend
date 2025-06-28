@@ -6,6 +6,8 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { useState, useEffect } from "react"
 import { testService } from "@/app/services/testService"
+import authService from "@/app/services/auth.service"
+import { LoginModal } from "@/components/login-modal"
 
 export function TestStartPage() {
   const router = useRouter()
@@ -16,22 +18,44 @@ export function TestStartPage() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [topicName, setTopicName] = useState<string>("Đang tải...")
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string>("")
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
-  // Load topic name when component mounts
+  // Check authentication and load topic name when component mounts
   useEffect(() => {
-    const loadTopicName = async () => {
-      if (topicId) {
-        try {
+    const checkAuthAndLoadData = async () => {
+      try {
+        // Check if user is authenticated
+        if (!authService.isAuthenticated()) {
+          // Show login modal instead of redirecting
+          setShowLoginModal(true)
+          setIsLoading(false)
+          return
+        }
+
+        // Load topic name if authenticated
+        if (topicId) {
           const name = await testService.getTopicName(parseInt(topicId))
           setTopicName(name)
-        } catch (error) {
-          console.error("Error loading topic name:", error)
-          setTopicName("Chủ đề không xác định")
         }
+        setIsLoading(false)
+      } catch (error: any) {
+        console.error("Error loading topic name:", error)
+        
+        // Handle authentication errors
+        if (error.message?.includes('Authentication required') || error.message?.includes('Network Error')) {
+          setError("Vui lòng đăng nhập để tiếp tục")
+          setShowLoginModal(true)
+        } else {
+          setTopicName("Chủ đề không xác định")
+          setError("Không thể tải thông tin chủ đề")
+        }
+        setIsLoading(false)
       }
     }
 
-    loadTopicName()
+    checkAuthAndLoadData()
   }, [topicId])
 
   const handleGoBack = () => {
@@ -39,6 +63,12 @@ export function TestStartPage() {
   }
 
   const handleStartTest = () => {
+    // Check authentication again before starting test
+    if (!authService.isAuthenticated()) {
+      setShowLoginModal(true)
+      return
+    }
+
     // Navigate to test page with all necessary parameters
     const params = new URLSearchParams({
       testId: testId || "",
@@ -46,6 +76,37 @@ export function TestStartPage() {
       userId: userId
     })
     router.push(`/test-topic?${params.toString()}`)
+  }
+
+  const handleCloseLoginModal = () => {
+    setShowLoginModal(false)
+    // Redirect back to homepage if user closes the modal
+    router.push("/homepage")
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-blue-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state (but not for authentication errors since we show modal)
+  if (error && !error.includes("đăng nhập")) {
+    return (
+      <div className="min-h-screen bg-blue-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -119,6 +180,13 @@ export function TestStartPage() {
 
       {/* Footer */}
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={handleCloseLoginModal}
+        returnUrl={window.location.href}
+      />
     </div>
   )
 }

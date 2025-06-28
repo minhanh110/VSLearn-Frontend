@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/lib/constants';
 import axiosInstance from './axios.config';
 import Cookies from 'js-cookie';
+import authService from './auth.service';
 
 export interface TestQuestion {
   id: number;
@@ -60,10 +61,20 @@ class TestService {
   private baseUrl = API_BASE_URL;
 
   /**
+   * Check if user is authenticated before making API calls
+   */
+  private checkAuthentication() {
+    if (!authService.isAuthenticated()) {
+      throw new Error('Authentication required. Please login to continue.');
+    }
+  }
+
+  /**
    * Generate test questions for a specific topic
    */
   async generateTest(userId: number, topicId: number): Promise<TestQuestion[]> {
     try {
+      this.checkAuthentication();
       const response = await axiosInstance.get(
         `${this.baseUrl}/api/test/generate?userId=${userId}&topicId=${topicId}`
       );
@@ -83,6 +94,7 @@ class TestService {
    */
   async submitTest(request: TestSubmissionRequest): Promise<TestSubmissionResponse> {
     try {
+      this.checkAuthentication();
       const response = await axiosInstance.post(`${this.baseUrl}/api/test/submit`, request);
       const result: ApiResponse<TestSubmissionResponse> = response.data;
       if (result.status !== 200) {
@@ -100,6 +112,7 @@ class TestService {
    */
   async getNextTopic(userId: number, currentTopicId: number): Promise<NextTopicInfo> {
     try {
+      this.checkAuthentication();
       const response = await axiosInstance.get(
         `${this.baseUrl}/api/test/next-topic?userId=${userId}&currentTopicId=${currentTopicId}`
       );
@@ -119,6 +132,7 @@ class TestService {
    */
   async getNextSubtopic(topicId: number): Promise<NextSubtopicInfo> {
     try {
+      this.checkAuthentication();
       const response = await axiosInstance.get(
         `${this.baseUrl}/api/test/next-subtopic?topicId=${topicId}`
       );
@@ -138,6 +152,7 @@ class TestService {
    */
   async getTopicName(topicId: number): Promise<string> {
     try {
+      this.checkAuthentication();
       const response = await axiosInstance.get(
         `${this.baseUrl}/api/test/topic-name?topicId=${topicId}`
       );

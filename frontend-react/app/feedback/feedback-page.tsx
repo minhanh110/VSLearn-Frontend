@@ -1,23 +1,54 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Star } from "lucide-react"
 import Image from "next/image"
+import { FeedbackService, FeedbackRequest } from "@/app/services/feedback.service"
+import authService from "@/app/services/auth.service"
+import { jwtDecode } from 'jwt-decode'
 
 export function FeedbackPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const topicId = searchParams.get('topicId')
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [feedback, setFeedback] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [userId, setUserId] = useState<string>("1")
 
   const ratingLabels = ["Rất tệ", "Tệ", "Bình thường", "Tốt", "Xuất sắc"]
+
+  // Get user ID from JWT token
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      try {
+        const token = authService.getCurrentToken()
+        if (token) {
+          const decoded = jwtDecode(token) as any
+          if (decoded && decoded.id) {
+            setUserId(decoded.id.toString())
+            console.log("Current user ID from token:", decoded.id)
+          } else {
+            console.log("No user ID in token, using default ID: 1")
+          }
+        } else {
+          console.log("No token found, using default ID: 1")
+        }
+      } catch (error) {
+        console.error("Error decoding token:", error)
+      }
+    }
+    
+    getCurrentUserId()
+  }, [])
 
   const handleStarClick = (starIndex: number) => {
     setRating(starIndex + 1)
@@ -37,14 +68,31 @@ export function FeedbackPage() {
       return
     }
 
+    if (!topicId) {
+      alert("Thiếu thông tin topic!")
+      return
+    }
+
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const request: FeedbackRequest = {
+        topicId: parseInt(topicId),
+        rating: rating,
+        feedbackContent: feedback || undefined
+      }
 
-    // Show success message and redirect
-    alert("Cảm ơn bạn đã gửi phản hồi!")
-    router.push("/homepage")
+      const response = await FeedbackService.submitFeedback(request, parseInt(userId))
+      
+      // Show success message and redirect
+      alert("Cảm ơn bạn đã gửi phản hồi!")
+      router.push("/homepage")
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      alert("Có lỗi xảy ra khi gửi phản hồi. Vui lòng thử lại!")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleGoBack = () => {

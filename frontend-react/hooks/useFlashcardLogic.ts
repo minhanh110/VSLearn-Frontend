@@ -16,6 +16,8 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
   const [timelinePos, setTimelinePos] = useState(0);
   const [showCompletionPopup, setShowCompletionPopup] = useState(false);
   const [showTransitionPopup, setShowTransitionPopup] = useState(false);
+  const [showPracticeTransitionModal, setShowPracticeTransitionModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [userProgress, setUserProgress] = useState<ProgressResponse | null>(null);
   const [completedFlashcards, setCompletedFlashcards] = useState<number[]>([]);
 
@@ -120,7 +122,9 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
         }
       }
       
-      console.log("📊 Fallback timeline:", fallbackTimeline);
+      console.log("📊 Final fallback timeline:", fallbackTimeline);
+      console.log("📊 Timeline length:", fallbackTimeline.length);
+      console.log("📊 Practice steps in timeline:", fallbackTimeline.filter(step => step.type === "practice"));
       setTimeline(fallbackTimeline);
     };
 
@@ -128,6 +132,19 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
       generateTimeline();
     }
   }, [subtopicId, flashcards.length]);
+
+  // Debug timeline changes
+  useEffect(() => {
+    console.log("🔄 Timeline state updated:", timeline);
+    console.log("🔄 TimelinePos:", timelinePos);
+    console.log("🔄 Practice steps in timeline:", timeline.filter(step => step.type === "practice"));
+    console.log("🔄 Current step:", timeline[timelinePos]);
+  }, [timeline, timelinePos]);
+
+  // Debug showCompletionPopup changes in hook
+  useEffect(() => {
+    console.log("🔄 Hook: showCompletionPopup state changed to:", showCompletionPopup);
+  }, [showCompletionPopup]);
 
   // Save progress when completed flashcards change
   const saveProgress = async (newCompletedFlashcards: number[], completedPractice: boolean = false, userChoice?: 'continue' | 'review') => {
@@ -149,38 +166,151 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
 
   // Navigation functions
   const nextStep = () => {
-    setTimelinePos((prev) => Math.min(prev + 1, timeline.length - 1));
+    const currentStep = timeline[timelinePos];
+    console.log("➡️ nextStep called:");
+    console.log("  - currentStep:", currentStep);
+    console.log("  - timelinePos:", timelinePos);
+    
+    if (currentStep?.type === "flashcard") {
+      // Nếu đang ở flashcard, kiểm tra xem có phải flashcard cuối cùng trong nhóm không
+      const currentIndex = currentStep.index || 0;
+      
+      // Tìm flashcard tiếp theo trong cùng nhóm
+      let nextFlashcardIndex = -1;
+      for (let i = timelinePos + 1; i < timeline.length; i++) {
+        if (timeline[i].type === "flashcard") {
+          const stepIndex = timeline[i].index || 0;
+          if (stepIndex > currentIndex) {
+            nextFlashcardIndex = stepIndex;
+            break;
+          }
+        } else if (timeline[i].type === "practice") {
+          // Nếu gặp practice step, dừng tìm kiếm
+          break;
+        }
+      }
+      
+      if (nextFlashcardIndex >= 0) {
+        // Tìm vị trí của flashcard tiếp theo trong timeline
+        const nextTimelinePos = timeline.findIndex(step => 
+          step.type === "flashcard" && step.index === nextFlashcardIndex
+        );
+        console.log("  - Found next flashcard at index:", nextFlashcardIndex);
+        console.log("  - Setting timelinePos to:", nextTimelinePos);
+        setTimelinePos(nextTimelinePos);
+      } else {
+        // Nếu không có flashcard tiếp theo, kiểm tra xem có practice step không
+        const nextStepIndex = timelinePos + 1;
+        const nextStep = timeline[nextStepIndex];
+        
+        if (nextStep?.type === "practice") {
+          console.log("  - Next step is practice, showing modal");
+          setShowPracticeTransitionModal(true);
+        } else {
+          console.log("  - No next flashcard or practice found, going to next step");
+          setTimelinePos((prev) => Math.min(prev + 1, timeline.length - 1));
+        }
+      }
+    } else {
+      // Nếu không phải flashcard, chuyển sang step tiếp theo
+      console.log("  - Not a flashcard step, going to next step");
+      setTimelinePos((prev) => Math.min(prev + 1, timeline.length - 1));
+    }
   };
 
   const prevStep = () => {
-    setTimelinePos((prev) => Math.max(prev - 1, 0));
+    const currentStep = timeline[timelinePos];
+    console.log("🔙 prevStep called:");
+    console.log("  - currentStep:", currentStep);
+    console.log("  - timelinePos:", timelinePos);
+    
+    if (currentStep?.type === "flashcard") {
+      // Nếu đang ở flashcard, kiểm tra xem có phải flashcard đầu tiên trong nhóm không
+      const currentIndex = currentStep.index || 0;
+      
+      // Tìm flashcard trước đó trong cùng nhóm
+      let prevFlashcardIndex = -1;
+      for (let i = timelinePos - 1; i >= 0; i--) {
+        if (timeline[i].type === "flashcard") {
+          const stepIndex = timeline[i].index || 0;
+          if (stepIndex < currentIndex) {
+            prevFlashcardIndex = stepIndex;
+            break;
+          }
+        } else if (timeline[i].type === "practice") {
+          // Nếu gặp practice step, dừng tìm kiếm
+          break;
+        }
+      }
+      
+      if (prevFlashcardIndex >= 0) {
+        // Tìm vị trí của flashcard trước đó trong timeline
+        const prevTimelinePos = timeline.findIndex(step => 
+          step.type === "flashcard" && step.index === prevFlashcardIndex
+        );
+        console.log("  - Found previous flashcard at index:", prevFlashcardIndex);
+        console.log("  - Setting timelinePos to:", prevTimelinePos);
+        setTimelinePos(prevTimelinePos);
+      } else {
+        // Nếu không có flashcard trước đó, quay về step trước đó
+        console.log("  - No previous flashcard found, going to previous step");
+        setTimelinePos((prev) => Math.max(prev - 1, 0));
+      }
+    } else {
+      // Nếu không phải flashcard, quay về step trước đó
+      console.log("  - Not a flashcard step, going to previous step");
+      setTimelinePos((prev) => Math.max(prev - 1, 0));
+    }
   };
 
   const resetTimeline = () => {
     setTimelinePos(0);
   };
 
-  const goToPractice = () => {
-    // Debug log để kiểm tra timeline
-    console.log("🔍 goToPractice called");
-    console.log("  - timeline:", timeline);
-    console.log("  - timeline.length:", timeline.length);
-    
-    // Tìm practice step cuối cùng
-    let lastPracticeIndex = -1;
-    for (let i = timeline.length - 1; i >= 0; i--) {
-      if (timeline[i].type === "practice") {
-        lastPracticeIndex = i;
-        break;
+  // Handle practice transition modal actions
+  const handlePracticeTransitionContinue = () => {
+    setShowPracticeTransitionModal(false);
+    setTimelinePos((prev) => Math.min(prev + 1, timeline.length - 1));
+  };
+
+  const handlePracticeTransitionReview = () => {
+    setShowPracticeTransitionModal(false);
+    // Quay lại flashcard cuối cùng trong nhóm hiện tại
+    const currentStep = timeline[timelinePos];
+    if (currentStep?.type === "flashcard" && currentStep.index !== undefined) {
+      // Tìm flashcard cuối cùng trong nhóm hiện tại
+      let lastFlashcardIndex = currentStep.index;
+      for (let i = timelinePos - 1; i >= 0; i--) {
+        if (timeline[i].type === "flashcard") {
+          lastFlashcardIndex = timeline[i].index || 0;
+          break;
+        }
       }
+      // Đặt vị trí về flashcard cuối cùng trong nhóm
+      setTimelinePos(timeline.findIndex(step => 
+        step.type === "flashcard" && step.index === lastFlashcardIndex
+      ));
     }
-    
-    if (lastPracticeIndex !== -1) {
-      console.log("  - Found last practice at index:", lastPracticeIndex);
-      setTimelinePos(lastPracticeIndex);
-    } else {
-      console.log("  - No practice found, staying at current position");
-    }
+  };
+
+  const handlePracticeTransitionClose = () => {
+    setShowPracticeTransitionModal(false);
+  };
+
+  // Handle completion popup actions
+  const handleCompletionRetry = () => {
+    setShowCompletionModal(false);
+    resetTimeline();
+  };
+
+  const handleCompletionNext = () => {
+    setShowCompletionModal(false);
+    // TODO: Navigate to next subtopic
+    console.log("Navigate to next subtopic");
+  };
+
+  const handleCompletionClose = () => {
+    setShowCompletionModal(false);
   };
 
   // Mark flashcard as completed
@@ -206,9 +336,29 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     return currentStep?.type === "flashcard" && currentStep.index === flashcards.length - 1;
   };
 
-  // Check if current step is last practice
+  // Check if current step is last practice - Sửa lại logic
   const isLastPractice = () => {
-    return timelinePos === timeline.length - 1;
+    const currentStep = timeline[timelinePos];
+    console.log("🔍 isLastPractice called:");
+    console.log("  - currentStep:", currentStep);
+    console.log("  - timelinePos:", timelinePos);
+    console.log("  - timeline length:", timeline.length);
+    
+    if (currentStep?.type !== "practice") {
+      console.log("  - Not a practice step, returning false");
+      return false;
+    }
+    
+    // Kiểm tra xem có practice step nào sau step hiện tại không
+    for (let i = timelinePos + 1; i < timeline.length; i++) {
+      console.log(`  - Checking step ${i}:`, timeline[i]);
+      if (timeline[i].type === "practice") {
+        console.log("  - Found another practice step, returning false");
+        return false; // Còn practice step khác
+      }
+    }
+    console.log("  - No more practice steps found, returning true");
+    return true; // Đây là practice step cuối cùng
   };
 
   // Get current step info
@@ -225,6 +375,32 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     return [];
   };
 
+  // Get practice cards for upcoming practice step (for modal)
+  const getUpcomingPracticeCards = () => {
+    const currentStep = timeline[timelinePos];
+    console.log("🔍 getUpcomingPracticeCards called:");
+    console.log("  - currentStep:", currentStep);
+    console.log("  - timelinePos:", timelinePos);
+    console.log("  - timeline length:", timeline.length);
+    
+    if (currentStep?.type === "flashcard") {
+      // Tìm practice step tiếp theo
+      const nextStepIndex = timelinePos + 1;
+      const nextStep = timeline[nextStepIndex];
+      console.log("  - nextStepIndex:", nextStepIndex);
+      console.log("  - nextStep:", nextStep);
+      
+      if (nextStep?.type === "practice" && nextStep.start !== undefined && nextStep.end !== undefined) {
+        const practiceCards = flashcards.slice(nextStep.start, nextStep.end);
+        console.log("  - practiceCards found:", practiceCards.length, "cards");
+        console.log("  - start:", nextStep.start, "end:", nextStep.end);
+        return practiceCards;
+      }
+    }
+    console.log("  - No practice cards found");
+    return [];
+  };
+
   // Check if flashcard is completed
   const isFlashcardCompleted = (flashcardId: number) => {
     return completedFlashcards.includes(flashcardId);
@@ -236,6 +412,46 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     return Math.round((completedFlashcards.length * 100) / flashcards.length);
   };
 
+  // Get current group size for practice transition modal
+  const getCurrentGroupSize = () => {
+    const currentStep = timeline[timelinePos];
+    if (currentStep?.type === "flashcard" && currentStep.index !== undefined) {
+      // Tìm số lượng flashcard trong nhóm hiện tại
+      let groupSize = 0;
+      for (let i = timelinePos; i >= 0; i--) {
+        if (timeline[i].type === "flashcard") {
+          groupSize++;
+        } else if (timeline[i].type === "practice") {
+          break;
+        }
+      }
+      return groupSize;
+    }
+    return 0;
+  };
+
+  // Check if practice button should be shown
+  const shouldShowPracticeButton = () => {
+    const currentStep = timeline[timelinePos];
+    console.log("🔍 shouldShowPracticeButton called:");
+    console.log("  - currentStep:", currentStep);
+    console.log("  - timelinePos:", timelinePos);
+    
+    if (currentStep?.type === "flashcard") {
+      // Kiểm tra xem có practice step tiếp theo không
+      const nextStepIndex = timelinePos + 1;
+      const nextStep = timeline[nextStepIndex];
+      console.log("  - nextStepIndex:", nextStepIndex);
+      console.log("  - nextStep:", nextStep);
+      
+      const shouldShow = nextStep?.type === "practice" && nextStep.start !== undefined && nextStep.end !== undefined;
+      console.log("  - shouldShow:", shouldShow);
+      return shouldShow;
+    }
+    console.log("  - Not a flashcard step, shouldShow: false");
+    return false;
+  };
+
   return {
     // State
     flashcards,
@@ -245,16 +461,22 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     timelinePos,
     showCompletionPopup,
     showTransitionPopup,
+    showPracticeTransitionModal,
+    showCompletionModal,
     userProgress,
     completedFlashcards,
     
     // Actions
     setShowCompletionPopup,
     setShowTransitionPopup,
+    setShowPracticeTransitionModal,
+    setShowCompletionModal,
     nextStep,
     prevStep,
     resetTimeline,
-    goToPractice,
+    handlePracticeTransitionContinue,
+    handlePracticeTransitionReview,
+    handlePracticeTransitionClose,
     markFlashcardCompleted,
     markPracticeCompleted,
     handleUserChoice,
@@ -264,8 +486,16 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     isLastPractice,
     getCurrentStep,
     getPracticeCards,
+    getUpcomingPracticeCards,
     isFlashcardCompleted,
     getProgressPercentage,
+    getCurrentGroupSize,
+    shouldShowPracticeButton,
     totalCards: flashcards.length,
+    
+    // Completion popup actions
+    handleCompletionRetry,
+    handleCompletionNext,
+    handleCompletionClose,
   };
 } 

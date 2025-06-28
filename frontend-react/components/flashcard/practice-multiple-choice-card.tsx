@@ -26,36 +26,52 @@ export function PracticeMultipleChoiceCard({ question, onContinue, isLastQuestio
   const [showPopup, setShowPopup] = useState(false);
   const [videoError, setVideoError] = useState(false);
 
+  console.log("🔍 PracticeMultipleChoiceCard render:");
+  console.log("  - question.id:", question.id);
+  console.log("  - isLastQuestion:", isLastQuestion);
+  console.log("  - isCorrect:", isCorrect);
+  console.log("  - showPopup:", showPopup);
+  console.log("  - onContinue function:", typeof onContinue);
+
   // Reset state khi sang câu mới
   useEffect(() => {
+    console.log("🔄 PracticeMultipleChoiceCard: Resetting state for question", question.id);
+    console.log("  - Previous state - selectedAnswer:", selectedAnswer);
+    console.log("  - Previous state - isCorrect:", isCorrect);
+    console.log("  - Previous state - showPopup:", showPopup);
+    
     setSelectedAnswer(null);
     setShowFeedback(false);
     setIsCorrect(false);
     setShowPopup(false);
     setVideoError(false);
+    
+    console.log("  - State reset completed");
   }, [question.id]);
 
-  useEffect(() => {
-    if (isCorrect && isLastQuestion && showPopup) {
-      // Tự động gọi onContinue sau 1s nếu là câu cuối cùng
-      const timeout = setTimeout(() => {
-        setShowPopup(false);
-        onContinue();
-      }, 1000);
-      return () => clearTimeout(timeout);
-    }
-  }, [isCorrect, isLastQuestion, showPopup, onContinue]);
-
   const handleSelectAnswer = (answer: string) => {
+    console.log("🎯 PracticeMultipleChoiceCard: handleSelectAnswer called with:", answer);
+    console.log("  - correct answer:", question.correctAnswer);
+    console.log("  - isCorrect (before):", isCorrect);
+    console.log("  - question ID:", question.id);
+    console.log("  - all options:", question.options.map(opt => opt.text));
+    
     if (isCorrect) return;
     setSelectedAnswer(answer);
     const correct = answer === question.correctAnswer;
     setIsCorrect(correct);
     setShowFeedback(true);
     setShowPopup(true);
+    
+    console.log("  - isCorrect (after):", correct);
+    console.log("  - showPopup set to true");
+    console.log("  - Answer check result:", correct ? "CORRECT" : "WRONG");
   };
 
   const handleContinue = () => {
+    console.log("🎯 PracticeMultipleChoiceCard handleContinue called");
+    console.log("  - isLastQuestion:", isLastQuestion);
+    console.log("  - isCorrect:", isCorrect);
     setShowPopup(false);
     onContinue();
   };
@@ -161,10 +177,16 @@ export function PracticeMultipleChoiceCard({ question, onContinue, isLastQuestio
                 {/* Continue/Retry button */}
                 {isCorrect ? (
                   <Button
-                    onClick={handleContinue}
+                    onClick={() => {
+                      console.log("🎯 Completion button clicked!");
+                      console.log("  - isLastQuestion:", isLastQuestion);
+                      console.log("  - About to call handleContinue...");
+                      handleContinue();
+                      console.log("  - handleContinue called successfully");
+                    }}
                     className="w-full font-bold py-3 px-4 rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl text-base bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
                   >
-                    Tiếp tục
+                    {isLastQuestion ? (console.log("🟢 Rendering 'Hoàn thành' button"), "Hoàn thành") : (console.log("🟡 Rendering 'Tiếp tục' button"), "Tiếp tục")}
                   </Button>
                 ) : (
                   <Button

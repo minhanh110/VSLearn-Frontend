@@ -32,6 +32,16 @@ export interface PracticeQuestion {
   correctAnswer: string;
 }
 
+export interface SentenceBuildingQuestion {
+  id: number;
+  videoUrl?: string;
+  imageUrl?: string;
+  question: string;
+  words: string[];
+  correctSentence: string[];
+  correctAnswer: string;
+}
+
 export interface ProgressRequest {
   completedFlashcards: number[];
   completedPractice: boolean;
@@ -110,6 +120,48 @@ export class FlashcardService {
       }
     } catch (error) {
       console.warn('Practice questions API failed, using frontend logic');
+    }
+    return [];
+  }
+
+  // Lấy sentence building questions từ backend
+  static async getSentenceBuildingQuestions(subtopicId: string): Promise<SentenceBuildingQuestion[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/flashcards/subtopic/${subtopicId}/sentence-building`);
+      if (response.ok) {
+        const data = await response.json();
+        return data || [];
+      }
+    } catch (error) {
+      console.warn('Sentence building API failed, using fallback data');
+    }
+    return [];
+  }
+
+  // Kiểm tra topic có sentence building không
+  static async hasSentenceBuildingForTopic(topicId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/flashcards/topic/${topicId}/has-sentence-building`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.hasSentenceBuilding || false;
+      }
+    } catch (error) {
+      console.warn('Sentence building check API failed:', error);
+    }
+    return false;
+  }
+
+  // Lấy sentence building questions cho topic
+  static async getSentenceBuildingQuestionsForTopic(topicId: number): Promise<SentenceBuildingQuestion[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/flashcards/topic/${topicId}/sentence-building`);
+      if (response.ok) {
+        const data = await response.json();
+        return data || [];
+      }
+    } catch (error) {
+      console.warn('Sentence building questions API failed:', error);
     }
     return [];
   }

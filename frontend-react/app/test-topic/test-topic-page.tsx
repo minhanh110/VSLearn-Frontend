@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter, useSearchParams } from "next/navigation"
 import { testService, TestQuestion, TestAnswer, TestSubmissionRequest } from "@/app/services/testService"
+import authService from "@/app/services/auth.service"
+import { LoginModal } from "@/components/login-modal"
+import { jwtDecode } from 'jwt-decode'
 
 export function TestTopicPage() {
   console.log("=== TestTopicPage rendered ===");
@@ -17,9 +20,11 @@ export function TestTopicPage() {
   const searchParams = useSearchParams()
   const testId = searchParams.get("testId")
   const topicId = searchParams.get("topicId")
-  const userId = searchParams.get("userId") || "1" // Default user ID for testing
+  
+  // Get actual user ID from authentication service
+  const [userId, setUserId] = useState<string>("1")
 
-  console.log("URL params:", { testId, topicId, userId });
+  console.log("URL params:", { testId, topicId });
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -32,6 +37,31 @@ export function TestTopicPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [nextTopicInfo, setNextTopicInfo] = useState<any>(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+
+  // Get user ID from authentication service
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      try {
+        const token = authService.getCurrentToken()
+        if (token) {
+          const decoded = jwtDecode(token) as any
+          if (decoded && decoded.id) {
+            setUserId(decoded.id.toString())
+            console.log("Current user ID from token:", decoded.id)
+          } else {
+            console.log("No user ID in token, using default ID: 1")
+          }
+        } else {
+          console.log("No token found, using default ID: 1")
+        }
+      } catch (error) {
+        console.error("Error decoding token:", error)
+      }
+    }
+    
+    getCurrentUserId()
+  }, [])
 
   // Load test questions when component mounts
   useEffect(() => {
@@ -39,6 +69,15 @@ export function TestTopicPage() {
     console.log("useEffect dependencies:", { topicId, userId });
     const loadTestQuestions = async () => {
       console.log("loadTestQuestions started");
+      
+      // Check authentication first
+      if (!authService.isAuthenticated()) {
+        console.log("User not authenticated, showing login modal");
+        setShowLoginModal(true)
+        setLoading(false)
+        return
+      }
+      
       if (!topicId) {
         console.log("No topicId provided");
         setError("Topic ID is required")
@@ -55,9 +94,16 @@ export function TestTopicPage() {
         setTestQuestions(questions)
         setLoading(false)
         console.log("Test questions loaded successfully");
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error loading test questions:", err)
-        setError("Failed to load test questions")
+        
+        // Handle authentication errors
+        if (err.message?.includes('Authentication required') || err.message?.includes('Network Error')) {
+          setError("Vui lòng đăng nhập để tiếp tục")
+          setShowLoginModal(true)
+        } else {
+          setError("Failed to load test questions")
+        }
         setLoading(false)
       }
     }
@@ -252,7 +298,7 @@ export function TestTopicPage() {
   }
 
   const handleGoToFeedback = () => {
-    router.push("/feedback")
+    router.push(`/feedback?topicId=${topicId}`)
   }
 
   const handleShowReview = () => {
@@ -290,6 +336,12 @@ export function TestTopicPage() {
       6: "Hãy ghi nhớ hành động này chính xác",
     }
     return explanations[questionId] || "Hãy ôn tập lại từ vựng này"
+  }
+
+  const handleCloseLoginModal = () => {
+    setShowLoginModal(false)
+    // Redirect back to homepage if user closes the modal
+    router.push("/homepage")
   }
 
   // Loading state
@@ -363,6 +415,13 @@ export function TestTopicPage() {
                 XEM LẠI BÀI KIỂM TRA
               </Button>
 
+              <Button
+                onClick={handleGoToFeedback}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-xl"
+              >
+                GỬI PHẢN HỒI
+              </Button>
+
               {testScore >= 90 && nextTopicInfo && nextTopicInfo.isAvailable ? (
                 <>
                   <Button
@@ -399,6 +458,13 @@ export function TestTopicPage() {
         </div>
 
         <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+        {/* Login Modal */}
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={handleCloseLoginModal}
+          returnUrl={window.location.href}
+        />
       </div>
     )
   }
@@ -408,6 +474,18 @@ export function TestTopicPage() {
     <div className="min-h-screen bg-blue-100 relative overflow-hidden">
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
+      {/* Submit Button - Top Right Corner */}
+      {currentQuestionIndex < testQuestions.length - 1 && (
+        <div className="fixed top-20 right-4 z-20">
+          <Button
+            onClick={handleSubmitTest}
+            className="bg-gradient-to-r from-red-400 to-pink-400 hover:from-red-500 hover:to-pink-500 text-white font-bold py-2 px-4 rounded-full transition-all duration-200 hover:shadow-lg shadow-md"
+          >
+            NỘP BÀI
+          </Button>
+        </div>
+      )}
+
       <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
         <div className="max-w-4xl mx-auto">
           {/* Progress Bar */}
@@ -416,9 +494,12 @@ export function TestTopicPage() {
               <span className="text-sm font-medium text-gray-600">
                 Câu {currentQuestionIndex + 1} / {testQuestions.length}
               </span>
-              <span className="text-sm font-medium text-blue-600">
-                {Math.round(((currentQuestionIndex + 1) / testQuestions.length) * 100)}%
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">Có thể nộp bài bất cứ lúc nào</span>
+                <span className="text-sm font-medium text-blue-600">
+                  {Math.round(((currentQuestionIndex + 1) / testQuestions.length) * 100)}%
+                </span>
+              </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
@@ -590,6 +671,13 @@ export function TestTopicPage() {
       )}
 
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={handleCloseLoginModal}
+        returnUrl={window.location.href}
+      />
     </div>
   )
 }

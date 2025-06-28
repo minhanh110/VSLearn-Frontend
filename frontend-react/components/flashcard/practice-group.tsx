@@ -1,21 +1,8 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { PracticeMultipleChoiceCard } from './practice-multiple-choice-card'
-import { FlashcardService, type PracticeQuestion } from '@/app/services/flashcard.service'
-
-interface Flashcard {
-  id: number;
-  front: {
-    type: "video" | "image";
-    content: string;
-    title: string;
-  };
-  back: {
-    word: string;
-    description: string;
-  };
-}
+import { useState, useEffect, useMemo } from "react"
+import { PracticeMultipleChoiceCard } from "./practice-multiple-choice-card"
+import { type Flashcard } from "@/app/services/flashcard.service"
 
 interface PracticeGroupProps {
   practiceCards: Flashcard[];
@@ -25,137 +12,119 @@ interface PracticeGroupProps {
 }
 
 export function PracticeGroup({ practiceCards, allCards, onContinue, subtopicId }: PracticeGroupProps) {
-  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [questionKey, setQuestionKey] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  // Load practice questions from backend
-  useEffect(() => {
-    const loadPracticeQuestions = async () => {
-      try {
-        setIsLoading(true);
-        // Tìm start và end index dựa trên practiceCards
-        const startIndex = allCards.findIndex(card => card.id === practiceCards[0]?.id);
-        const endIndex = startIndex + practiceCards.length;
-        
-        if (startIndex >= 0 && practiceCards.length > 0) {
-          const backendQuestions = await FlashcardService.getPracticeQuestions(subtopicId, startIndex, endIndex);
-          if (backendQuestions.length > 0) {
-            setQuestions(backendQuestions);
-            return;
-          }
-        }
-        
-        // Fallback: tạo questions ở frontend nếu backend không có data
-        const frontendQuestions = practiceCards.map((card) => {
-          const correctOption = {
-            text: card.back.word,
-          };
-          // Lấy các card sai (ưu tiên trong đoạn vừa học, nếu thiếu thì lấy toàn bộ)
-          let distractorPool = practiceCards.filter(c => c.id !== card.id);
-          if (distractorPool.length < 3) {
-            distractorPool = distractorPool.concat(
-              allCards.filter(c => c.id !== card.id && !distractorPool.some(dc => dc.id === c.id))
-            );
-          }
-          const distractorOptions = distractorPool
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 3)
-            .map(c => ({
-              text: c.back.word,
-            }));
-          const options = [correctOption, ...distractorOptions].sort(() => 0.5 - Math.random());
-          return {
-            id: card.id,
-            videoUrl: card.front.content,
-            imageUrl: card.front.type === "image" ? card.front.content : undefined,
-            question: "Đây là từ gì?",
-            options,
-            correctAnswer: correctOption.text,
-          };
-        }).sort(() => 0.5 - Math.random()); // random thứ tự câu hỏi
-        
-        setQuestions(frontendQuestions);
-      } catch (error) {
-        console.error('Failed to load practice questions:', error);
-        // Fallback to frontend logic
-        const frontendQuestions = practiceCards.map((card) => {
-          const correctOption = {
-            text: card.back.word,
-          };
-          let distractorPool = practiceCards.filter(c => c.id !== card.id);
-          if (distractorPool.length < 3) {
-            distractorPool = distractorPool.concat(
-              allCards.filter(c => c.id !== card.id && !distractorPool.some(dc => dc.id === c.id))
-            );
-          }
-          const distractorOptions = distractorPool
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 3)
-            .map(c => ({
-              text: c.back.word,
-            }));
-          const options = [correctOption, ...distractorOptions].sort(() => 0.5 - Math.random());
-          return {
-            id: card.id,
-            videoUrl: card.front.content,
-            imageUrl: card.front.type === "image" ? card.front.content : undefined,
-            question: "Đây là từ gì?",
-            options,
-            correctAnswer: correctOption.text,
-          };
-        }).sort(() => 0.5 - Math.random());
-        
-        setQuestions(frontendQuestions);
-      } finally {
-        setIsLoading(false);
+  console.log("🔍 PracticeGroup render:");
+  console.log("  - currentQuestionIndex:", currentQuestionIndex);
+  console.log("  - practiceCards.length:", practiceCards.length);
+  console.log("  - onContinue function:", typeof onContinue);
+
+  // Tạo câu hỏi từ practice cards
+  const questions = useMemo(() => {
+    console.log("🔄 PracticeGroup: Creating questions from", practiceCards.length, "cards");
+    console.log("  - Practice cards:", practiceCards.map(c => ({ id: c.id, word: c.back.word })));
+    
+    return practiceCards.map((card, index) => {
+      console.log(`  - Creating question ${index + 1} for card ID ${card.id}, word: ${card.back.word}`);
+      
+      const correctOption = {
+        text: card.back.word,
+      };
+      
+      // Lấy các card sai (ưu tiên trong đoạn vừa học, nếu thiếu thì lấy toàn bộ)
+      let distractorPool = practiceCards.filter(c => c.id !== card.id);
+      if (distractorPool.length < 3) {
+        distractorPool = distractorPool.concat(
+          allCards.filter(c => c.id !== card.id && !distractorPool.some(dc => dc.id === c.id))
+        );
       }
-    };
+      
+      const distractorOptions = distractorPool
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3)
+        .map(c => ({
+          text: c.back.word,
+        }));
+      
+      const options = [correctOption, ...distractorOptions].sort(() => 0.5 - Math.random());
+      
+      const question = {
+        id: card.id,
+        videoUrl: card.front.content,
+        imageUrl: card.front.type === "image" ? card.front.content : "",
+        question: "Đây là từ gì?",
+        options,
+        correctAnswer: correctOption.text,
+      };
+      
+      console.log(`  - Question ${index + 1} created:`, {
+        id: question.id,
+        correctAnswer: question.correctAnswer,
+        options: question.options.map(opt => opt.text)
+      });
+      
+      return question;
+    }).sort(() => 0.5 - Math.random()); // Khôi phục random thứ tự câu hỏi
+  }, [practiceCards, allCards]);
 
-    if (practiceCards.length > 0) {
-      loadPracticeQuestions();
+  const currentQuestion = useMemo(() => {
+    console.log("🔄 PracticeGroup: Getting current question at index", currentQuestionIndex);
+    const question = questions[currentQuestionIndex];
+    if (question) {
+      console.log("  - Question ID:", question.id);
+      console.log("  - Correct answer:", question.correctAnswer);
+      console.log("  - Options:", question.options.map(opt => opt.text));
     }
-  }, [practiceCards, allCards, subtopicId]);
+    return question;
+  }, [questions, currentQuestionIndex]);
 
-  const handleNext = () => {
-    if (currentIdx < questions.length - 1) {
-      setCurrentIdx(currentIdx + 1);
-      setQuestionKey(prev => prev + 1);
-    } else {
-      setCurrentIdx(0);
-      setQuestionKey(prev => prev + 1);
+  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+  console.log("🔍 PracticeGroup: isLastQuestion =", isLastQuestion, "(currentQuestionIndex:", currentQuestionIndex, "questions.length:", questions.length, ")");
+
+  const handleContinue = () => {
+    console.log("🎯 PracticeGroup handleContinue called");
+    console.log("  - currentQuestionIndex:", currentQuestionIndex);
+    console.log("  - questions.length:", questions.length);
+    console.log("  - isLastQuestion:", isLastQuestion);
+    
+    if (isLastQuestion) {
+      // Hoàn thành practice session
+      console.log("✅ This is the last question, calling onContinue");
+      console.log("  - onContinue function type:", typeof onContinue);
+      console.log("  - About to call onContinue...");
       onContinue();
+      console.log("  - onContinue called successfully");
+    } else {
+      // Chuyển sang câu hỏi tiếp theo
+      console.log("➡️ Moving to next question");
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
 
-  if (isLoading) {
+  if (!currentQuestion) {
     return (
-      <div className="flex-1 flex flex-col justify-center items-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-blue-700 text-lg font-semibold">Đang tải câu hỏi...</p>
-      </div>
-    );
-  }
-
-  if (questions.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col justify-center items-center">
-        <p className="text-red-600 text-lg font-semibold">Không có câu hỏi nào</p>
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-700 text-lg font-semibold">Đang tải câu hỏi...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-center items-center">
+    <div className="w-full h-full">
       <PracticeMultipleChoiceCard
-        key={questionKey}
-        question={questions[currentIdx]}
-        onContinue={handleNext}
-        isLastQuestion={currentIdx === questions.length - 1}
+        question={currentQuestion}
+        onContinue={handleContinue}
+        isLastQuestion={isLastQuestion}
       />
-      <div className="mt-4 text-blue-700 font-semibold">
-        Câu {currentIdx + 1} / {questions.length}
+      
+      {/* Progress indicator */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
+        <span className="text-blue-700 font-semibold text-sm">
+          Câu {currentQuestionIndex + 1} / {questions.length}
+        </span>
       </div>
     </div>
   );

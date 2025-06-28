@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Image from "next/image"
@@ -40,6 +40,8 @@ export default function PracticePage() {
   const searchParams = useSearchParams()
   const lessonId = searchParams.get("lessonId")
   const testId = searchParams.get("testId")
+  const mode = searchParams.get("mode")
+  const topicId = searchParams.get("topicId")
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -47,7 +49,9 @@ export default function PracticePage() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
   const [wrongQuestions, setWrongQuestions] = useState<number[]>([]) // Lưu câu sai để làm lại
-  const [currentPhase, setCurrentPhase] = useState<"multiple-choice" | "sentence-building">("multiple-choice")
+  const [currentPhase, setCurrentPhase] = useState<"multiple-choice" | "sentence-building">(
+    mode === "sentence-building" ? "sentence-building" : "multiple-choice"
+  )
   const [showCompletionPopup, setShowCompletionPopup] = useState(false)
   const [showStartSubtopicPopup, setShowStartSubtopicPopup] = useState(false)
 
@@ -60,6 +64,53 @@ export default function PracticePage() {
   const [multipleChoiceQuestions, setMultipleChoiceQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sentenceBuildingQuestions, setSentenceBuildingQuestions] = useState<Question[]>([])
+  const [sentenceBuildingLoading, setSentenceBuildingLoading] = useState(false)
+
+  // Ref để lưu trữ thứ tự từ vựng cho mỗi câu hỏi
+  const availableWordsByQuestion = useRef<Map<number, WordWithPosition[]>>(new Map())
+  
+  // Ref để lưu trữ trạng thái đã chọn cho mỗi câu hỏi
+  const selectedWordsByQuestion = useRef<Map<number, WordWithPosition[]>>(new Map())
+
+  // Lấy danh sách câu hỏi hiện tại dựa trên phase
+  const getCurrentQuestions = useMemo(() => {
+    if (currentPhase === "multiple-choice") {
+      return multipleChoiceQuestions;
+    }
+    return sentenceBuildingQuestions;
+  }, [currentPhase, multipleChoiceQuestions, sentenceBuildingQuestions]);
+
+  const currentQuestion = useMemo(() => {
+    return getCurrentQuestions[currentQuestionIndex];
+  }, [getCurrentQuestions, currentQuestionIndex]);
+
+  // Khởi tạo available words khi câu hỏi thay đổi
+  useEffect(() => {
+    if (currentQuestion?.type === "sentence-building" && currentQuestion.words) {
+      // Kiểm tra xem đã có thứ tự từ vựng cho câu hỏi này chưa
+      const questionId = currentQuestion.id;
+      const existingWords = availableWordsByQuestion.current.get(questionId);
+      const existingSelectedWords = selectedWordsByQuestion.current.get(questionId) || [];
+      
+      if (existingWords) {
+        // Nếu đã có, sử dụng lại thứ tự cũ và trạng thái đã chọn
+        setAvailableWords(existingWords);
+        setSelectedWords(existingSelectedWords);
+      } else {
+        // Nếu chưa có, tạo thứ tự mới và lưu lại
+        const wordsWithPosition = currentQuestion.words.map((word, index) => ({
+          word,
+          originalIndex: index,
+        }));
+        setAvailableWords(wordsWithPosition);
+        setSelectedWords([]);
+        // Lưu thứ tự này để sử dụng lại khi quay lại câu hỏi
+        availableWordsByQuestion.current.set(questionId, wordsWithPosition);
+        selectedWordsByQuestion.current.set(questionId, []);
+      }
+    }
+  }, [currentQuestion?.id, currentQuestion?.type])
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -90,65 +141,80 @@ export default function PracticePage() {
     fetchQuestions();
   }, [lessonId]);
 
-  const sentenceBuildingQuestions: Question[] = useMemo(
-    () => [
-      {
-        id: 4,
-        type: "sentence-building",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "Ghép câu theo video:",
-        words: ["Tôi", "là", "bác sĩ", "tệ", "giỏi", "có giáo"],
-        correctSentence: ["Tôi", "là", "bác sĩ"],
-        correctAnswer: "Tôi là bác sĩ",
-      },
-      {
-        id: 5,
-        type: "sentence-building",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "Ghép câu theo video:",
-        words: ["Anh", "ấy", "là", "giáo viên", "học sinh", "bác sĩ"],
-        correctSentence: ["Anh", "ấy", "là", "giáo viên"],
-        correctAnswer: "Anh ấy là giáo viên",
-      },
-      {
-        id: 6,
-        type: "sentence-building",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "Ghép câu theo video:",
-        words: ["Chúng tôi", "đang", "học", "ăn", "ngủ", "chơi"],
-        correctSentence: ["Chúng tôi", "đang", "học"],
-        correctAnswer: "Chúng tôi đang học",
-      },
-    ],
-    [],
-  )
-
-  // Lấy danh sách câu hỏi hiện tại dựa trên phase
-  const getCurrentQuestions = useMemo(() => {
-    if (currentPhase === "multiple-choice") {
-      return multipleChoiceQuestions;
-    }
-    return sentenceBuildingQuestions;
-  }, [currentPhase, multipleChoiceQuestions, sentenceBuildingQuestions]);
-
-  const currentQuestion = useMemo(() => {
-    return getCurrentQuestions[currentQuestionIndex];
-  }, [getCurrentQuestions, currentQuestionIndex]);
-
-  // Khởi tạo available words khi câu hỏi thay đổi
+  // Load sentence building questions from backend
   useEffect(() => {
-    if (currentQuestion?.type === "sentence-building" && currentQuestion.words) {
-      const wordsWithPosition = currentQuestion.words.map((word, index) => ({
-        word,
-        originalIndex: index,
-      }))
-      setAvailableWords(wordsWithPosition)
-      setSelectedWords([])
-    }
-  }, [currentQuestion?.id, currentQuestion?.type])
+    const fetchSentenceBuildingQuestions = async () => {
+      // Nếu có topicId và mode là sentence-building, sử dụng topicId
+      // Nếu không có topicId, sử dụng lessonId như cũ
+      const id = topicId || lessonId;
+      if (!id) return;
+      
+      setSentenceBuildingLoading(true);
+      try {
+        let url;
+        if (topicId && mode === "sentence-building") {
+          // Lấy sentence building questions cho topic
+          url = `http://localhost:8080/api/v1/flashcards/topic/${id}/sentence-building`;
+        } else {
+          // Sử dụng lessonId như cũ
+          url = `http://localhost:8080/api/v1/flashcards/subtopic/${id}/sentence-building`;
+        }
+        
+        const res = await axios.get(url);
+        const data = res.data;
+        // Map về đúng định dạng Question
+        const mapped: Question[] = data.map((q: any) => ({
+          id: q.id,
+          type: "sentence-building",
+          videoUrl: q.videoUrl,
+          imageUrl: q.imageUrl,
+          question: q.question,
+          words: q.words,
+          correctSentence: q.correctSentence,
+          correctAnswer: q.correctAnswer,
+        }));
+        setSentenceBuildingQuestions(mapped);
+      } catch (e: any) {
+        console.warn("Không thể tải câu hỏi ghép câu, sử dụng dữ liệu mặc định");
+        // Fallback to default data
+        setSentenceBuildingQuestions([
+          {
+            id: 4,
+            type: "sentence-building",
+            videoUrl: "/videos/sign-language-demo.mp4",
+            imageUrl: "/placeholder.svg?height=300&width=300",
+            question: "Ghép câu theo video:",
+            words: ["Tôi", "là", "bác sĩ", "tệ", "giỏi", "có giáo"],
+            correctSentence: ["Tôi", "là", "bác sĩ"],
+            correctAnswer: "Tôi là bác sĩ",
+          },
+          {
+            id: 5,
+            type: "sentence-building",
+            videoUrl: "/videos/sign-language-demo.mp4",
+            imageUrl: "/placeholder.svg?height=300&width=300",
+            question: "Ghép câu theo video:",
+            words: ["Anh", "ấy", "là", "giáo viên", "học sinh", "bác sĩ"],
+            correctSentence: ["Anh", "ấy", "là", "giáo viên"],
+            correctAnswer: "Anh ấy là giáo viên",
+          },
+          {
+            id: 6,
+            type: "sentence-building",
+            videoUrl: "/videos/sign-language-demo.mp4",
+            imageUrl: "/placeholder.svg?height=300&width=300",
+            question: "Ghép câu theo video:",
+            words: ["Chúng tôi", "đang", "học", "ăn", "ngủ", "chơi"],
+            correctSentence: ["Chúng tôi", "đang", "học"],
+            correctAnswer: "Chúng tôi đang học",
+          },
+        ]);
+      } finally {
+        setSentenceBuildingLoading(false);
+      }
+    };
+    fetchSentenceBuildingQuestions();
+  }, [lessonId, topicId, mode]);
 
   // Xử lý khi người dùng chọn đáp án multiple choice
   const handleSelectAnswer = (answer: string) => {
@@ -172,16 +238,30 @@ export default function PracticePage() {
     setTimeout(() => {
       if (fromAvailable) {
         // Chuyển từ available sang selected
-        setSelectedWords((prev) => [...prev, wordObj])
-        setAvailableWords((prev) => prev.filter((w) => w.word !== wordObj.word))
+        const newSelectedWords = [...selectedWords, wordObj];
+        const newAvailableWords = availableWords.filter((w) => w.word !== wordObj.word);
+        
+        setSelectedWords(newSelectedWords);
+        setAvailableWords(newAvailableWords);
+        
+        // Lưu trạng thái mới
+        if (currentQuestion?.id) {
+          selectedWordsByQuestion.current.set(currentQuestion.id, newSelectedWords);
+          availableWordsByQuestion.current.set(currentQuestion.id, newAvailableWords);
+        }
       } else {
         // Chuyển từ selected về available và sắp xếp lại theo vị trí gốc
-        setSelectedWords((prev) => prev.filter((w) => w.word !== wordObj.word))
-        setAvailableWords((prev) => {
-          const newAvailable = [...prev, wordObj]
-          // Sắp xếp lại theo originalIndex
-          return newAvailable.sort((a, b) => a.originalIndex - b.originalIndex)
-        })
+        const newSelectedWords = selectedWords.filter((w) => w.word !== wordObj.word);
+        const newAvailableWords = [...availableWords, wordObj].sort((a, b) => a.originalIndex - b.originalIndex);
+        
+        setSelectedWords(newSelectedWords);
+        setAvailableWords(newAvailableWords);
+        
+        // Lưu trạng thái mới
+        if (currentQuestion?.id) {
+          selectedWordsByQuestion.current.set(currentQuestion.id, newSelectedWords);
+          availableWordsByQuestion.current.set(currentQuestion.id, newAvailableWords);
+        }
       }
       setAnimatingWord(null)
     }, 300)
@@ -203,16 +283,17 @@ export default function PracticePage() {
   const handleContinue = () => {
     setSelectedAnswer(null)
     setShowFeedback(false)
-    setSelectedWords([])
 
     if (isCorrect) {
       // Đúng thì chuyển câu tiếp theo
       if (currentQuestionIndex < getCurrentQuestions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1)
+        // Reset selectedWords khi chuyển câu mới
+        setSelectedWords([])
       } else {
         // Hết câu hỏi trong phase hiện tại
         if (wrongQuestions.length > 0) {
-          // Có câu sai cần làm lại
+          // Có câu sai cần làm lại - không reset selectedWords
           const nextWrongIndex = wrongQuestions[0]
           setWrongQuestions((prev) => prev.slice(1))
           setCurrentQuestionIndex(nextWrongIndex)
@@ -223,6 +304,8 @@ export default function PracticePage() {
             setCurrentPhase("sentence-building")
             setCurrentQuestionIndex(0)
             setWrongQuestions([])
+            // Reset selectedWords khi chuyển phase
+            setSelectedWords([])
           } else {
             // Hoàn thành tất cả - hiện popup hoàn thành
             setShowCompletionPopup(true)
@@ -233,18 +316,23 @@ export default function PracticePage() {
       // Sai thì chuyển câu tiếp theo (sẽ quay lại làm lại sau)
       if (currentQuestionIndex < getCurrentQuestions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1)
+        // Reset selectedWords khi chuyển câu mới
+        setSelectedWords([])
       } else {
         // Hết câu trong phase, bắt đầu làm lại câu sai
         if (wrongQuestions.length > 0) {
           const nextWrongIndex = wrongQuestions[0]
           setWrongQuestions((prev) => prev.slice(1))
           setCurrentQuestionIndex(nextWrongIndex)
+          // Không reset selectedWords khi làm lại câu sai
         } else {
           // Không có câu sai, chuyển phase
           if (currentPhase === "multiple-choice") {
             setCurrentPhase("sentence-building")
             setCurrentQuestionIndex(0)
             setWrongQuestions([])
+            // Reset selectedWords khi chuyển phase
+            setSelectedWords([])
           } else {
             // Hoàn thành tất cả - hiện popup hoàn thành
             setShowCompletionPopup(true)
