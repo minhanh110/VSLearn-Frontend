@@ -6,7 +6,9 @@ import { Footer } from "@/components/footer"
 import { LearningPath } from "@/components/learning-path"
 import axiosInstance from "@/app/services/axios.config"
 import authService from "@/app/services/auth.service"
+import { FlashcardService } from "@/app/services/flashcard.service"
 import { useRouter } from "next/navigation"
+import { jwtDecode } from "jwt-decode"
 
 export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -91,32 +93,46 @@ export default function HomePage() {
         
         // Chỉ gọi API progress nếu user đã đăng nhập
         if (isAuthenticated && token) {
-          const res2 = await axiosInstance.get("/progress", { headers })
-          console.log("📊 Progress response:", res2.data)
-          
-          if (res2.data && res2.data.data) {
-            setCompletedLessons(res2.data.data)
-            console.log("📊 Completed lessons loaded:", res2.data.data.length, "lessons")
-          } else {
-            console.warn("⚠️ No progress data in response")
-            setCompletedLessons([])
+          try {
+            // Lấy userId từ token
+            const decoded = jwtDecode(token) as any;
+            const userId = decoded.id || '1';
+            
+            console.log("🔍 Loading progress for userId:", userId);
+            
+            // Sử dụng FlashcardService để lấy progress
+            const userProgress = await FlashcardService.getUserProgress(userId);
+            console.log("📊 User progress from FlashcardService:", userProgress);
+            
+            if (userProgress.completedSubtopicIds) {
+              const completedIds = userProgress.completedSubtopicIds.map(id => id.toString());
+              setCompletedLessons(completedIds);
+              console.log("✅ Completed lessons loaded:", completedIds);
+              console.log("📊 Completed lessons count:", completedIds.length);
+            } else {
+              console.warn("⚠️ No progress data in response");
+              setCompletedLessons([]);
+            }
+          } catch (progressError) {
+            console.warn("⚠️ Error loading user progress:", progressError);
+            setCompletedLessons([]);
           }
         } else {
           // Guest user - sử dụng demo endpoint
           try {
-            const res2 = await axiosInstance.get("/progress/demo")
-            console.log("📊 Demo progress response:", res2.data)
+            const res2 = await axiosInstance.get("/progress/demo");
+            console.log("📊 Demo progress response:", res2.data);
             
             if (res2.data && res2.data.data) {
-              setCompletedLessons(res2.data.data)
-              console.log("📊 Demo completed lessons loaded:", res2.data.data.length, "lessons")
+              setCompletedLessons(res2.data.data);
+              console.log("📊 Demo completed lessons loaded:", res2.data.data);
             } else {
-              setCompletedLessons([])
-              console.log("👤 Guest user - no demo progress data")
+              setCompletedLessons([]);
+              console.log("👤 Guest user - no demo progress data");
             }
           } catch (error) {
-            setCompletedLessons([])
-            console.log("👤 Guest user - error loading demo progress")
+            setCompletedLessons([]);
+            console.log("👤 Guest user - error loading demo progress");
           }
         }
         

@@ -8,6 +8,7 @@ import { CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter, useSearchParams } from "next/navigation"
 import axios from "axios"
+import authService from "@/app/services/auth.service"
 
 // Định nghĩa kiểu dữ liệu cho đáp án
 interface PracticeOption {
@@ -66,12 +67,34 @@ export default function PracticePage() {
   const [error, setError] = useState<string | null>(null)
   const [sentenceBuildingQuestions, setSentenceBuildingQuestions] = useState<Question[]>([])
   const [sentenceBuildingLoading, setSentenceBuildingLoading] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
 
   // Ref để lưu trữ thứ tự từ vựng cho mỗi câu hỏi
   const availableWordsByQuestion = useRef<Map<number, WordWithPosition[]>>(new Map())
   
   // Ref để lưu trữ trạng thái đã chọn cho mỗi câu hỏi
   const selectedWordsByQuestion = useRef<Map<number, WordWithPosition[]>>(new Map())
+
+  // Check authentication on mount
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search))
+      return
+    }
+    setAuthLoading(false)
+  }, [router])
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Lấy danh sách câu hỏi hiện tại dựa trên phase
   const getCurrentQuestions = useMemo(() => {

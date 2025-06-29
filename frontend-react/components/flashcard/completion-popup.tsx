@@ -13,6 +13,7 @@ interface CompletionPopupProps {
   subtopicName: string;
   hasNextSubtopic?: boolean;
   hasSentenceBuilding?: boolean;
+  isAllSubtopicsCompleted?: boolean;
 }
 
 export function CompletionPopup({ 
@@ -23,9 +24,24 @@ export function CompletionPopup({
   onSentenceBuilding,
   subtopicName,
   hasNextSubtopic = false,
-  hasSentenceBuilding = false
+  hasSentenceBuilding = false,
+  isAllSubtopicsCompleted = false
 }: CompletionPopupProps) {
   if (!isOpen) return null;
+
+  // Debug logs
+  console.log("🎯 CompletionPopup props:", {
+    isOpen,
+    hasNextSubtopic,
+    hasSentenceBuilding,
+    subtopicName
+  });
+  
+  console.log("🔍 Button visibility check:");
+  console.log("  - hasNextSubtopic:", hasNextSubtopic);
+  console.log("  - hasSentenceBuilding:", hasSentenceBuilding);
+  console.log("  - onSentenceBuilding exists:", !!onSentenceBuilding);
+  console.log("  - onNext exists:", !!onNext);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -64,14 +80,13 @@ export function CompletionPopup({
             🔄 Học lại subtopic này
           </Button>
           
-          {hasNextSubtopic && (
-            <Button 
-              onClick={onNext}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              ➡️ Học tiếp subtopic kế
-            </Button>
-          )}
+          {/* Luôn hiển thị nút tiếp theo - nếu có next subtopic thì học tiếp, không thì làm bài test */}
+          <Button 
+            onClick={onNext}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            {hasNextSubtopic ? "➡️ Học tiếp subtopic kế" : "📝 Làm bài test"}
+          </Button>
           
           <Link href="/homepage">
             <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
