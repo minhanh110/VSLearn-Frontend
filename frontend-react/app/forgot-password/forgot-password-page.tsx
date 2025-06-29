@@ -26,13 +26,6 @@ export default function ForgotPasswordPage() {
   }>({ type: null, message: "" })
   const router = useRouter()
 
-  const passwordTips = [
-    "Ít nhất 8 ký tự",
-    "Một chữ cái viết hoa",
-    "Một chữ cái viết thường",
-    "Một chữ số",
-    "Một ký tự đặc biệt",
-  ]
 
   const showNotification = (type: NotificationType, message: string) => {
     setNotification({ type, message })
@@ -147,21 +140,6 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            {showPasswordTips && (
-              <div className="bg-white/70 border border-gray-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">Khi tạo mật khẩu mới, hãy nhớ:</p>
-                <div className="space-y-2">
-                  {passwordTips.map((tip, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex items-center justify-center">
-                        <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                      </div>
-                      <span className="text-sm text-gray-600">{tip}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="text-center space-y-2">
               <p className="text-sm text-gray-600">

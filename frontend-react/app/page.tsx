@@ -11,7 +11,6 @@ export default function HomePage() {
     { name: "Xác thực OTP", href: "/otp", color: "bg-green-500" },
     { name: "Đổi mật khẩu", href: "/change-password", color: "bg-orange-500" },
     { name: "Chỉnh sửa hồ sơ", href: "/edit-profile", color: "bg-cyan-500" },
-    { name: "Đăng nhập Email", href: "/login-email", color: "bg-emerald-500" },
     { name: "Đăng xuất", href: "/logout", color: "bg-red-500" },
     { name: "🏠 Homepage VSLearn", href: "/homepage", color: "bg-gradient-to-r from-blue-600 to-cyan-600" },
   ]

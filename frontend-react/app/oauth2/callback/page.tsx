@@ -12,7 +12,7 @@ export default function OAuth2Callback() {
       try {
         const response = await authService.handleOAuth2Callback()
         if (response.status === 200) {
-          router.push('/lesson-path')
+          router.push('/homepage')
         }
       } catch (error) {
         console.error('OAuth2 callback error:', error)

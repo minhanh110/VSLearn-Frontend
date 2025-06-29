@@ -25,6 +25,8 @@ interface TestResults {
   correctAnswers: number
   accuracy: number
   questions: ReviewQuestion[]
+  topicName?: string
+  topicId?: number
 }
 
 export function TestReviewPageComponent() {
@@ -112,7 +114,7 @@ export function TestReviewPageComponent() {
             <div className="text-center mb-6">
               <h1 className="text-xl font-bold text-blue-700 mb-4">
                 KẾT QUẢ BÀI KIỂM TRA CHỦ ĐỀ :<br />
-                "GIA ĐÌNH"
+                "{testResults.topicName || "GIA ĐÌNH"}"
               </h1>
 
               {/* Stats */}
@@ -237,12 +239,25 @@ export function TestReviewPageComponent() {
             {/* Image/Video */}
             <div className="flex justify-center mb-6">
               <div className="relative w-64 h-48 rounded-xl overflow-hidden border-2 border-blue-300">
-                <Image
-                  src={selectedQuestion.imageUrl || "/placeholder.svg"}
-                  alt="Sign language demonstration"
-                  fill
-                  className="object-cover"
-                />
+                {selectedQuestion.imageUrl && selectedQuestion.imageUrl.includes('.mp4') ? (
+                  <video
+                    src={selectedQuestion.imageUrl}
+                    controls
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                ) : (
+                  <Image
+                    src={selectedQuestion.imageUrl || "/placeholder.svg"}
+                    alt="Sign language demonstration"
+                    fill
+                    className="object-cover"
+                  />
+                )}
               </div>
             </div>
 
