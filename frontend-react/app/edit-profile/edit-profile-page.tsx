@@ -16,6 +16,7 @@ import { User, Check, Loader2 } from "lucide-react"
 
 // Import UserService instead of ProfileService
 import userService, { type ProfileData } from "../services/user.service"
+import authService from "../services/auth.service"
 
 // Predefined avatar options (similar to Quizizz style)
 const AVATAR_OPTIONS = [
@@ -48,8 +49,14 @@ export default function EditProfilePage() {
   })
 
   useEffect(() => {
+    // Check authentication first
+    if (!authService.isAuthenticated()) {
+      router.push('/login?returnUrl=' + encodeURIComponent('/edit-profile'))
+      return
+    }
+    
     loadProfile()
-  }, [])
+  }, [router])
 
   const loadProfile = async () => {
     try {
@@ -68,8 +75,10 @@ export default function EditProfilePage() {
     } catch (error) {
       console.error("Load profile error:", error)
       toast.error("Failed to load profile data")
-      // Optionally redirect to login if auth failed
-      // router.push("/login")
+      // Redirect to login if auth failed
+      if (error instanceof Error && (error.message.includes('Authentication') || error.message.includes('401'))) {
+        router.push('/login?returnUrl=' + encodeURIComponent('/edit-profile'))
+      }
     } finally {
       setInitialLoading(false)
     }

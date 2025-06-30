@@ -14,7 +14,7 @@ export interface ProfileData {
 class UserService {
     async updateUserProfile(data: ProfileData): Promise<ProfileData> {
         try {
-            if (!authService.isAuthenticated) {
+            if (!authService.isAuthenticated()) {
                 throw new Error("Update failed");
             }
             const response = await axiosInstance.put(`${API_URL}/profile`,
@@ -33,7 +33,7 @@ class UserService {
 
     async getUserProfile(): Promise<ProfileData> {
         try {
-            if (!authService.isAuthenticated) {
+            if (!authService.isAuthenticated()) {
                 throw new Error("No data!");
             }
             const response = await axiosInstance.get(`${API_URL}/profile`, {
