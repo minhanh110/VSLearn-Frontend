@@ -1,25 +1,82 @@
 "use client"
 
-import { Home, BookOpen, Camera, DollarSign, Settings, X, User } from "lucide-react"
+import {
+  Home,
+  BookOpen,
+  Camera,
+  DollarSign,
+  Settings,
+  X,
+  GraduationCap,
+  FileText,
+  XCircle,
+  Edit,
+  Users,
+  BarChart3,
+  Shield,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { useUser } from "@/hooks/useUser"
 
 interface FooterProps {
   isOpen?: boolean
   onClose?: () => void
+  roleId?: string | null // Add roleId prop
 }
 
-const menuItems = [
-  { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
-  { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
-  { icon: Camera, label: "Thực hành Camera", href: "/practice" },
-  { icon: DollarSign, label: "Các gói học", href: "/packages" },
-  { icon: Settings, label: "Cài đặt", href: "/settings" },
-]
+// Define menu items for each role
+const roleMenus = {
+  learner: [
+    { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
+    { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
+    { icon: Camera, label: "Thực hành Camera", href: "/practice" },
+    { icon: DollarSign, label: "Các gói học", href: "/packages" },
+    { icon: Settings, label: "Cài đặt", href: "/settings" },
+  ],
+  "content-creator": [
+    { icon: GraduationCap, label: "Chủ đề", href: "/content-creator/topics" },
+    { icon: FileText, label: "Từ vựng", href: "/content-creator/vocabulary" },
+    { icon: XCircle, label: "Chủ đề bị từ chối", href: "/content-creator/rejected-topics" },
+    { icon: Edit, label: "Từ vựng bị từ chối", href: "/content-creator/rejected-vocabulary" },
+    { icon: Settings, label: "Cài đặt", href: "/settings" },
+  ],
+  "content-approver": [
+    { icon: GraduationCap, label: "Duyệt chủ đề", href: "/content-approver/topics" },
+    { icon: FileText, label: "Duyệt từ vựng", href: "/content-approver/vocabulary" },
+    { icon: Shield, label: "Lịch sử duyệt", href: "/content-approver/history" },
+    { icon: Users, label: "Quản lý người tạo", href: "/content-approver/creators" },
+    { icon: Settings, label: "Cài đặt", href: "/settings" },
+  ],
+  "general-manager": [
+    { icon: BarChart3, label: "Dashboard", href: "/general-manager/dashboard" },
+    { icon: Users, label: "Quản lý người dùng", href: "/general-manager/users" },
+    { icon: GraduationCap, label: "Quản lý nội dung", href: "/general-manager/content" },
+    { icon: DollarSign, label: "Báo cáo doanh thu", href: "/general-manager/revenue" },
+    { icon: FileText, label: "Báo cáo hoạt động", href: "/general-manager/activity" },
+    { icon: Shield, label: "Bảo mật hệ thống", href: "/general-manager/security" },
+    { icon: Users, label: "Phân quyền", href: "/general-manager/permissions" },
+    { icon: BarChart3, label: "Thống kê chi tiết", href: "/general-manager/analytics" },
+    { icon: Settings, label: "Cài đặt hệ thống", href: "/general-manager/settings" },
+  ],
+}
 
-export function Footer({ isOpen = false, onClose }: FooterProps) {
-  const { userInfo, loading, isAuthenticated } = useUser()
+// Get all unique menu items when roleId is null
+const getAllMenuItems = () => {
+  const allItems = Object.values(roleMenus).flat()
+  const uniqueItems = allItems.filter((item, index, self) => index === self.findIndex((t) => t.href === item.href))
+  return uniqueItems
+}
+
+export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) {
+  // Determine which menu items to show
+  const getMenuItems = () => {
+    if (roleId === null) {
+      return getAllMenuItems()
+    }
+    return roleMenus[roleId as keyof typeof roleMenus] || roleMenus.learner
+  }
+
+  const menuItems = getMenuItems()
 
   return (
     <>
@@ -27,90 +84,87 @@ export function Footer({ isOpen = false, onClose }: FooterProps) {
       <div className="hidden lg:block">
         {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-12 h-[calc(100vh-3rem)] w-64 bg-gradient-to-b from-blue-100 to-cyan-100 transform transition-transform duration-300 z-40 shadow-lg ${
+          className={`fixed left-0 top-12 h-[calc(100vh-3rem)] w-64 bg-gradient-to-b from-blue-100 to-cyan-100 transform transition-transform duration-300 z-40 shadow-lg flex flex-col ${
             isOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           {/* Close button */}
-          <div className="flex justify-end p-6">
+          <div className="flex justify-end p-6 pb-4 flex-shrink-0">
             <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/50 rounded-lg">
               <X className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* User info section - chỉ hiện cho authenticated users */}
-          {isAuthenticated && (
-            <div className="px-6 mb-6">
-              <div className="bg-white/60 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 text-sm truncate">
-                      {loading ? "Loading..." : (userInfo?.displayName || "User")}
-                    </p>
-                    <p className="text-xs text-gray-500">Học viên</p>
-                  </div>
-                </div>
+          {/* Menu items - Scrollable container */}
+          <div className="flex-1 overflow-hidden px-6">
+            <nav className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent hover:scrollbar-thumb-blue-400 pb-6">
+              <div className="space-y-3">
+                {menuItems.map((item, index) => (
+                  <Link
+                    key={index}
+                    href={item.href}
+                    className="flex items-center gap-4 px-5 py-4 rounded-xl text-gray-700 hover:bg-white/60 transition-all duration-200 hover:shadow-md group whitespace-nowrap"
+                    onClick={onClose}
+                  >
+                    <item.icon className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                    <span className="font-semibold text-sm">{item.label}</span>
+                  </Link>
+                ))}
               </div>
-            </div>
-          )}
+            </nav>
+          </div>
+        </aside>
+      </div>
 
-          {/* Guest info section - chỉ hiện cho guest users */}
-          {!isAuthenticated && (
-            <div className="px-6 mb-6">
-              <div className="bg-white/60 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 text-sm">Khách</p>
-                    <p className="text-xs text-gray-500">Chưa đăng nhập</p>
-                  </div>
-                </div>
-                <Link
-                  href="/login"
-                  className="mt-3 w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-all duration-200 text-center block"
-                >
-                  Đăng nhập
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* Menu items */}
-          <nav className="px-6 space-y-3">
+      {/* Mobile Footer - Only icons, scrollable horizontally if needed */}
+      <footer className="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-200 to-cyan-200 border-t border-blue-300 z-30">
+        <div className="overflow-x-auto scrollbar-none">
+          <nav className="flex items-center py-3 px-2 min-w-max">
             {menuItems.map((item, index) => (
               <Link
                 key={index}
                 href={item.href}
-                className="flex items-center gap-4 px-5 py-4 rounded-xl text-gray-700 hover:bg-white/60 transition-all duration-200 hover:shadow-md group whitespace-nowrap"
-                onClick={onClose}
+                className="flex flex-col items-center justify-center p-3 text-blue-600 hover:text-blue-800 transition-colors min-w-[60px]"
               >
-                <item.icon className="w-6 h-6 text-blue-600 flex-shrink-0" />
-                <span className="font-semibold text-sm">{item.label}</span>
+                <item.icon className="w-6 h-6" />
               </Link>
             ))}
           </nav>
-        </aside>
-      </div>
-
-      {/* Mobile Footer - Only icons */}
-      <footer className="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-200 to-cyan-200 border-t border-blue-300 z-30">
-        <nav className="flex items-center justify-around py-3">
-          {menuItems.map((item, index) => (
-            <Link
-              key={index}
-              href={item.href}
-              className="flex flex-col items-center justify-center p-2 text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              <item.icon className="w-6 h-6" />
-            </Link>
-          ))}
-        </nav>
+        </div>
       </footer>
+
+      {/* Custom scrollbar styles */}
+      <style jsx global>{`
+        .scrollbar-thin {
+          scrollbar-width: thin;
+        }
+        
+        .scrollbar-thumb-blue-300::-webkit-scrollbar-thumb {
+          background-color: rgb(147 197 253);
+          border-radius: 6px;
+        }
+        
+        .scrollbar-thumb-blue-400:hover::-webkit-scrollbar-thumb {
+          background-color: rgb(96 165 250);
+        }
+        
+        .scrollbar-track-transparent::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .scrollbar-none {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </>
   )
 }
