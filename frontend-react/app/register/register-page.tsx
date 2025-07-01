@@ -62,6 +62,7 @@ export default function RegisterPage() {
     setError("")
     setLoading(true)
 
+    // Only frontend validation - password matching check
     if (formData.password !== formData.confirmPassword) {
       setError("Mật khẩu xác nhận không khớp")
       setLoading(false)
@@ -69,15 +70,27 @@ export default function RegisterPage() {
     }
 
     try {
-      const otpResponse = await authService.requestSignupOtp(formData.email)
+      const otpResponse = await authService.requestSignupOtp(formData.email.trim())
       if (otpResponse.status === 200) {
-        Cookies.set("email-signup", formData.email, { expires: 5 / 1440 })
+        Cookies.set("email-signup", formData.email.trim(), { expires: 5 / 1440 })
         Cookies.set("otp-signup", otpResponse.data, { expires: 5 / 1440 })
-        localStorage.setItem("registrationData", JSON.stringify(formData))
+        localStorage.setItem("registrationData", JSON.stringify({
+          ...formData,
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          username: formData.username.trim(),
+          email: formData.email.trim(),
+          phoneNumber: formData.phoneNumber?.trim() || ""
+        }))
         router.push("/signup-otp")
+      } else {
+        // Display backend validation message
+        setError(otpResponse.message || "Không thể gửi mã OTP")
       }
     } catch (err: any) {
-      setError(err.message || "Đăng ký thất bại")
+      console.error('Registration error:', err)
+      // Display backend error messages (họ tên null, username exists, email exists, phone exists, etc.)
+      setError(err.message || "Đăng ký thất bại, vui lòng thử lại")
     } finally {
       setLoading(false)
     }

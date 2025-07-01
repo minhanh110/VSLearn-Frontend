@@ -31,20 +31,67 @@ class AuthService {
 
   async login(data: { username: string; password: string }) {
     try {
+      // Add timeout to prevent infinite loading
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch('http://localhost:8080/users/signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(data),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
+      // Parse response first
       const jsonObj = await response.json();
+      
+      if (!response.ok) {
+        // Handle HTTP error responses
+        if (response.status === 400) {
+          throw new Error(jsonObj.message || 'Dữ liệu đăng nhập không hợp lệ');
+        } else if (response.status === 401) {
+          throw new Error(jsonObj.message || 'Tên đăng nhập hoặc mật khẩu không chính xác');
+        } else if (response.status === 404) {
+          throw new Error(jsonObj.message || 'Tài khoản không tồn tại');
+        } else if (response.status === 500) {
+          throw new Error('Lỗi server. Vui lòng thử lại sau');
+        } else {
+          throw new Error(jsonObj.message || 'Đăng nhập thất bại. Vui lòng thử lại');
+        }
+      }
+      
       if (jsonObj.status === 200) {
         Cookies.set('token', jsonObj.data);
+        return jsonObj;
+      } else {
+        // Handle unsuccessful response with proper status code
+        throw new Error(jsonObj.message || 'Đăng nhập thất bại');
       }
-      return jsonObj;
     } catch (error: any) {
-      throw new Error(error.message || 'Login failed');
+      // Handle timeout
+      if (error.name === 'AbortError') {
+        throw new Error('Kết nối quá lâu. Vui lòng kiểm tra mạng và thử lại');
+      }
+      
+      // If it's already our custom error, re-throw it
+      if (error.message && (
+          error.message.includes('Tên đăng nhập') || 
+          error.message.includes('Tài khoản') || 
+          error.message.includes('Đăng nhập thất bại') ||
+          error.message.includes('Dữ liệu') ||
+          error.message.includes('Lỗi server') ||
+          error.message.includes('Kết nối')
+        )) {
+        throw error;
+      }
+      
+      // For network errors or other issues
+      console.error('Login network error:', error);
+      throw new Error('Có lỗi kết nối. Vui lòng kiểm tra mạng và thử lại');
     }
   }
 

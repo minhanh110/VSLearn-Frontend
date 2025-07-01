@@ -41,12 +41,21 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    
+    // Basic frontend validation (chỉ check empty)
+    if (!formData.username?.trim() || !formData.password?.trim()) {
+      setError("Vui lòng nhập đầy đủ thông tin")
+      return
+    }
+    
     setLoading(true);
+    
     try {
       const jsonObj = await authService.login({
-        username: formData.username,
+        username: formData.username.trim(),
         password: formData.password,
       });
+      
       if (jsonObj.status === 200) {
         // Check if there's a returnUrl parameter
         const returnUrl = searchParams.get('returnUrl')
@@ -55,9 +64,14 @@ export default function LoginPage() {
         } else {
           router.push("/homepage")
         }
+      } else {
+        // Display backend validation message
+        setError(jsonObj.message || "Đăng nhập thất bại")
       }
     } catch (err: any) {
-      setError(err.message || "Registration failed")
+      console.error('Login error:', err)
+      // Display backend error message
+      setError(err.message || "Có lỗi xảy ra khi đăng nhập")
     } finally {
       setLoading(false)
     }

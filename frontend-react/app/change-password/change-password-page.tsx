@@ -29,6 +29,7 @@ export default function ChangePasswordPage() {
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
     setShowPasswords((prev) => ({
@@ -48,15 +49,32 @@ export default function ChangePasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    
+    // Frontend validation
+    if (!formData.currentPassword?.trim()) {
+      setError("Vui lòng nhập mật khẩu hiện tại");
+      return;
+    }
+
+    if (!formData.newPassword?.trim()) {
+      setError("Vui lòng nhập mật khẩu mới");
+      return;
+    }
+
+    if (!formData.confirmPassword?.trim()) {
+      setError("Vui lòng xác nhận mật khẩu mới");
+      return;
+    }
     
     if (formData.newPassword !== formData.confirmPassword) {
-      toast.error("Mật khẩu mới không trùng khớp");
+      setError("Mật khẩu mới không trùng khớp");
       return;
     }
 
     const allRequirementsMet = passwordRequirements.every(req => req.valid);
     if (!allRequirementsMet) {
-      toast.error("Vui lòng đảm bảo mật khẩu đáp ứng tất cả yêu cầu");
+      setError("Vui lòng đảm bảo mật khẩu đáp ứng tất cả yêu cầu");
       return;
     }
 
@@ -72,11 +90,15 @@ export default function ChangePasswordPage() {
         toast.success("Đổi mật khẩu thành công");
         router.push("/edit-profile");
       } else {
-        toast.error(result.message || "Đổi mật khẩu thất bại");
+        setError(result.message || "Đổi mật khẩu thất bại");
       }
     } catch (error: any) {
       console.error("Change password error:", error);
-      toast.error(error.message || "Đổi mật khẩu thất bại");
+      if (error.message.includes('current') || error.message.includes('hiện tại') || error.message.includes('incorrect')) {
+        setError("Mật khẩu hiện tại không chính xác");
+      } else {
+        setError(error.message || "Đổi mật khẩu thất bại");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -99,6 +121,13 @@ export default function ChangePasswordPage() {
               <h1 className="text-3xl font-bold text-gray-900">Đổi Mật Khẩu</h1>
               <p className="text-gray-600">Giữ tài khoản của bạn an toàn</p>
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
             {/* Change Password Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
