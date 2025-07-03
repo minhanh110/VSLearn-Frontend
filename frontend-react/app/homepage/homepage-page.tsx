@@ -28,7 +28,6 @@ export default function HomePage() {
         
         // Kiểm tra token expiration
         if (authService.isTokenExpiringSoon()) {
-          console.log("⚠️ Token will expire soon, logging out...");
           authService.logout();
           router.push('/login');
           return;
@@ -40,7 +39,6 @@ export default function HomePage() {
         
         if (!isAuthenticated) {
           setUserType('guest')
-          console.log("👤 User type: Guest (no authentication)")
         } else {
           // Kiểm tra subscription status từ backend
           try {
@@ -51,11 +49,8 @@ export default function HomePage() {
             if (subscriptionRes.data && subscriptionRes.data.data) {
               const subscriptionData = subscriptionRes.data.data
               setUserType(subscriptionData.userType)
-              console.log("👤 User type:", subscriptionData.userType)
-              console.log("👤 Has subscription:", subscriptionData.hasSubscription)
             } else {
               setUserType('registered')
-              console.log("👤 User type: Registered user (fallback)")
             }
           } catch (subscriptionError: any) {
             console.warn("⚠️ Error fetching subscription status:", subscriptionError)
@@ -67,7 +62,6 @@ export default function HomePage() {
               setUserType('guest')
             } else {
               setUserType('registered')
-              console.log("👤 User type: Registered user (fallback)")
             }
           }
         }
@@ -149,11 +143,32 @@ export default function HomePage() {
     fetchData()
   }, [router])
 
+  // Refresh data when returning from test result page
+  useEffect(() => {
+    const handleFocus = () => {
+      // Check if we're returning from test result page
+      const testResults = sessionStorage.getItem("testResults");
+      if (testResults) {
+        try {
+          const results = JSON.parse(testResults);
+          if (results.accuracy >= 90) {
+            // Test passed with ≥90%, refresh data to show unlocked topics
+            window.location.reload();
+          }
+        } catch (e) {
+          console.warn("Error parsing test results:", e);
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
   // Kiểm tra token định kỳ mỗi phút
   useEffect(() => {
     const interval = setInterval(() => {
       if (authService.isTokenExpiringSoon()) {
-        console.log("⚠️ Token will expire soon, logging out...");
         authService.logout();
         router.push('/login');
       }
@@ -164,24 +179,15 @@ export default function HomePage() {
 
   const markLessonCompleted = async (lessonId: string) => {
     try {
-      console.log("🎯 Marking lesson completed:", lessonId)
       // Sử dụng demo endpoint thay vì endpoint yêu cầu auth
       await axiosInstance.post("/demo/progress", { lessonId: parseInt(lessonId) })
       setCompletedLessons((prev) => prev.includes(lessonId) ? prev : [...prev, lessonId])
-      console.log("✅ Lesson marked as completed")
     } catch (err) {
       console.error("❌ Error marking lesson completed:", err)
     }
   }
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log("🔄 Units state changed:", units)
-  }, [units])
 
-  useEffect(() => {
-    console.log("🔄 CompletedLessons state changed:", completedLessons)
-  }, [completedLessons])
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-cyan-50 flex items-center justify-center">
@@ -223,12 +229,7 @@ export default function HomePage() {
             <li>• Backend API /learning-path hoạt động</li>
             <li>• Console logs để xem chi tiết lỗi</li>
           </ul>
-          <div className="bg-gray-100 p-4 rounded text-left text-xs max-w-md mx-auto mb-4">
-            <strong>Debug Info:</strong><br/>
-            Units length: {units?.length || 0}<br/>
-            Units type: {typeof units}<br/>
-            Units value: {JSON.stringify(units, null, 2)}
-          </div>
+
           <button 
             onClick={() => window.location.reload()} 
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"

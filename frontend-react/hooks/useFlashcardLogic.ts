@@ -33,18 +33,26 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
   // Fetch flashcards và subtopic info
   useEffect(() => {
     const fetchData = async () => {
+      console.log("🔍 useFlashcardLogic: Starting to fetch data for subtopicId:", subtopicId);
       try {
-        const [infoData, flashcardsData] = await Promise.all([
-          FlashcardService.getSubtopicInfo(subtopicId),
-          FlashcardService.getFlashcards(subtopicId)
-        ]);
+        console.log("🔍 useFlashcardLogic: Calling FlashcardService.getSubtopicInfo");
+        const infoData = await FlashcardService.getSubtopicInfo(subtopicId);
+        console.log("🔍 useFlashcardLogic: Subtopic info received:", infoData);
+        
+        console.log("🔍 useFlashcardLogic: Calling FlashcardService.getFlashcards");
+        const flashcardsData = await FlashcardService.getFlashcards(subtopicId);
+        console.log("🔍 useFlashcardLogic: Flashcards received:", flashcardsData.length, "cards");
         
         setSubtopicInfo(infoData);
         setFlashcards(flashcardsData);
+        console.log("🔍 useFlashcardLogic: Data set successfully");
       } catch (error) {
-        console.error("❌ Error fetching data:", error);
+        console.error("❌ useFlashcardLogic: Error fetching data:", error);
+        console.error("❌ useFlashcardLogic: Error details:", error.message);
+        console.error("❌ useFlashcardLogic: Error stack:", error.stack);
       } finally {
         setIsLoading(false);
+        console.log("🔍 useFlashcardLogic: Loading finished");
       }
     };
 

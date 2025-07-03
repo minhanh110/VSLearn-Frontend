@@ -41,23 +41,22 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    
     // Basic frontend validation (chỉ check empty)
-    if (!formData.username?.trim() || !formData.password?.trim()) {
-      setError("Vui lòng nhập đầy đủ thông tin")
+    if (!formData.username?.trim()) {
+      setError("Vui lòng nhập tên đăng nhập hoặc email")
       return
     }
-    
+    if (!formData.password?.trim()) {
+      setError("Vui lòng nhập mật khẩu")
+      return
+    }
     setLoading(true);
-    
     try {
       const jsonObj = await authService.login({
         username: formData.username.trim(),
         password: formData.password,
       });
-      
       if (jsonObj.status === 200) {
-        // Check if there's a returnUrl parameter
         const returnUrl = searchParams.get('returnUrl')
         if (returnUrl) {
           router.push(decodeURIComponent(returnUrl))
@@ -65,12 +64,16 @@ export default function LoginPage() {
           router.push("/homepage")
         }
       } else {
-        // Display backend validation message
-        setError(jsonObj.message || "Đăng nhập thất bại")
+        // Hiển thị thông báo lỗi rõ ràng
+        if (jsonObj.message?.toLowerCase().includes('not found') || jsonObj.message?.toLowerCase().includes('không tồn tại')) {
+          setError("Tên đăng nhập hoặc email không tồn tại")
+        } else if (jsonObj.message?.toLowerCase().includes('incorrect') || jsonObj.message?.toLowerCase().includes('sai')) {
+          setError("Tên đăng nhập/email hoặc mật khẩu không đúng")
+        } else {
+          setError(jsonObj.message || "Đăng nhập thất bại")
+        }
       }
     } catch (err: any) {
-      console.error('Login error:', err)
-      // Display backend error message
       setError(err.message || "Có lỗi xảy ra khi đăng nhập")
     } finally {
       setLoading(false)

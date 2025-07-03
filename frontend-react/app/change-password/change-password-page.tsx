@@ -94,10 +94,10 @@ export default function ChangePasswordPage() {
       }
     } catch (error: any) {
       console.error("Change password error:", error);
-      if (error.message.includes('current') || error.message.includes('hiện tại') || error.message.includes('incorrect')) {
-        setError("Mật khẩu hiện tại không chính xác");
+      if (error.message?.toLowerCase().includes('current') || error.message?.toLowerCase().includes('hiện tại') || error.message?.toLowerCase().includes('incorrect')) {
+        setError("Mật khẩu hiện tại không chính xác")
       } else {
-        setError(error.message || "Đổi mật khẩu thất bại");
+        setError(error.message || "Đổi mật khẩu thất bại")
       }
     } finally {
       setIsLoading(false);

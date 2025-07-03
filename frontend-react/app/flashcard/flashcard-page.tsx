@@ -34,12 +34,21 @@ export default function FlashcardPage() {
 
   // Check authentication on mount
   useEffect(() => {
+    console.log("🔍 Flashcard page authentication check");
+    console.log("🔍 subtopicId:", subtopicId);
+    console.log("🔍 isAuthenticated:", authService.isAuthenticated());
+    
+    // Allow guest users to access flashcard for the first topic
+    // Guest users can learn the first topic without authentication
     if (!authService.isAuthenticated()) {
-      router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search))
-      return
+      // For guest users, we'll allow access to flashcard
+      // The backend will handle guest user logic
+      console.log("👤 Guest user accessing flashcard - allowing access");
+    } else {
+      console.log("👤 Authenticated user accessing flashcard");
     }
     setIsLoading(false)
-  }, [router])
+  }, [router, subtopicId])
 
   // Sử dụng custom hook để quản lý logic
   const {
@@ -476,17 +485,11 @@ export default function FlashcardPage() {
                   <div className="text-blue-600 text-xl animate-pulse">👉</div>
                   <Button 
                     onClick={() => {
-                      console.log("🎯 Practice button clicked (mobile)!");
-                      console.log("  - Current step:", currentStep);
-                      console.log("  - Upcoming practice cards:", getUpcomingPracticeCards().length);
-                      
                       // Kiểm tra xem có practice cards sắp tới không
                       const upcomingPracticeCards = getUpcomingPracticeCards();
                       if (upcomingPracticeCards.length > 0) {
-                        console.log("  - Showing practice transition modal");
                         setShowPracticeTransitionModal(true);
                       } else {
-                        console.log("  - No practice cards available, showing alert");
                         alert("Chưa có bài tập practice cho nhóm flashcard này!");
                       }
                     }}
@@ -511,17 +514,11 @@ export default function FlashcardPage() {
                 <div className="text-blue-600 text-2xl animate-pulse hidden lg:block">👉</div>
                 <Button 
                   onClick={() => {
-                    console.log("🎯 Practice button clicked!");
-                    console.log("  - Current step:", currentStep);
-                    console.log("  - Upcoming practice cards:", getUpcomingPracticeCards().length);
-                    
                     // Kiểm tra xem có practice cards sắp tới không
                     const upcomingPracticeCards = getUpcomingPracticeCards();
                     if (upcomingPracticeCards.length > 0) {
-                      console.log("  - Showing practice transition modal");
                       setShowPracticeTransitionModal(true);
                     } else {
-                      console.log("  - No practice cards available, showing alert");
                       alert("Chưa có bài tập practice cho nhóm flashcard này!");
                     }
                   }}
@@ -676,15 +673,7 @@ export default function FlashcardPage() {
         isAllSubtopicsCompleted={isAllSubtopicsCompleted}
       />
       
-      {/* Debug logs */}
-      {showCompletionModal && (
-        <div style={{ position: 'fixed', top: '10px', left: '10px', background: 'white', padding: '10px', zIndex: 9999, fontSize: '12px' }}>
-          <div>Debug Info:</div>
-          <div>nextSubtopicInfo: {JSON.stringify(nextSubtopicInfo)}</div>
-          <div>hasNextSubtopic: {nextSubtopicInfo?.hasNext || false}</div>
-          <div>showCompletionModal: {showCompletionModal}</div>
-        </div>
-      )}
+
     </>
   );
 } 

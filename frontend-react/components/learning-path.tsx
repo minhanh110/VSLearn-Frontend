@@ -90,10 +90,15 @@ function TestRequirementModal({
               style={{ width: `${(completedCount / totalCount) * 100}%` }}
             ></div>
           </div>
-          {/* Thông báo đặc biệt cho subtopic cuối */}
+          {/* Thông báo đặc biệt */}
           {completedCount === totalCount - 1 && (
             <p className="text-orange-600 text-sm mt-2 font-semibold">
               🎯 Chỉ còn 1 subtopic nữa để có thể làm bài test!
+            </p>
+          )}
+          {completedCount < totalCount && (
+            <p className="text-orange-600 text-sm mt-2">
+              Hoàn thành tất cả subtopics để mở khóa bài test
             </p>
           )}
         </div>
@@ -116,6 +121,75 @@ function TestRequirementModal({
               }
             }}
             className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            TIẾP TỤC HỌC
+          </button>
+        </div>
+        
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Component SubtopicRequirementModal
+function SubtopicRequirementModal({ 
+  isOpen, 
+  onClose, 
+  topicName 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  topicName: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 w-full max-w-md text-center shadow-2xl border-4 border-blue-300 relative">
+        {/* Info icon */}
+        <div className="flex justify-center mb-6">
+          <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center">
+            <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-blue-700 mb-4">📚 CHỦ ĐỀ NHỎ BỊ KHÓA</h1>
+        
+        {/* Message */}
+        <p className="text-lg text-gray-700 mb-6">
+          Bạn cần hoàn thành chủ đề nhỏ trước đó để tiếp tục học
+        </p>
+        
+        {/* Action buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            ĐÓNG
+          </button>
+          <button
+            onClick={() => {
+              onClose();
+              // Scroll to first incomplete subtopic
+              const firstIncompleteLesson = document.querySelector('[data-lesson-id]') as HTMLElement;
+              if (firstIncompleteLesson) {
+                firstIncompleteLesson.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
           >
             TIẾP TỤC HỌC
           </button>
@@ -166,7 +240,7 @@ function TopicLockedModal({
         
         {/* Message */}
         <p className="text-lg text-gray-700 mb-4">
-          Bạn cần hoàn thành bài test của chủ đề trước để mở khóa chủ đề này
+          Bạn cần hoàn thành bài test của chủ đề trước với điểm ≥90% để mở khóa chủ đề này
         </p>
         
         {/* Topic info */}
@@ -233,6 +307,10 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     completedCount: 0,
     totalCount: 0,
   })
+  const [showSubtopicRequirementModal, setShowSubtopicRequirementModal] = useState(false)
+  const [subtopicRequirementData, setSubtopicRequirementData] = useState({
+    topicName: "",
+  })
   const [showTopicLockedModal, setShowTopicLockedModal] = useState(false)
   const [topicLockedData, setTopicLockedData] = useState({
     currentTopicName: "",
@@ -295,66 +373,53 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     event.preventDefault()
     event.stopPropagation()
 
+    console.log('Lesson clicked:', { 
+      lessonId: lesson.id, 
+      lessonTitle: lesson.title, 
+      isTest: lesson.isTest, 
+      accessible: lesson.accessible,
+      userType 
+    });
+
+    // Check if lesson is accessible
     if (!lesson.accessible) {
-      if (userType === 'guest') {
-        setShowUpgradeModal(true)
-        setUpgradeModalData({
-          userType: "guest",
-          currentTopicCount: 1,
-          maxTopicCount: 2,
-        })
-      } else {
-        setShowUpgradeModal(true)
-        setUpgradeModalData({
-          userType: "registered",
-          currentTopicCount: 1,
-          maxTopicCount: 2,
-        })
-      }
-      return
-    }
-
-    // Check xem topic có được truy cập không
-    const unit = units.find(u => u.lessons.some(l => l.id === lesson.id));
-    if (unit) {
-      const currentUnitIndex = units.findIndex(u => u.unitId === unit.unitId);
-      let canAccessUnit = unit.accessible !== false;
-      
-      if (currentUnitIndex > 0) {
-        const previousUnit = units[currentUnitIndex - 1];
-        const previousUnitTest = previousUnit.lessons.find(l => l.isTest);
-        if (previousUnitTest) {
-          canAccessUnit = unit.accessible !== false && completedLessons.includes(previousUnitTest.id.toString());
-        }
-      }
-
-      if (!canAccessUnit) {
-        // Topic không được truy cập - hiển thị modal thông báo
-        if (currentUnitIndex > 0) {
-          const previousUnit = units[currentUnitIndex - 1];
-          setTopicLockedData({
-            currentTopicName: unit.title,
-            previousTopicName: previousUnit.title,
-          });
-          setShowTopicLockedModal(true);
-        }
-        return;
-      }
-    }
-
-    if (lesson.isTest) {
+      const unit = units.find(u => u.lessons.some(l => l.id === lesson.id));
       if (unit) {
-        const subtopics = unit.lessons.filter(l => !l.isTest);
-        if (subtopics.length > 0) {
-          // Chỉ cần check subtopic cuối cùng
-          const lastSubtopic = subtopics[subtopics.length - 1];
-          const lastSubtopicCompleted = completedLessons.includes(lastSubtopic.id.toString());
-          
-          if (lastSubtopicCompleted) {
-            // Subtopic cuối đã hoàn thành - cho phép làm test
-            setSelectedTest(lesson.id.toString());
-          } else {
-            // Subtopic cuối chưa hoàn thành - hiển thị popup thông báo
+        const currentUnitIndex = units.findIndex(u => u.unitId === unit.unitId);
+        
+        // Check if it's a topic access issue
+        if (!unit.accessible) {
+          if (userType === 'guest') {
+            setShowUpgradeModal(true)
+            setUpgradeModalData({
+              userType: "guest",
+              currentTopicCount: 1,
+              maxTopicCount: 2,
+            })
+          } else if (userType === 'registered' && currentUnitIndex >= 2) {
+            setShowUpgradeModal(true)
+            setUpgradeModalData({
+              userType: "registered",
+              currentTopicCount: 2,
+              maxTopicCount: 2,
+            })
+          } else if (currentUnitIndex > 0) {
+            // Previous topic test not completed with ≥90%
+            const previousUnit = units[currentUnitIndex - 1];
+            setTopicLockedData({
+              currentTopicName: unit.title,
+              previousTopicName: previousUnit.title,
+            });
+            setShowTopicLockedModal(true);
+          }
+          return;
+        }
+        
+        // Check if it's a subtopic access issue
+        if (unit.accessible && !lesson.accessible) {
+          if (lesson.isTest) {
+            // Test is locked - show requirement modal
+            const subtopics = unit.lessons.filter(l => !l.isTest);
             const completedCount = subtopics.filter(l => completedLessons.includes(l.id.toString())).length;
             
             setTestRequirementData({
@@ -363,15 +428,61 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
               totalCount: subtopics.length,
             });
             setShowTestRequirementModal(true);
+          } else {
+            // Regular subtopic is locked - show previous subtopic requirement
+            const subtopics = unit.lessons.filter(l => !l.isTest).sort((a, b) => a.id - b.id);
+            const currentIndex = subtopics.findIndex(l => l.id === lesson.id);
+            if (currentIndex > 0) {
+              const previousSubtopic = subtopics[currentIndex - 1];
+              // Show subtopic requirement modal
+              setSubtopicRequirementData({
+                topicName: unit.title,
+              });
+              setShowSubtopicRequirementModal(true);
+            }
           }
-        } else {
-          // Không có subtopics - cho phép làm test
-          setSelectedTest(lesson.id.toString());
+          return;
         }
-      } else {
-        // Không tìm thấy unit - cho phép làm test
-        setSelectedTest(lesson.id.toString());
       }
+      
+      // If we reach here, lesson is not accessible but no specific modal was shown
+      // For guest users, show login popup
+      if (userType === 'guest') {
+        setShowUpgradeModal(true)
+        setUpgradeModalData({
+          userType: "guest",
+          currentTopicCount: 1,
+          maxTopicCount: 2,
+        })
+      }
+      return;
+    }
+
+    // Lesson is accessible, proceed with normal flow
+    if (lesson.isTest) {
+      // Special logic for guest: if it's the first topic and all subtopics are completed, show login modal
+      if (userType === 'guest') {
+        const unit = units.find(u => u.lessons.some(l => l.id === lesson.id));
+        if (unit) {
+          const currentUnitIndex = units.findIndex(u => u.unitId === unit.unitId);
+          // Check if it's the first topic (index 0) and all subtopics are completed
+          if (currentUnitIndex === 0) {
+            const subtopics = unit.lessons.filter(l => !l.isTest);
+            const completedCount = subtopics.filter(l => completedLessons.includes(l.id.toString())).length;
+            if (completedCount === subtopics.length && subtopics.length > 0) {
+              // All subtopics completed, show login modal
+              setShowUpgradeModal(true)
+              setUpgradeModalData({
+                userType: "guest",
+                currentTopicCount: 1,
+                maxTopicCount: 2,
+              })
+              return;
+            }
+          }
+        }
+      }
+      setSelectedTest(lesson.id.toString());
     } else {
       setSelectedLesson(lesson.id.toString())
     }
@@ -551,8 +662,8 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                     className="relative z-10 flex justify-center"
                     style={{ zIndex: selectedLesson === lesson.id.toString() || selectedTest === lesson.id.toString() ? 1000 : 10 }}
                   >
-                    {!canAccessUnit ? (
-                      // Topic không được truy cập - hiển thị locked state
+                    {!canAccessUnit || !isLessonAccessible ? (
+                      // Topic hoặc lesson không được truy cập - hiển thị locked state
                       <div className="relative">
                         <button
                           onClick={(e) => handleLessonClick(lesson, e)}
@@ -598,7 +709,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                         </button>
                       </div>
                     ) : (
-                      // Topic được truy cập - hiển thị normal state với màu sắc
+                      // Topic và lesson được truy cập - hiển thị normal state với màu sắc
                       <div className="relative">
                         <button
                           ref={(el) => {
@@ -724,104 +835,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
               )
             })}
 
-            {/* Nút test lớn ở cuối unit, luôn hiển thị nếu unit accessible */}
-            {canAccessUnit && (
-              <div className="flex justify-center mt-8">
-                <div className="relative">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      
-                      // Check xem subtopic cuối cùng đã hoàn thành chưa
-                      const subtopics = unit.lessons.filter(l => !l.isTest);
-                      if (subtopics.length > 0) {
-                        const lastSubtopic = subtopics[subtopics.length - 1];
-                        const lastSubtopicCompleted = completedLessons.includes(lastSubtopic.id.toString());
-                        
-                        if (lastSubtopicCompleted) {
-                          // Subtopic cuối đã hoàn thành - cho phép làm test
-                          setSelectedTest(`unit-test-${unit.unitId}`);
-                        } else {
-                          // Subtopic cuối chưa hoàn thành - hiển thị popup thông báo
-                          const completedCount = subtopics.filter(l => completedLessons.includes(l.id.toString())).length;
-                          
-                          setTestRequirementData({
-                            topicName: unit.title,
-                            completedCount: completedCount,
-                            totalCount: subtopics.length,
-                          });
-                          setShowTestRequirementModal(true);
-                        }
-                      } else {
-                        // Không có subtopics - cho phép làm test
-                        setSelectedTest(`unit-test-${unit.unitId}`);
-                      }
-                    }}
-                    className="block relative cursor-pointer"
-                  >
-                    <div className="relative hover:scale-105 transition-transform">
-                      {/* Check xem có nên hiển thị locked state không */}
-                      {(() => {
-                        const subtopics = unit.lessons.filter(l => !l.isTest);
-                        if (subtopics.length > 0) {
-                          const lastSubtopic = subtopics[subtopics.length - 1];
-                          const lastSubtopicCompleted = completedLessons.includes(lastSubtopic.id.toString());
-                          
-                          if (!lastSubtopicCompleted) {
-                            // Subtopic cuối chưa hoàn thành - hiển thị locked state
-                            return (
-                              <div className="w-24 h-24 rounded-full border-4 border-gray-400 bg-gray-100 flex items-center justify-center overflow-hidden shadow-lg">
-                                <div className="w-20 h-20 rounded-full overflow-hidden">
-                                  <Image
-                                    src="/images/test-mascot-final.png"
-                                    alt="Test"
-                                    width={80}
-                                    height={80}
-                                    className="object-cover w-full h-full grayscale opacity-50"
-                                  />
-                                </div>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <Lock className="w-8 h-8 text-gray-600" />
-                                </div>
-                              </div>
-                            );
-                          }
-                        }
-                        
-                        // Subtopic cuối đã hoàn thành hoặc không có subtopics - hiển thị normal state
-                        return (
-                          <div className="w-24 h-24 rounded-full border-4 border-orange-400 bg-yellow-50 flex items-center justify-center overflow-hidden shadow-lg">
-                            <div className="w-20 h-20 rounded-full overflow-hidden">
-                              <Image
-                                src="/images/test-mascot-final.png"
-                                alt="Test"
-                                width={80}
-                                height={80}
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </button>
-                  {/* TEST POPUP cho nút test lớn cuối unit */}
-                  {selectedTest === `unit-test-${unit.unitId}` && (
-                    <TestPopup
-                      isOpen={true}
-                      onClose={() => setSelectedTest(null)}
-                      testNumber={unit.unitId}
-                      questionCount={testLesson?.questionCount || 20}
-                      testTitle={unit.title || ""}
-                      position={undefined}
-                      testId={testLesson?.id || unit.unitId}
-                      topicId={unit.unitId}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
 
@@ -992,6 +1006,13 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
         topicName={testRequirementData.topicName}
         completedCount={testRequirementData.completedCount}
         totalCount={testRequirementData.totalCount}
+      />
+
+      {/* Subtopic Requirement Modal */}
+      <SubtopicRequirementModal
+        isOpen={showSubtopicRequirementModal}
+        onClose={() => setShowSubtopicRequirementModal(false)}
+        topicName={subtopicRequirementData.topicName}
       />
 
       {/* Topic Locked Modal */}
