@@ -1,12 +1,14 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, Edit, Trash2, Plus, Search } from "lucide-react"
+import { Eye, Edit, Trash2, Plus, Search, GripVertical } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface TopicItem {
@@ -23,22 +25,34 @@ export function ListTopicsPageComponent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   // Sample topics data
-  const topicsData: TopicItem[] = [
+  const [topicsData, setTopicsData] = useState<TopicItem[]>([
     { id: "#20462", name: "Bảng chữ cái", createdDate: "13/06/2022", subTopics: 10, status: "active" },
     { id: "#18533", name: "Bản thân", createdDate: "22/05/2022", subTopics: 10, status: "active" },
     { id: "#24369", name: "Gia Đình", createdDate: "15/06/2022", subTopics: 10, status: "pending" },
     { id: "#34304", name: "Đồ Dùng", createdDate: "25/06/2022", subTopics: 10, status: "pending" },
     { id: "#73003", name: "Tự Nhiên", createdDate: "24/05/2022", subTopics: 10, status: "rejected" },
     { id: "#28823", name: "Động Vật", createdDate: "23/05/2022", subTopics: 10, status: "rejected" },
-  ]
+  ])
 
   const statusOptions = [
+    { value: "all", label: "Tất cả trạng thái" },
     { value: "active", label: "Hoạt động" },
     { value: "pending", label: "Đang kiểm duyệt" },
     { value: "rejected", label: "Bị từ chối" },
   ]
+
+  // Filter topics based on search term and status
+  const filteredTopics = topicsData.filter((topic) => {
+    const matchesSearch =
+      topic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      topic.id.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = selectedStatus === "all" || selectedStatus === "" || topic.status === selectedStatus
+    return matchesSearch && matchesStatus
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -82,6 +96,51 @@ export function ListTopicsPageComponent() {
     router.push("/create-topic")
   }
 
+  // Drag and Drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/html", "")
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    const newTopics = [...topicsData]
+    const draggedTopic = newTopics[draggedIndex]
+
+    // Remove the dragged item
+    newTopics.splice(draggedIndex, 1)
+
+    // Insert at new position
+    newTopics.splice(dropIndex, 0, draggedTopic)
+
+    setTopicsData(newTopics)
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
   const totalPages = 5
 
   return (
@@ -92,7 +151,6 @@ export function ListTopicsPageComponent() {
         <div className="absolute top-40 right-32 w-24 h-24 bg-cyan-200/30 rounded-full blur-lg animate-bounce"></div>
         <div className="absolute bottom-40 left-16 w-40 h-40 bg-indigo-200/20 rounded-full blur-2xl animate-pulse"></div>
         <div className="absolute bottom-20 right-20 w-28 h-28 bg-blue-300/25 rounded-full blur-xl animate-bounce"></div>
-
         {/* Sparkle stars */}
         <div className="absolute top-32 left-1/4 w-6 h-6 text-blue-400 animate-pulse">✨</div>
         <div className="absolute top-48 right-1/4 w-5 h-5 text-cyan-400 animate-bounce">⭐</div>
@@ -165,13 +223,28 @@ export function ListTopicsPageComponent() {
             </div>
           </div>
 
+          {/* Filter Results Info */}
+          {(searchTerm || selectedStatus) && (
+            <div className="mb-4 text-center">
+              <p className="text-gray-600 bg-white/60 backdrop-blur-sm rounded-full px-6 py-2 inline-block shadow-sm">
+                Hiển thị {filteredTopics.length} kết quả
+                {selectedStatus && selectedStatus !== "all" && (
+                  <span className="ml-2 text-blue-600 font-semibold">
+                    • {statusOptions.find((s) => s.value === selectedStatus)?.label}
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
           {/* Topics Table */}
           <div className="relative overflow-x-auto mb-8">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl"></div>
             <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden min-w-[800px]">
               {/* Table Header */}
               <div className="bg-gradient-to-r from-blue-100/80 to-cyan-100/80 px-4 sm:px-8 py-4 sm:py-6">
-                <div className="grid grid-cols-6 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
+                <div className="grid grid-cols-7 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
+                  <div className="w-8"></div> {/* Drag handle column */}
                   <div>ID CHỦ ĐỀ</div>
                   <div>TÊN CHỦ ĐỀ</div>
                   <div>NGÀY TẠO</div>
@@ -183,51 +256,82 @@ export function ListTopicsPageComponent() {
 
               {/* Table Body */}
               <div className="divide-y divide-blue-100/50">
-                {topicsData.map((topic, index) => (
-                  <div key={index} className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group">
-                    <div className="grid grid-cols-6 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
-                      <div className="font-bold text-gray-900 truncate">{topic.id}</div>
-                      <div className="text-gray-700 font-medium truncate">{topic.name}</div>
-                      <div className="text-gray-700 font-medium">{topic.createdDate}</div>
-                      <div className="text-gray-700 font-medium">{topic.subTopics}</div>
-                      <div>
-                        <span
-                          className={`px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl text-xs font-bold border-2 shadow-sm ${getStatusColor(
-                            topic.status,
-                          )}`}
-                        >
-                          {getStatusText(topic.status)}
-                        </span>
-                      </div>
-                      <div className="flex gap-1 sm:gap-3">
-                        <Button
-                          onClick={() => handleViewTopic(topic.id)}
-                          className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                          size="sm"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                        </Button>
-                        <Button
-                          onClick={() => handleEditTopic(topic.id)}
-                          className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                          size="sm"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Edit className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                        </Button>
-                        <Button
-                          onClick={() => handleDeleteTopic(topic.id)}
-                          className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                          size="sm"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                        </Button>
-                      </div>
+                {filteredTopics.length === 0 ? (
+                  <div className="px-4 sm:px-8 py-12 text-center">
+                    <div className="text-gray-500 text-lg">
+                      {searchTerm || selectedStatus ? "Không tìm thấy chủ đề nào phù hợp" : "Không có chủ đề nào"}
                     </div>
                   </div>
-                ))}
+                ) : (
+                  filteredTopics.map((topic, index) => {
+                    const originalIndex = topicsData.findIndex((t) => t.id === topic.id)
+                    const isDragging = draggedIndex === originalIndex
+                    const isDragOver = dragOverIndex === originalIndex
+
+                    return (
+                      <div
+                        key={topic.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, originalIndex)}
+                        onDragOver={(e) => handleDragOver(e, originalIndex)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, originalIndex)}
+                        onDragEnd={handleDragEnd}
+                        className={`px-4 sm:px-8 py-4 sm:py-6 transition-all duration-200 cursor-move group
+                          ${isDragging ? "opacity-50 scale-95 bg-blue-100/50" : "hover:bg-blue-50/30"}
+                          ${isDragOver ? "bg-blue-100/70 border-t-2 border-blue-400" : ""}
+                        `}
+                      >
+                        <div className="grid grid-cols-7 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
+                          {/* Drag Handle */}
+                          <div className="flex justify-center">
+                            <GripVertical className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                          </div>
+
+                          <div className="font-bold text-gray-900 truncate">{topic.id}</div>
+                          <div className="text-gray-700 font-medium truncate">{topic.name}</div>
+                          <div className="text-gray-700 font-medium">{topic.createdDate}</div>
+                          <div className="text-gray-700 font-medium">{topic.subTopics}</div>
+                          <div>
+                            <span
+                              className={`px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl text-xs font-bold border-2 shadow-sm ${getStatusColor(
+                                topic.status,
+                              )}`}
+                            >
+                              {getStatusText(topic.status)}
+                            </span>
+                          </div>
+                          <div className="flex gap-1 sm:gap-3">
+                            <Button
+                              onClick={() => handleViewTopic(topic.id)}
+                              className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                              size="sm"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                            </Button>
+                            <Button
+                              onClick={() => handleEditTopic(topic.id)}
+                              className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                              size="sm"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                              <Edit className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteTopic(topic.id)}
+                              className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                              size="sm"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -241,7 +345,6 @@ export function ListTopicsPageComponent() {
             >
               ←
             </Button>
-
             {[1, 2, 3, "...", 5].map((page, index) => (
               <Button
                 key={index}
@@ -256,7 +359,6 @@ export function ListTopicsPageComponent() {
                 {page}
               </Button>
             ))}
-
             <Button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
