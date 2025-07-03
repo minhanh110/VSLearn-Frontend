@@ -8,6 +8,8 @@ import { CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter, useSearchParams } from "next/navigation"
 import axios from "axios"
+import authService from "@/app/services/auth.service"
+import { SentenceFlashcardModal } from "@/components/flashcard/sentence-flashcard-modal"
 
 // Định nghĩa kiểu dữ liệu cho đáp án
 interface PracticeOption {
@@ -55,6 +57,15 @@ export default function PracticePage() {
   const [showCompletionPopup, setShowCompletionPopup] = useState(false)
   const [showStartSubtopicPopup, setShowStartSubtopicPopup] = useState(false)
 
+  // Thêm state cho sentence building phase
+  const [sentenceBuildingPhase, setSentenceBuildingPhase] = useState<"flashcard" | "practice">("flashcard")
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0)
+
+  // Thêm state cho sentence flashcard
+  const [showSentenceFlashcard, setShowSentenceFlashcard] = useState(false)
+  const [currentSentenceFlashcard, setCurrentSentenceFlashcard] = useState<Question | null>(null)
+  const [isSentenceFlashcardFlipped, setIsSentenceFlashcardFlipped] = useState(false)
+
   // Cho sentence building với vị trí gốc
   const [selectedWords, setSelectedWords] = useState<WordWithPosition[]>([])
   const [availableWords, setAvailableWords] = useState<WordWithPosition[]>([])
@@ -66,6 +77,7 @@ export default function PracticePage() {
   const [error, setError] = useState<string | null>(null)
   const [sentenceBuildingQuestions, setSentenceBuildingQuestions] = useState<Question[]>([])
   const [sentenceBuildingLoading, setSentenceBuildingLoading] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
 
   // Ref để lưu trữ thứ tự từ vựng cho mỗi câu hỏi
   const availableWordsByQuestion = useRef<Map<number, WordWithPosition[]>>(new Map())
@@ -82,12 +94,24 @@ export default function PracticePage() {
   }, [currentPhase, multipleChoiceQuestions, sentenceBuildingQuestions]);
 
   const currentQuestion = useMemo(() => {
+    if (currentPhase === "sentence-building") {
+      return sentenceBuildingQuestions[currentSentenceIndex];
+    }
     return getCurrentQuestions[currentQuestionIndex];
-  }, [getCurrentQuestions, currentQuestionIndex]);
+  }, [currentPhase, getCurrentQuestions, currentQuestionIndex, sentenceBuildingQuestions, currentSentenceIndex]);
+
+  // Check authentication on mount
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search))
+      return
+    }
+    setAuthLoading(false)
+  }, [router])
 
   // Khởi tạo available words khi câu hỏi thay đổi
   useEffect(() => {
-    if (currentQuestion?.type === "sentence-building" && currentQuestion.words) {
+    if (currentQuestion?.type === "sentence-building" && currentQuestion.words && !showSentenceFlashcard) {
       // Kiểm tra xem đã có thứ tự từ vựng cho câu hỏi này chưa
       const questionId = currentQuestion.id;
       const existingWords = availableWordsByQuestion.current.get(questionId);
@@ -110,7 +134,21 @@ export default function PracticePage() {
         selectedWordsByQuestion.current.set(questionId, []);
       }
     }
-  }, [currentQuestion?.id, currentQuestion?.type])
+  }, [currentQuestion?.id, currentQuestion?.type, showSentenceFlashcard])
+
+  // Hiển thị sentence flashcard khi cần thiết
+  useEffect(() => {
+    if (currentPhase === "sentence-building" && 
+        sentenceBuildingPhase === "flashcard" && 
+        sentenceBuildingQuestions.length > 0 && 
+        !showSentenceFlashcard) {
+      // Hiển thị flashcard cho câu hiện tại
+      const currentSentence = sentenceBuildingQuestions[currentSentenceIndex];
+      if (currentSentence) {
+        handleShowSentenceFlashcard(currentSentence);
+      }
+    }
+  }, [currentPhase, sentenceBuildingPhase, currentSentenceIndex, sentenceBuildingQuestions, showSentenceFlashcard])
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -216,6 +254,18 @@ export default function PracticePage() {
     fetchSentenceBuildingQuestions();
   }, [lessonId, topicId, mode]);
 
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   // Xử lý khi người dùng chọn đáp án multiple choice
   const handleSelectAnswer = (answer: string) => {
     if (selectedAnswer !== null) return
@@ -275,7 +325,7 @@ export default function PracticePage() {
     setShowFeedback(true)
 
     if (!correct) {
-      setWrongQuestions((prev) => [...prev, currentQuestionIndex])
+      setWrongQuestions((prev) => [...prev, currentSentenceIndex])
     }
   }
 
@@ -286,55 +336,87 @@ export default function PracticePage() {
 
     if (isCorrect) {
       // Đúng thì chuyển câu tiếp theo
-      if (currentQuestionIndex < getCurrentQuestions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1)
-        // Reset selectedWords khi chuyển câu mới
-        setSelectedWords([])
-      } else {
-        // Hết câu hỏi trong phase hiện tại
-        if (wrongQuestions.length > 0) {
-          // Có câu sai cần làm lại - không reset selectedWords
-          const nextWrongIndex = wrongQuestions[0]
-          setWrongQuestions((prev) => prev.slice(1))
-          setCurrentQuestionIndex(nextWrongIndex)
+      if (currentPhase === "multiple-choice") {
+        if (currentQuestionIndex < getCurrentQuestions.length - 1) {
+          setCurrentQuestionIndex(currentQuestionIndex + 1)
+          // Reset selectedWords khi chuyển câu mới
+          setSelectedWords([])
         } else {
-          // Không có câu sai, chuyển phase
-          if (currentPhase === "multiple-choice") {
-            // Chuyển từ multiple choice sang sentence building
+          // Hết câu hỏi trong phase hiện tại
+          if (wrongQuestions.length > 0) {
+            // Có câu sai cần làm lại - không reset selectedWords
+            const nextWrongIndex = wrongQuestions[0]
+            setWrongQuestions((prev) => prev.slice(1))
+            setCurrentQuestionIndex(nextWrongIndex)
+          } else {
+            // Không có câu sai, chuyển phase
             setCurrentPhase("sentence-building")
             setCurrentQuestionIndex(0)
+            setCurrentSentenceIndex(0)
+            setSentenceBuildingPhase("flashcard") // Bắt đầu với flashcard phase
             setWrongQuestions([])
             // Reset selectedWords khi chuyển phase
             setSelectedWords([])
+          }
+        }
+      } else {
+        // Đang ở sentence building phase
+        if (sentenceBuildingPhase === "practice") {
+          // Đang ở practice phase, chuyển sang câu tiếp theo
+          if (currentSentenceIndex < sentenceBuildingQuestions.length - 1) {
+            setCurrentSentenceIndex(currentSentenceIndex + 1)
+            setSentenceBuildingPhase("flashcard") // Bắt đầu với flashcard cho câu mới
+            setSelectedWords([])
           } else {
-            // Hoàn thành tất cả - hiện popup hoàn thành
+            // Hoàn thành tất cả sentence building
             setShowCompletionPopup(true)
           }
+        } else {
+          // Đang ở flashcard phase, chuyển sang practice
+          setSentenceBuildingPhase("practice")
         }
       }
     } else {
       // Sai thì chuyển câu tiếp theo (sẽ quay lại làm lại sau)
-      if (currentQuestionIndex < getCurrentQuestions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1)
-        // Reset selectedWords khi chuyển câu mới
-        setSelectedWords([])
-      } else {
-        // Hết câu trong phase, bắt đầu làm lại câu sai
-        if (wrongQuestions.length > 0) {
-          const nextWrongIndex = wrongQuestions[0]
-          setWrongQuestions((prev) => prev.slice(1))
-          setCurrentQuestionIndex(nextWrongIndex)
-          // Không reset selectedWords khi làm lại câu sai
+      if (currentPhase === "multiple-choice") {
+        if (currentQuestionIndex < getCurrentQuestions.length - 1) {
+          setCurrentQuestionIndex(currentQuestionIndex + 1)
+          // Reset selectedWords khi chuyển câu mới
+          setSelectedWords([])
         } else {
-          // Không có câu sai, chuyển phase
-          if (currentPhase === "multiple-choice") {
+          // Hết câu trong phase, bắt đầu làm lại câu sai
+          if (wrongQuestions.length > 0) {
+            const nextWrongIndex = wrongQuestions[0]
+            setWrongQuestions((prev) => prev.slice(1))
+            setCurrentQuestionIndex(nextWrongIndex)
+            // Không reset selectedWords khi làm lại câu sai
+          } else {
+            // Không có câu sai, chuyển phase
             setCurrentPhase("sentence-building")
             setCurrentQuestionIndex(0)
+            setCurrentSentenceIndex(0)
+            setSentenceBuildingPhase("flashcard") // Bắt đầu với flashcard phase
             setWrongQuestions([])
             // Reset selectedWords khi chuyển phase
             setSelectedWords([])
+          }
+        }
+      } else {
+        // Sentence building sai - chuyển sang câu tiếp theo hoặc làm lại câu sai
+        if (wrongQuestions.length > 0) {
+          const nextWrongIndex = wrongQuestions[0]
+          setWrongQuestions((prev) => prev.slice(1))
+          setCurrentSentenceIndex(nextWrongIndex)
+          setSentenceBuildingPhase("flashcard") // Bắt đầu với flashcard cho câu sai
+          setSelectedWords([])
+        } else {
+          // Không có câu sai, chuyển sang câu tiếp theo
+          if (currentSentenceIndex < sentenceBuildingQuestions.length - 1) {
+            setCurrentSentenceIndex(currentSentenceIndex + 1)
+            setSentenceBuildingPhase("flashcard") // Bắt đầu với flashcard cho câu mới
+            setSelectedWords([])
           } else {
-            // Hoàn thành tất cả - hiện popup hoàn thành
+            // Hoàn thành tất cả sentence building
             setShowCompletionPopup(true)
           }
         }
@@ -383,6 +465,47 @@ export default function PracticePage() {
       detail: { lessonId: Number.parseInt(id) },
     })
     window.dispatchEvent(completedEvent)
+  }
+
+  // Hàm xử lý sentence flashcard
+  const handleShowSentenceFlashcard = (question: Question) => {
+    setCurrentSentenceFlashcard(question)
+    setShowSentenceFlashcard(true)
+    setIsSentenceFlashcardFlipped(false)
+  }
+
+  const handleSentenceFlashcardFlip = () => {
+    setIsSentenceFlashcardFlipped(!isSentenceFlashcardFlipped)
+  }
+
+  const handleSentenceFlashcardContinue = () => {
+    setShowSentenceFlashcard(false)
+    setCurrentSentenceFlashcard(null)
+    setIsSentenceFlashcardFlipped(false)
+    
+    // Chuyển sang practice phase
+    setSentenceBuildingPhase("practice")
+    
+    // Khởi tạo lại available words cho câu hỏi hiện tại
+    if (currentQuestion?.type === "sentence-building" && currentQuestion.words) {
+      const wordsWithPosition = currentQuestion.words.map((word, index) => ({
+        word,
+        originalIndex: index,
+      }));
+      setAvailableWords(wordsWithPosition);
+      setSelectedWords([]);
+      
+      // Lưu trạng thái mới
+      if (currentQuestion.id) {
+        availableWordsByQuestion.current.set(currentQuestion.id, wordsWithPosition);
+        selectedWordsByQuestion.current.set(currentQuestion.id, []);
+      }
+    }
+  }
+
+  // Hàm kiểm tra xem có cần hiển thị sentence flashcard không
+  const shouldShowSentenceFlashcard = (question: Question) => {
+    return question.type === "sentence-building" && !showSentenceFlashcard
   }
 
   if (loading) return <div className="flex items-center justify-center h-screen text-xl">Đang tải câu hỏi luyện tập...</div>;
@@ -509,8 +632,20 @@ export default function PracticePage() {
             )}
 
             {/* Sentence Building Questions */}
-            {currentQuestion?.type === "sentence-building" && (
-              <div className="mb-4 w-full max-w-3xl">
+            {currentQuestion?.type === "sentence-building" && 
+             currentPhase === "sentence-building" && 
+             sentenceBuildingPhase === "practice" &&
+             !showSentenceFlashcard && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                    Ghép câu
+                  </h2>
+                  <p className="text-gray-600">
+                    Sắp xếp các từ để tạo thành câu hoàn chỉnh
+                  </p>
+                </div>
+
                 {/* Answer Box căn giữa hoàn toàn */}
                 <div className="mb-4 flex justify-center">
                   <div className="w-full max-w-2xl h-[60px] border-2 border-blue-600 rounded-xl bg-white p-3 flex flex-wrap gap-2 items-center justify-center">
@@ -737,6 +872,15 @@ export default function PracticePage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Sentence Flashcard Modal */}
+      {showSentenceFlashcard && currentSentenceFlashcard && (
+        <SentenceFlashcardModal
+          isOpen={showSentenceFlashcard}
+          question={currentSentenceFlashcard}
+          onClose={handleSentenceFlashcardContinue}
+        />
       )}
 
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />

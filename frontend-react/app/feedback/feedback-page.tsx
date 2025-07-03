@@ -26,6 +26,8 @@ export function FeedbackPage() {
 
   const ratingLabels = ["Rất tệ", "Tệ", "Bình thường", "Tốt", "Xuất sắc"]
 
+  const fromTestResult = searchParams.get('fromTestResult') === '1'
+
   // Get user ID from JWT token
   useEffect(() => {
     const getCurrentUserId = async () => {
@@ -86,7 +88,11 @@ export function FeedbackPage() {
       
       // Show success message and redirect
       alert("Cảm ơn bạn đã gửi phản hồi!")
-      router.push("/homepage")
+      if (fromTestResult) {
+        router.push("/test-result")
+      } else {
+        router.push("/homepage")
+      }
     } catch (error) {
       console.error('Error submitting feedback:', error)
       alert("Có lỗi xảy ra khi gửi phản hồi. Vui lòng thử lại!")
@@ -96,7 +102,11 @@ export function FeedbackPage() {
   }
 
   const handleGoBack = () => {
-    router.back()
+    if (fromTestResult) {
+      router.push("/test-result")
+    } else {
+      router.back()
+    }
   }
 
   const displayRating = hoverRating || rating

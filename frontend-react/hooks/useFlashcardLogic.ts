@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react';
-import { FlashcardService, type Flashcard, type TimelineStep, type ProgressRequest, type ProgressResponse } from '@/app/services/flashcard.service';
+import { FlashcardService, type Flashcard, type TimelineStep, type ProgressRequest, type ProgressResponse, type NextSubtopicInfo } from '@/app/services/flashcard.service';
+import { useRouter } from 'next/navigation';
+
+// Import API_BASE_URL từ service
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
 interface SubtopicInfo {
   id: number;
   subTopicName: string;
+  topicId: number;
   topicName: string;
   status: string;
+  totalFlashcards: number;
 }
 
 export function useFlashcardLogic(subtopicId: string, userId: string = 'default-user') {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [subtopicInfo, setSubtopicInfo] = useState<SubtopicInfo | null>(null);
+  const [nextSubtopicInfo, setNextSubtopicInfo] = useState<NextSubtopicInfo | null>(null);
   const [timeline, setTimeline] = useState<TimelineStep[]>([]);
   const [timelinePos, setTimelinePos] = useState(0);
   const [showCompletionPopup, setShowCompletionPopup] = useState(false);
@@ -20,26 +27,57 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [userProgress, setUserProgress] = useState<ProgressResponse | null>(null);
   const [completedFlashcards, setCompletedFlashcards] = useState<number[]>([]);
+  const [completedPractices, setCompletedPractices] = useState<Set<string>>(new Set()); // Track completed practice ranges
+  const router = useRouter();
 
   // Fetch flashcards và subtopic info
   useEffect(() => {
     const fetchData = async () => {
+      console.log("🔍 useFlashcardLogic: Starting to fetch data for subtopicId:", subtopicId);
       try {
-        const [infoData, flashcardsData] = await Promise.all([
-          FlashcardService.getSubtopicInfo(subtopicId),
-          FlashcardService.getFlashcards(subtopicId)
-        ]);
+        console.log("🔍 useFlashcardLogic: Calling FlashcardService.getSubtopicInfo");
+        const infoData = await FlashcardService.getSubtopicInfo(subtopicId);
+        console.log("🔍 useFlashcardLogic: Subtopic info received:", infoData);
+        
+        console.log("🔍 useFlashcardLogic: Calling FlashcardService.getFlashcards");
+        const flashcardsData = await FlashcardService.getFlashcards(subtopicId);
+        console.log("🔍 useFlashcardLogic: Flashcards received:", flashcardsData.length, "cards");
         
         setSubtopicInfo(infoData);
         setFlashcards(flashcardsData);
+        console.log("🔍 useFlashcardLogic: Data set successfully");
       } catch (error) {
-        console.error("❌ Error fetching data:", error);
+        console.error("❌ useFlashcardLogic: Error fetching data:", error);
+        console.error("❌ useFlashcardLogic: Error details:", error.message);
+        console.error("❌ useFlashcardLogic: Error stack:", error.stack);
       } finally {
         setIsLoading(false);
+        console.log("🔍 useFlashcardLogic: Loading finished");
       }
     };
 
     fetchData();
+  }, [subtopicId]);
+
+  // Load next subtopic info
+  useEffect(() => {
+    const loadNextSubtopic = async () => {
+      try {
+        console.log("🔍 Loading next subtopic info for subtopicId:", subtopicId);
+        const nextInfo = await FlashcardService.getNextSubtopic(subtopicId);
+        setNextSubtopicInfo(nextInfo);
+        console.log("📊 Next subtopic info loaded:", nextInfo);
+        console.log("📊 hasNext:", nextInfo.hasNext);
+        console.log("📊 nextSubtopicId:", nextInfo.nextSubtopicId);
+      } catch (error) {
+        console.warn('Failed to load next subtopic info:', error);
+        setNextSubtopicInfo({ hasNext: false });
+      }
+    };
+
+    if (subtopicId) {
+      loadNextSubtopic();
+    }
   }, [subtopicId]);
 
   // Load user progress
@@ -49,6 +87,13 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
         const progress = await FlashcardService.getProgress(subtopicId);
         setUserProgress(progress);
         setCompletedFlashcards(progress.completedFlashcards);
+        
+        // Load completed practices from progress
+        if (progress.completedPractices && Array.isArray(progress.completedPractices)) {
+          const practiceSet = new Set<string>(progress.completedPractices);
+          setCompletedPractices(practiceSet);
+          console.log("📊 Loaded completed practices:", practiceSet);
+        }
       } catch (error) {
         console.warn('Failed to load progress:', error);
       }
@@ -113,10 +158,15 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
           currentIndex++;
         }
         
-        // Thêm practice cho nhóm vừa thêm (chỉ khi có ít nhất 2 flashcard)
+        // Thêm practice cho nhóm vừa thêm (chỉ khi có ít nhất 2 flashcard và chưa hoàn thành)
         if (currentGroupSize >= 2) {
-          console.log(`    - Adding practice for cards ${groupStart} to ${currentIndex}`);
-          fallbackTimeline.push({ type: "practice", start: groupStart, end: currentIndex });
+          const practiceKey = `${groupStart}-${currentIndex}`;
+          if (!completedPractices.has(practiceKey)) {
+            console.log(`    - Adding practice for cards ${groupStart} to ${currentIndex}`);
+            fallbackTimeline.push({ type: "practice", start: groupStart, end: currentIndex });
+          } else {
+            console.log(`    - Skipping completed practice for cards ${groupStart} to ${currentIndex}`);
+          }
         } else {
           console.log(`    - Skipping practice for single card group`);
         }
@@ -131,7 +181,7 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     if (flashcards.length > 0) {
       generateTimeline();
     }
-  }, [subtopicId, flashcards.length]);
+  }, [subtopicId, flashcards.length, completedPractices]);
 
   // Debug timeline changes
   useEffect(() => {
@@ -148,14 +198,23 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
 
   // Save progress when completed flashcards change
   const saveProgress = async (newCompletedFlashcards: number[], completedPractice: boolean = false, userChoice?: 'continue' | 'review') => {
+    console.log("💾 saveProgress called with:");
+    console.log("  - newCompletedFlashcards:", newCompletedFlashcards);
+    console.log("  - completedPractice:", completedPractice);
+    console.log("  - userChoice:", userChoice);
+    console.log("  - userId:", userId);
+    console.log("  - subtopicId:", subtopicId);
+    
     try {
       const progressRequest: ProgressRequest = {
         completedFlashcards: newCompletedFlashcards,
         completedPractice,
+        completedPractices: Array.from(completedPractices),
         userChoice,
         userId
       };
 
+      console.log("📤 Sending progress request:", progressRequest);
       const response = await FlashcardService.saveProgress(subtopicId, progressRequest);
       setUserProgress(response);
       console.log('✅ Progress saved:', response);
@@ -204,13 +263,47 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
         const nextStep = timeline[nextStepIndex];
         
         if (nextStep?.type === "practice") {
-          console.log("  - Next step is practice, showing modal");
-          setShowPracticeTransitionModal(true);
+          // Kiểm tra xem practice này đã hoàn thành chưa
+          const practiceKey = `${nextStep.start}-${nextStep.end}`;
+          if (completedPractices.has(practiceKey)) {
+            console.log("  - Next practice already completed, skipping to next step");
+            // Bỏ qua practice đã hoàn thành, chuyển sang step tiếp theo
+            setTimelinePos((prev) => Math.min(prev + 2, timeline.length - 1));
+          } else {
+            console.log("  - Next step is practice, showing modal");
+            setShowPracticeTransitionModal(true);
+          }
         } else {
           console.log("  - No next flashcard or practice found, going to next step");
           setTimelinePos((prev) => Math.min(prev + 1, timeline.length - 1));
         }
       }
+    } else if (currentStep?.type === "practice") {
+      // Nếu đang ở practice step, tìm step tiếp theo (bỏ qua practice đã hoàn thành)
+      console.log("  - Currently in practice step, finding next step");
+      
+      let nextPos = timelinePos + 1;
+      
+      // Bỏ qua các practice đã hoàn thành
+      while (nextPos < timeline.length) {
+        const nextStep = timeline[nextPos];
+        if (nextStep?.type === "practice") {
+          const practiceKey = `${nextStep.start}-${nextStep.end}`;
+          if (completedPractices.has(practiceKey)) {
+            console.log(`  - Skipping completed practice at position ${nextPos}`);
+            nextPos++;
+          } else {
+            console.log(`  - Found uncompleted practice at position ${nextPos}`);
+            break;
+          }
+        } else {
+          console.log(`  - Found non-practice step at position ${nextPos}:`, nextStep);
+          break;
+        }
+      }
+      
+      console.log("  - Setting timelinePos to:", nextPos);
+      setTimelinePos(nextPos);
     } else {
       // Nếu không phải flashcard, chuyển sang step tiếp theo
       console.log("  - Not a flashcard step, going to next step");
@@ -223,24 +316,31 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     console.log("🔙 prevStep called:");
     console.log("  - currentStep:", currentStep);
     console.log("  - timelinePos:", timelinePos);
+    console.log("  - timeline:", timeline.map((step, idx) => `${idx}: ${step.type}${step.index !== undefined ? `(${step.index})` : ''}`));
     
     if (currentStep?.type === "flashcard") {
-      // Nếu đang ở flashcard, kiểm tra xem có phải flashcard đầu tiên trong nhóm không
+      // Nếu đang ở flashcard, tìm flashcard trước đó
       const currentIndex = currentStep.index || 0;
+      console.log("  - Current flashcard index:", currentIndex);
       
-      // Tìm flashcard trước đó trong cùng nhóm
+      // Tìm flashcard trước đó (bỏ qua practice steps)
       let prevFlashcardIndex = -1;
       for (let i = timelinePos - 1; i >= 0; i--) {
+        console.log(`  - Checking step ${i}:`, timeline[i]);
         if (timeline[i].type === "flashcard") {
           const stepIndex = timeline[i].index || 0;
+          console.log(`  - Found flashcard at step ${i} with index ${stepIndex}`);
           if (stepIndex < currentIndex) {
             prevFlashcardIndex = stepIndex;
+            console.log(`  - This is the previous flashcard (${stepIndex} < ${currentIndex})`);
             break;
+          } else {
+            console.log(`  - This flashcard is not previous (${stepIndex} >= ${currentIndex})`);
           }
-        } else if (timeline[i].type === "practice") {
-          // Nếu gặp practice step, dừng tìm kiếm
-          break;
+        } else {
+          console.log(`  - Skipping ${timeline[i].type} step`);
         }
+        // Bỏ qua practice steps, chỉ tìm flashcard
       }
       
       if (prevFlashcardIndex >= 0) {
@@ -252,13 +352,39 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
         console.log("  - Setting timelinePos to:", prevTimelinePos);
         setTimelinePos(prevTimelinePos);
       } else {
-        // Nếu không có flashcard trước đó, quay về step trước đó
-        console.log("  - No previous flashcard found, going to previous step");
-        setTimelinePos((prev) => Math.max(prev - 1, 0));
+        // Nếu không có flashcard trước đó, giữ nguyên vị trí hiện tại
+        console.log("  - No previous flashcard found, staying at current position");
+      }
+    } else if (currentStep?.type === "practice") {
+      // Nếu đang ở practice, quay về flashcard cuối cùng trong nhóm trước đó
+      console.log("  - Currently in practice, going back to last flashcard of previous group");
+      
+      // Tìm flashcard cuối cùng trước practice step hiện tại
+      let lastFlashcardIndex = -1;
+      for (let i = timelinePos - 1; i >= 0; i--) {
+        console.log(`  - Checking step ${i} for flashcard:`, timeline[i]);
+        if (timeline[i].type === "flashcard") {
+          lastFlashcardIndex = timeline[i].index || 0;
+          console.log(`  - Found last flashcard at index: ${lastFlashcardIndex}`);
+          break;
+        }
+      }
+      
+      if (lastFlashcardIndex >= 0) {
+        const prevTimelinePos = timeline.findIndex(step => 
+          step.type === "flashcard" && step.index === lastFlashcardIndex
+        );
+        console.log("  - Found last flashcard at index:", lastFlashcardIndex);
+        console.log("  - Setting timelinePos to:", prevTimelinePos);
+        setTimelinePos(prevTimelinePos);
+      } else {
+        // Nếu không tìm thấy flashcard nào, quay về step đầu tiên
+        console.log("  - No flashcard found, going to first step");
+        setTimelinePos(0);
       }
     } else {
-      // Nếu không phải flashcard, quay về step trước đó
-      console.log("  - Not a flashcard step, going to previous step");
+      // Trường hợp khác, quay về step trước đó
+      console.log("  - Other step type, going to previous step");
       setTimelinePos((prev) => Math.max(prev - 1, 0));
     }
   };
@@ -304,9 +430,32 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
   };
 
   const handleCompletionNext = () => {
-    setShowCompletionModal(false);
-    // TODO: Navigate to next subtopic
-    console.log("Navigate to next subtopic");
+    console.log("🚀 handleCompletionNext called");
+    console.log("📊 nextSubtopicInfo:", nextSubtopicInfo);
+    
+    if (nextSubtopicInfo?.hasNext && nextSubtopicInfo?.nextSubtopicId) {
+      // Có subtopic tiếp theo - chuyển đến subtopic đó
+      console.log("➡️ Navigating to next subtopic:", nextSubtopicInfo.nextSubtopicId);
+      router.push(`/flashcard/${nextSubtopicInfo.nextSubtopicId}`);
+    } else {
+      // Không có subtopic tiếp theo - kiểm tra điều kiện làm test
+      console.log("📝 No next subtopic, checking test conditions");
+      
+      if (isAllSubtopicsCompleted) {
+        // Tất cả subtopics đã hoàn thành - cho phép làm test
+        console.log("✅ All subtopics completed, navigating to test");
+        const topicId = subtopicInfo?.topicId;
+        if (topicId) {
+          router.push(`/test-start?topicId=${topicId}`);
+        } else {
+          router.push('/homepage');
+        }
+      } else {
+        // Chưa hoàn thành tất cả subtopics - về homepage
+        console.log("❌ Not all subtopics completed, going to homepage");
+        router.push('/homepage');
+      }
+    }
   };
 
   const handleCompletionClose = () => {
@@ -322,6 +471,12 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
 
   // Mark practice as completed
   const markPracticeCompleted = () => {
+    const currentStep = timeline[timelinePos];
+    if (currentStep?.type === "practice" && currentStep.start !== undefined && currentStep.end !== undefined) {
+      const practiceKey = `${currentStep.start}-${currentStep.end}`;
+      setCompletedPractices(prev => new Set([...prev, practiceKey]));
+      console.log("✅ Practice marked as completed:", practiceKey);
+    }
     saveProgress(completedFlashcards, true);
   };
 
@@ -349,16 +504,22 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
       return false;
     }
     
-    // Kiểm tra xem có practice step nào sau step hiện tại không
+    // Kiểm tra xem có practice step nào chưa hoàn thành sau step hiện tại không
     for (let i = timelinePos + 1; i < timeline.length; i++) {
       console.log(`  - Checking step ${i}:`, timeline[i]);
       if (timeline[i].type === "practice") {
-        console.log("  - Found another practice step, returning false");
-        return false; // Còn practice step khác
+        // Kiểm tra xem practice này đã hoàn thành chưa
+        const practiceKey = `${timeline[i].start}-${timeline[i].end}`;
+        if (!completedPractices.has(practiceKey)) {
+          console.log("  - Found uncompleted practice step, returning false");
+          return false; // Còn practice step chưa hoàn thành
+        } else {
+          console.log("  - Found completed practice step, continuing search");
+        }
       }
     }
-    console.log("  - No more practice steps found, returning true");
-    return true; // Đây là practice step cuối cùng
+    console.log("  - No more uncompleted practice steps found, returning true");
+    return true; // Đây là practice step cuối cùng chưa hoàn thành
   };
 
   // Get current step info
@@ -444,19 +605,66 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
       console.log("  - nextStepIndex:", nextStepIndex);
       console.log("  - nextStep:", nextStep);
       
-      const shouldShow = nextStep?.type === "practice" && nextStep.start !== undefined && nextStep.end !== undefined;
-      console.log("  - shouldShow:", shouldShow);
-      return shouldShow;
+      if (nextStep?.type === "practice" && nextStep.start !== undefined && nextStep.end !== undefined) {
+        // Kiểm tra xem practice này đã hoàn thành chưa
+        const practiceKey = `${nextStep.start}-${nextStep.end}`;
+        const isCompleted = completedPractices.has(practiceKey);
+        console.log("  - practiceKey:", practiceKey);
+        console.log("  - isCompleted:", isCompleted);
+        console.log("  - shouldShow:", !isCompleted);
+        return !isCompleted; // Chỉ hiển thị nếu chưa hoàn thành
+      }
     }
-    console.log("  - Not a flashcard step, shouldShow: false");
+    console.log("  - Not a flashcard step or no practice next, shouldShow: false");
     return false;
   };
+
+  // Kiểm tra xem tất cả subtopics trong topic đã hoàn thành chưa
+  const checkAllSubtopicsCompleted = async () => {
+    try {
+      if (!subtopicInfo?.topicId) return false;
+      
+      // Gọi API để lấy tất cả subtopics trong topic này
+      const response = await fetch(`${API_BASE_URL}/flashcards/topic/${subtopicInfo.topicId}/subtopics`);
+      if (response.ok) {
+        const subtopics = await response.json();
+        
+        // Lấy progress của user cho topic này
+        const userProgress = await FlashcardService.getUserProgress(userId);
+        
+        // Kiểm tra xem tất cả subtopics đã hoàn thành chưa
+        const allCompleted = subtopics.every((subtopic: any) => 
+          userProgress.completedSubtopicIds.includes(subtopic.id)
+        );
+        
+        return allCompleted;
+      }
+    } catch (error) {
+      console.warn('Failed to check all subtopics completion:', error);
+    }
+    return false;
+  };
+
+  const [isAllSubtopicsCompleted, setIsAllSubtopicsCompleted] = useState(false);
+
+  // Kiểm tra khi subtopicInfo thay đổi
+  useEffect(() => {
+    const checkCompletion = async () => {
+      const completed = await checkAllSubtopicsCompleted();
+      setIsAllSubtopicsCompleted(completed);
+    };
+    
+    if (subtopicInfo?.topicId) {
+      checkCompletion();
+    }
+  }, [subtopicInfo?.topicId, userId]);
 
   return {
     // State
     flashcards,
     isLoading,
     subtopicInfo,
+    nextSubtopicInfo,
     timeline,
     timelinePos,
     showCompletionPopup,
@@ -465,6 +673,7 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     showCompletionModal,
     userProgress,
     completedFlashcards,
+    completedPractices,
     
     // Actions
     setShowCompletionPopup,
@@ -497,5 +706,6 @@ export function useFlashcardLogic(subtopicId: string, userId: string = 'default-
     handleCompletionRetry,
     handleCompletionNext,
     handleCompletionClose,
+    isAllSubtopicsCompleted,
   };
 } 

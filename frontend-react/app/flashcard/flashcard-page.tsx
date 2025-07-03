@@ -14,6 +14,7 @@ import { CompletionPopup } from "@/components/flashcard/completion-popup"
 import { useFlashcardLogic } from "@/hooks/useFlashcardLogic"
 import { type Flashcard } from "@/app/services/flashcard.service"
 import { FlashcardService, type SentenceBuildingQuestion } from "@/app/services/flashcard.service"
+import authService from "@/app/services/auth.service"
 
 export default function FlashcardPage() {
   const searchParams = useSearchParams()
@@ -23,14 +24,38 @@ export default function FlashcardPage() {
   const [videoError, setVideoError] = useState(false);
   const [sentenceBuildingQuestions, setSentenceBuildingQuestions] = useState<SentenceBuildingQuestion[]>([]);
   const [hasSentenceBuilding, setHasSentenceBuilding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const subtopicId = searchParams.get("subtopicId") || "1";
+  // Get parameters from URL
+  const subtopicId = searchParams.get('subtopicId') || searchParams.get('id') || ''
+  const mode = searchParams.get('mode') || 'flashcard'
+  const userId = searchParams.get('userId') || 'default-user'
+
+  // Check authentication on mount
+  useEffect(() => {
+    console.log("🔍 Flashcard page authentication check");
+    console.log("🔍 subtopicId:", subtopicId);
+    console.log("🔍 isAuthenticated:", authService.isAuthenticated());
+    
+    // Allow guest users to access flashcard for the first topic
+    // Guest users can learn the first topic without authentication
+    if (!authService.isAuthenticated()) {
+      // For guest users, we'll allow access to flashcard
+      // The backend will handle guest user logic
+      console.log("👤 Guest user accessing flashcard - allowing access");
+    } else {
+      console.log("👤 Authenticated user accessing flashcard");
+    }
+    setIsLoading(false)
+  }, [router, subtopicId])
 
   // Sử dụng custom hook để quản lý logic
   const {
     flashcards,
-    isLoading,
+    isLoading: flashcardLoading,
     subtopicInfo,
+    nextSubtopicInfo,
     timeline,
     timelinePos,
     showCompletionPopup,
@@ -58,6 +83,8 @@ export default function FlashcardPage() {
     getCurrentGroupSize,
     shouldShowPracticeButton,
     totalCards,
+    markPracticeCompleted,
+    isAllSubtopicsCompleted,
   } = useFlashcardLogic(subtopicId);
 
   // Tạo key để force re-render khi subtopicId thay đổi
@@ -97,8 +124,23 @@ export default function FlashcardPage() {
   };
 
   const handlePracticeComplete = () => {
+    // Mark practice as completed
+    markPracticeCompleted();
+    
     if (isLastPractice()) {
-      setShowCompletionModal(true);
+      // Nếu là practice cuối cùng, chuyển sang bước tiếp theo thay vì chỉ hiển thị modal
+      console.log("🎯 Last practice completed, moving to next step");
+      nextStep();
+      setIsFlipped(false);
+      
+      // Kiểm tra xem có còn bước nào không, nếu không thì hiển thị completion modal
+      setTimeout(() => {
+        const currentStep = getCurrentStep();
+        if (!currentStep) {
+          console.log("🎯 No more steps, showing completion modal");
+          setShowCompletionModal(true);
+        }
+      }, 100);
     } else {
       nextStep();
       setIsFlipped(false);
@@ -116,15 +158,30 @@ export default function FlashcardPage() {
     router.push(`/practice?lessonId=${subtopicId}&mode=sentence-building`)
   }
 
+  // Show loading while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-blue-700 text-lg font-semibold">Đang tải...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
-    );
+    )
+  }
+
+  // Show error if any
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={() => router.push('/homepage')}>
+            Quay về trang chủ
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (timelinePos < timeline.length) {
@@ -428,17 +485,11 @@ export default function FlashcardPage() {
                   <div className="text-blue-600 text-xl animate-pulse">👉</div>
                   <Button 
                     onClick={() => {
-                      console.log("🎯 Practice button clicked (mobile)!");
-                      console.log("  - Current step:", currentStep);
-                      console.log("  - Upcoming practice cards:", getUpcomingPracticeCards().length);
-                      
                       // Kiểm tra xem có practice cards sắp tới không
                       const upcomingPracticeCards = getUpcomingPracticeCards();
                       if (upcomingPracticeCards.length > 0) {
-                        console.log("  - Showing practice transition modal");
                         setShowPracticeTransitionModal(true);
                       } else {
-                        console.log("  - No practice cards available, showing alert");
                         alert("Chưa có bài tập practice cho nhóm flashcard này!");
                       }
                     }}
@@ -463,17 +514,11 @@ export default function FlashcardPage() {
                 <div className="text-blue-600 text-2xl animate-pulse hidden lg:block">👉</div>
                 <Button 
                   onClick={() => {
-                    console.log("🎯 Practice button clicked!");
-                    console.log("  - Current step:", currentStep);
-                    console.log("  - Upcoming practice cards:", getUpcomingPracticeCards().length);
-                    
                     // Kiểm tra xem có practice cards sắp tới không
                     const upcomingPracticeCards = getUpcomingPracticeCards();
                     if (upcomingPracticeCards.length > 0) {
-                      console.log("  - Showing practice transition modal");
                       setShowPracticeTransitionModal(true);
                     } else {
-                      console.log("  - No practice cards available, showing alert");
                       alert("Chưa có bài tập practice cho nhóm flashcard này!");
                     }
                   }}
@@ -579,12 +624,30 @@ export default function FlashcardPage() {
   // Default loading state
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-blue-700 text-lg font-semibold">Đang tải...</p>
+      {timelinePos >= timeline.length ? (
+        // Timeline đã kết thúc, hiển thị completion modal
+        <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-green-500 text-6xl mb-4">🎉</div>
+            <h2 className="text-2xl font-bold text-green-600 mb-2">Hoàn thành!</h2>
+            <p className="text-gray-600 mb-4">Bạn đã hoàn thành tất cả bài học</p>
+            <Button 
+              onClick={() => setShowCompletionModal(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Xem kết quả
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        // Vẫn đang loading
+        <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-blue-700 text-lg font-semibold">Đang tải...</p>
+          </div>
+        </div>
+      )}
 
       {/* Practice Transition Modal */}
       <PracticeTransitionModal
@@ -605,9 +668,12 @@ export default function FlashcardPage() {
         onNext={handleCompletionNext}
         onSentenceBuilding={handleSentenceBuilding}
         subtopicName={subtopicInfo?.subTopicName || "Subtopic"}
-        hasNextSubtopic={false}
+        hasNextSubtopic={nextSubtopicInfo?.hasNext || false}
         hasSentenceBuilding={hasSentenceBuilding}
+        isAllSubtopicsCompleted={isAllSubtopicsCompleted}
       />
+      
+
     </>
   );
 } 

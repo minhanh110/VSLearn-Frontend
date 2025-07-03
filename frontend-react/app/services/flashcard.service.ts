@@ -45,6 +45,7 @@ export interface SentenceBuildingQuestion {
 export interface ProgressRequest {
   completedFlashcards: number[];
   completedPractice: boolean;
+  completedPractices?: string[];
   userChoice?: 'continue' | 'review';
   userId: string;
 }
@@ -54,6 +55,7 @@ export interface ProgressResponse {
   message: string;
   completedFlashcards: number[];
   completedPractice: boolean;
+  completedPractices?: string[];
   userChoice?: string;
   progressPercentage: number;
 }
@@ -77,6 +79,22 @@ export interface LearningAnalytics {
   weakAreas: string[];
 }
 
+export interface SubtopicInfo {
+  id: number;
+  subTopicName: string;
+  topicId: string;
+  topicName: string;
+  status: string;
+  totalFlashcards: number;
+}
+
+export interface NextSubtopicInfo {
+  hasNext: boolean;
+  nextSubtopicId?: string;
+  nextSubtopicName?: string;
+  topicName?: string;
+}
+
 export class FlashcardService {
   // Lấy thông tin subtopic
   static async getSubtopicInfo(subtopicId: string) {
@@ -85,6 +103,24 @@ export class FlashcardService {
       throw new Error('Failed to fetch subtopic info');
     }
     return response.json();
+  }
+
+  // Lấy subtopic tiếp theo
+  static async getNextSubtopic(currentSubtopicId: string): Promise<NextSubtopicInfo> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/flashcards/subtopic/${currentSubtopicId}/next`);
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (error) {
+      console.warn('Next subtopic API failed:', error);
+    }
+    
+    // Fallback: return no next subtopic
+    return {
+      hasNext: false
+    };
   }
 
   // Lấy flashcards của subtopic
@@ -266,6 +302,26 @@ export class FlashcardService {
       subtopicProgress: [],
       dailyStudyTime: {},
       weakAreas: []
+    };
+  }
+
+  // Lấy tất cả progress của user
+  static async getUserProgress(userId: string): Promise<{completedSubtopicIds: number[]}> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/flashcards/user/progress?userId=${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          completedSubtopicIds: data.completedSubtopicIds || []
+        };
+      }
+    } catch (error) {
+      console.warn('User progress API not available:', error);
+    }
+    
+    // Return empty progress if API not available
+    return {
+      completedSubtopicIds: []
     };
   }
 } 

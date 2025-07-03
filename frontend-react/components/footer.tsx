@@ -1,8 +1,9 @@
 "use client"
 
-import { Home, BookOpen, Camera, DollarSign, Settings, X } from "lucide-react"
+import { Home, BookOpen, Camera, DollarSign, Settings, X, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useUser } from "@/hooks/useUser"
 
 interface FooterProps {
   isOpen?: boolean
@@ -18,6 +19,8 @@ const menuItems = [
 ]
 
 export function Footer({ isOpen = false, onClose }: FooterProps) {
+  const { userInfo, loading, isAuthenticated } = useUser()
+
   return (
     <>
       {/* Desktop Sidebar - positioned below header */}
@@ -35,8 +38,50 @@ export function Footer({ isOpen = false, onClose }: FooterProps) {
             </Button>
           </div>
 
+          {/* User info section - chỉ hiện cho authenticated users */}
+          {isAuthenticated && (
+            <div className="px-6 mb-6">
+              <div className="bg-white/60 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm truncate">
+                      {loading ? "Loading..." : (userInfo?.displayName || "User")}
+                    </p>
+                    <p className="text-xs text-gray-500">Học viên</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Guest info section - chỉ hiện cho guest users */}
+          {!isAuthenticated && (
+            <div className="px-6 mb-6">
+              <div className="bg-white/60 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm">Khách</p>
+                    <p className="text-xs text-gray-500">Chưa đăng nhập</p>
+                  </div>
+                </div>
+                <Link
+                  href="/login"
+                  className="mt-3 w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-all duration-200 text-center block"
+                >
+                  Đăng nhập
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Menu items */}
-          <nav className="px-6 space-y-3 mt-4">
+          <nav className="px-6 space-y-3">
             {menuItems.map((item, index) => (
               <Link
                 key={index}

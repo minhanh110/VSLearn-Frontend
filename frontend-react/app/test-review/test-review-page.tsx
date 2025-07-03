@@ -27,6 +27,7 @@ interface TestResults {
   questions: ReviewQuestion[]
   topicName?: string
   topicId?: number
+  timestamp?: number
 }
 
 export function TestReviewPageComponent() {
@@ -36,6 +37,9 @@ export function TestReviewPageComponent() {
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
   const [testResults, setTestResults] = useState<TestResults | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
+  const [history, setHistory] = useState<TestResults[]>([])
+  const [isReviewingHistory, setIsReviewingHistory] = useState(false)
 
   useEffect(() => {
     // Read test results from sessionStorage
@@ -53,6 +57,13 @@ export function TestReviewPageComponent() {
       router.push("/homepage")
     }
     setLoading(false)
+    // Load history from localStorage
+    try {
+      const raw = localStorage.getItem("testHistory")
+      if (raw) setHistory(JSON.parse(raw))
+    } catch {}
+    // Reset trạng thái review lịch sử khi vào trang
+    setIsReviewingHistory(false)
   }, [router])
 
   if (loading) {
@@ -102,12 +113,39 @@ export function TestReviewPageComponent() {
     }
   }
 
+  // Khi bấm "Xem lại" trong modal lịch sử
+  const handleReviewHistory = (item: TestResults) => {
+    setTestResults(item);
+    setShowHistory(false);
+    setIsReviewingHistory(true);
+  }
+
   // Summary View - Trang tổng kết
   if (currentView === "summary") {
     return (
       <div className="min-h-screen bg-blue-100 relative overflow-hidden">
         <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
-
+        {showHistory && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl max-w-lg w-full">
+              <h2 className="text-lg font-bold mb-4">Lịch sử bài test</h2>
+              <ul>
+                {history.length === 0 && <li>Chưa có lịch sử bài test nào.</li>}
+                {history.map((item, idx) => (
+                  <li key={idx} className="mb-2 border-b pb-2">
+                    <div>
+                      <b>Chủ đề:</b> {item.topicName || "N/A"}<br />
+                      <b>Điểm:</b> {item.accuracy}%<br />
+                      <b>Ngày:</b> {item.timestamp ? new Date(item.timestamp).toLocaleString() : "N/A"}
+                    </div>
+                    <Button onClick={() => handleReviewHistory(item)} className="mt-2 bg-blue-400 hover:bg-blue-500 text-white">Xem lại</Button>
+                  </li>
+                ))}
+              </ul>
+              <Button onClick={() => setShowHistory(false)} className="mt-4">Đóng</Button>
+            </div>
+          </div>
+        )}
         <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
           <div className="max-w-2xl mx-auto">
             {/* Header */}
@@ -182,16 +220,24 @@ export function TestReviewPageComponent() {
             </div>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex justify-center gap-4 mt-6">
               <Button
-                onClick={() => router.push("/homepage")}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-xl"
+                onClick={() => {
+                  router.push("/test-result");
+                }}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-10 rounded-xl min-w-[160px]"
               >
                 ĐÓNG
               </Button>
               <Button
-                onClick={() => router.push("/test-topic")}
-                className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl"
+                onClick={() => {
+                  if (testResults.topicId) {
+                    router.push(`/test-topic?topicId=${testResults.topicId}`);
+                  } else {
+                    router.push("/test-topic");
+                  }
+                }}
+                className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-3 px-10 rounded-xl min-w-[160px]"
               >
                 LÀM LẠI
               </Button>

@@ -25,6 +25,8 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const [confirmPassword, setConfirmPassword] = useState("");
   const otp = Cookies.get("otp") || "";
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
     setShowPasswords((prev) => ({
@@ -33,30 +35,42 @@ export default function ResetPasswordPage() {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
+    
+    // Basic frontend validation - chỉ check password matching
     if (newPassword !== confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp!");
-      return;
+      setError("Mật khẩu xác nhận không khớp")
+      return
     }
-    if (!otp) {
-      alert("Thiếu mã OTP. Vui lòng yêu cầu đặt lại mật khẩu mới.");
-      return;
+
+    // Password strength check
+    const passwordValid = passwordRequirements.every(req => req.valid)
+    if (!passwordValid) {
+      setError("Mật khẩu chưa đáp ứng đầy đủ yêu cầu")
+      return
     }
-    authService.resetPassword(otp, newPassword, confirmPassword)
-      .then((data) => {
-        if (data.status === 200) {
-          Cookies.remove("email-reset")
-          Cookies.remove("otp")
-          router.push("/login")
-        } else {
-          alert("Đặt lại mật khẩu thất bại. Vui lòng thử lại.")
-        }
-      })
-      .catch((error) => {
-        alert(error.message || "Đã xảy ra lỗi khi đặt lại mật khẩu.")
-      })
-    setIsSuccess(true)
+
+    setLoading(true)
+
+    try {
+      const data = await authService.resetPassword(otp, newPassword, confirmPassword)
+      if (data.status === 200) {
+        Cookies.remove("email-reset")
+        Cookies.remove("otp")
+        setIsSuccess(true)
+      } else {
+        // Display backend validation message
+        setError(data.message || "Đặt lại mật khẩu thất bại")
+      }
+    } catch (error: any) {
+      console.error('Reset password error:', error)
+      // Display backend error message
+      setError(error.message || "Có lỗi xảy ra khi đặt lại mật khẩu")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const passwordRequirements = [
@@ -115,6 +129,12 @@ export default function ResetPasswordPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">Mật khẩu mới</Label>
                   <div className="relative">
@@ -179,10 +199,11 @@ export default function ResetPasswordPage() {
 
                 <Button
                   type="submit"
-                  className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90"
+                  disabled={loading}
+                  className="w-full text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: "#93D6F6" }}
                 >
-                  Xác nhận đặt lại mật khẩu
+                  {loading ? "Đang xử lý..." : "Xác nhận đặt lại mật khẩu"}
                 </Button>
               </form>
 
