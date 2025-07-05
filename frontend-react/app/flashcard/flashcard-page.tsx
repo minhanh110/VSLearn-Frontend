@@ -10,7 +10,6 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PracticeGroup } from "@/components/flashcard/practice-group"
 import { PracticeTransitionModal } from "@/components/flashcard/practice-transition-modal"
-import { CompletionPopup } from "@/components/flashcard/completion-popup"
 import { useFlashcardLogic } from "@/hooks/useFlashcardLogic"
 import { type Flashcard } from "@/app/services/flashcard.service"
 import { FlashcardService, type SentenceBuildingQuestion } from "@/app/services/flashcard.service"
@@ -61,11 +60,9 @@ export default function FlashcardPage() {
     showCompletionPopup,
     showTransitionPopup,
     showPracticeTransitionModal,
-    showCompletionModal,
     setShowCompletionPopup,
     setShowTransitionPopup,
     setShowPracticeTransitionModal,
-    setShowCompletionModal,
     nextStep,
     prevStep,
     resetTimeline,
@@ -84,7 +81,6 @@ export default function FlashcardPage() {
     shouldShowPracticeButton,
     totalCards,
     markPracticeCompleted,
-    isAllSubtopicsCompleted,
   } = useFlashcardLogic(subtopicId);
 
   // Tạo key để force re-render khi subtopicId thay đổi
@@ -133,12 +129,12 @@ export default function FlashcardPage() {
       nextStep();
       setIsFlipped(false);
       
-      // Kiểm tra xem có còn bước nào không, nếu không thì hiển thị completion modal
+      // Kiểm tra xem có còn bước nào không, nếu không thì chuyển đến trang completion
       setTimeout(() => {
         const currentStep = getCurrentStep();
         if (!currentStep) {
-          console.log("🎯 No more steps, showing completion modal");
-          setShowCompletionModal(true);
+          console.log("🎯 No more steps, navigating to completion page");
+          handleCompletionNext();
         }
       }, 100);
     } else {
@@ -632,7 +628,7 @@ export default function FlashcardPage() {
             <h2 className="text-2xl font-bold text-green-600 mb-2">Hoàn thành!</h2>
             <p className="text-gray-600 mb-4">Bạn đã hoàn thành tất cả bài học</p>
             <Button 
-              onClick={() => setShowCompletionModal(true)}
+              onClick={handleCompletionNext}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
             >
               Xem kết quả
@@ -659,21 +655,6 @@ export default function FlashcardPage() {
         completedCardCount={flashcards.length}
         currentGroupSize={getCurrentGroupSize()}
       />
-
-      {/* Completion Popup */}
-      <CompletionPopup
-        isOpen={showCompletionModal}
-        onClose={handleCompletionClose}
-        onRetry={handleCompletionRetry}
-        onNext={handleCompletionNext}
-        onSentenceBuilding={handleSentenceBuilding}
-        subtopicName={subtopicInfo?.subTopicName || "Subtopic"}
-        hasNextSubtopic={nextSubtopicInfo?.hasNext || false}
-        hasSentenceBuilding={hasSentenceBuilding}
-        isAllSubtopicsCompleted={isAllSubtopicsCompleted}
-      />
-      
-
     </>
   );
 } 
