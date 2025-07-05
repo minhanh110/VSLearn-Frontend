@@ -80,6 +80,22 @@ export default function HomePage() {
         if (res1.data && res1.data.data) {
           setUnits(res1.data.data)
           console.log("📊 Units loaded:", res1.data.data.length, "units")
+          
+          // Extract completed lessons từ units (backend đã tính toán accessible)
+          const allCompletedLessons: string[] = [];
+          res1.data.data.forEach((unit: any) => {
+            unit.lessons.forEach((lesson: any) => {
+              // Nếu lesson có accessible = false, có nghĩa là chưa hoàn thành
+              // Nếu lesson có accessible = true, có thể đã hoàn thành hoặc có thể truy cập
+              // Chúng ta cần logic khác để xác định lesson đã hoàn thành
+              if (lesson.isCompleted) {
+                allCompletedLessons.push(lesson.id.toString());
+              }
+            });
+          });
+          
+          setCompletedLessons(allCompletedLessons);
+          console.log("✅ Completed lessons extracted:", allCompletedLessons);
         } else {
           console.warn("⚠️ No units data in response")
           setUnits([])
@@ -94,22 +110,19 @@ export default function HomePage() {
             
             console.log("🔍 Loading progress for userId:", userId);
             
-            // Sử dụng FlashcardService để lấy progress
-            const userProgress = await FlashcardService.getUserProgress(userId);
-            console.log("📊 User progress from FlashcardService:", userProgress);
+            // Sử dụng API /learning-path để lấy progress (bao gồm cả test results)
+            const progressRes = await axiosInstance.get("/learning-path", { headers });
+            console.log("📊 Learning path progress response:", progressRes.data);
             
-            if (userProgress.completedSubtopicIds) {
-              const completedIds = userProgress.completedSubtopicIds.map(id => id.toString());
-              setCompletedLessons(completedIds);
-              console.log("✅ Completed lessons loaded:", completedIds);
-              console.log("📊 Completed lessons count:", completedIds.length);
+            if (progressRes.data && progressRes.data.data) {
+              // API learning-path trả về units với thông tin progress đầy đủ
+              // Không cần gọi thêm API progress riêng
+              console.log("✅ Progress loaded from learning-path API");
             } else {
-              console.warn("⚠️ No progress data in response");
-              setCompletedLessons([]);
+              console.warn("⚠️ No progress data in learning-path response");
             }
           } catch (progressError) {
             console.warn("⚠️ Error loading user progress:", progressError);
-            setCompletedLessons([]);
           }
         } else {
           // Guest user - sử dụng demo endpoint
