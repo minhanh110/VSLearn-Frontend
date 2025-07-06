@@ -15,7 +15,7 @@ import { type Flashcard } from "@/app/services/flashcard.service"
 import { FlashcardService, type SentenceBuildingQuestion } from "@/app/services/flashcard.service"
 import authService from "@/app/services/auth.service"
 
-export default function FlashcardPage() {
+export default function FlashcardPage({ subtopicId: propSubtopicId }: { subtopicId?: string }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -26,8 +26,8 @@ export default function FlashcardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Get parameters from URL
-  const subtopicId = searchParams.get('subtopicId') || searchParams.get('id') || ''
+  // Get parameters from props or URL
+  const subtopicId = propSubtopicId || searchParams.get('subtopicId') || searchParams.get('id') || ''
   const mode = searchParams.get('mode') || 'flashcard'
   const userId = searchParams.get('userId') || 'default-user'
 
@@ -37,12 +37,18 @@ export default function FlashcardPage() {
     console.log("🔍 subtopicId:", subtopicId);
     console.log("🔍 isAuthenticated:", authService.isAuthenticated());
     
-    // Allow guest users to access flashcard for the first topic
+    // Allow guest users to access flashcard for the first topic only
     // Guest users can learn the first topic without authentication
     if (!authService.isAuthenticated()) {
-      // For guest users, we'll allow access to flashcard
-      // The backend will handle guest user logic
-      console.log("👤 Guest user accessing flashcard - allowing access");
+      // Check if this is the first topic (subtopicId 1 or 2)
+      const subtopicIdNum = parseInt(subtopicId);
+      if (subtopicIdNum >= 1 && subtopicIdNum <= 2) {
+        console.log("👤 Guest user accessing first topic flashcard - allowing access");
+      } else {
+        console.log("🚫 Guest user trying to access restricted content - redirecting to login");
+        router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname));
+        return;
+      }
     } else {
       console.log("👤 Authenticated user accessing flashcard");
     }
@@ -57,10 +63,8 @@ export default function FlashcardPage() {
     nextSubtopicInfo,
     timeline,
     timelinePos,
-    showCompletionPopup,
     showTransitionPopup,
     showPracticeTransitionModal,
-    setShowCompletionPopup,
     setShowTransitionPopup,
     setShowPracticeTransitionModal,
     nextStep,
@@ -69,9 +73,7 @@ export default function FlashcardPage() {
     handlePracticeTransitionContinue,
     handlePracticeTransitionReview,
     handlePracticeTransitionClose,
-    handleCompletionRetry,
     handleCompletionNext,
-    handleCompletionClose,
     isLastFlashcard,
     isLastPractice,
     getCurrentStep,
@@ -110,10 +112,7 @@ export default function FlashcardPage() {
     }
   }, [subtopicId]);
 
-  // Debug showCompletionPopup changes
-  useEffect(() => {
-    console.log("🔄 showCompletionPopup state changed to:", showCompletionPopup);
-  }, [showCompletionPopup]);
+
 
   const toggleFlip = () => {
     setIsFlipped(!isFlipped);
@@ -130,11 +129,11 @@ export default function FlashcardPage() {
       setIsFlipped(false);
       
       // Kiểm tra xem có còn bước nào không, nếu không thì chuyển đến trang completion
-      setTimeout(() => {
+      setTimeout(async () => {
         const currentStep = getCurrentStep();
         if (!currentStep) {
           console.log("🎯 No more steps, navigating to completion page");
-          handleCompletionNext();
+          await handleCompletionNext();
         }
       }, 100);
     } else {
@@ -151,7 +150,10 @@ export default function FlashcardPage() {
 
   const handleSentenceBuilding = () => {
     // Chuyển sang trang practice với sentence building
-    router.push(`/practice?lessonId=${subtopicId}&mode=sentence-building`)
+    const topicId = subtopicInfo?.topicId;
+    if (topicId) {
+      router.push(`/practice?topicId=${topicId}&mode=sentence-building`)
+    }
   }
 
   // Show loading while checking authentication
@@ -628,7 +630,7 @@ export default function FlashcardPage() {
             <h2 className="text-2xl font-bold text-green-600 mb-2">Hoàn thành!</h2>
             <p className="text-gray-600 mb-4">Bạn đã hoàn thành tất cả bài học</p>
             <Button 
-              onClick={handleCompletionNext}
+              onClick={async () => await handleCompletionNext()}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
             >
               Xem kết quả

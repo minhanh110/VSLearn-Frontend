@@ -77,7 +77,7 @@ export function LessonPopup({
             <p className="text-blue-500 text-xs font-bold mb-2">{wordCount} TỪ VỰNG</p>
 
             {/* Start button - very small */}
-            <Link href={`/flashcard?subtopicId=${subtopicId || lessonId}`} className="block">
+            <Link href={`/flashcard/${subtopicId || lessonId}`} className="block">
               <Button
                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-1.5 px-3 rounded-md shadow-sm transition-all duration-200 hover:shadow-md text-xs"
                 onClick={() => {
