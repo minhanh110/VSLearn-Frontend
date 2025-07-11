@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
+import Image from "next/image" // Import Image component
 
-export function TestResultPageComponent() {
+export default function TestResultPageComponent() {
   const router = useRouter()
   const [testResults, setTestResults] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -33,92 +34,147 @@ export function TestResultPageComponent() {
     )
   }
 
+  const isPassed = testResults.accuracy >= 90 // Điều kiện để xác định đậu/rớt
+
   return (
-    <div className="min-h-screen bg-blue-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden flex flex-col">
       <Header />
-      <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
-        <div className="max-w-2xl mx-auto">
-          {/* Result Header */}
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-blue-700 mb-4">
-              KẾT QUẢ BÀI KIỂM TRA
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
+
+      {/* Modal Content */}
+      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-xs sm:max-w-md mx-4">
+        <div className="relative">
+          <div
+            className={`rounded-3xl p-6 sm:p-8 w-full text-center shadow-2xl border-4 ${
+              isPassed ? "bg-blue-50 border-blue-200" : "bg-pink-50 border-pink-200"
+            }`}
+          >
+            {/* Mascot Image */}
+            <div className="flex justify-center mb-4">
+              <Image
+                src={isPassed ? "/images/test-success-whale.png" : "/images/test-failure-whale.png"}
+                alt={isPassed ? "Happy whale" : "Sad whale"}
+                width={120}
+                height={120}
+                className="object-contain animate-bounce"
+              />
+            </div>
+
+            {/* Main Title */}
+            <h1 className={`text-2xl sm:text-3xl font-bold mb-2 ${isPassed ? "text-blue-800" : "text-red-700"}`}>
+              {isPassed ? "CHÚC MỪNG BẠN ĐÃ HOÀN THÀNH !" : "ÔI, KHÔNG !"}
             </h1>
+            {/* Subtitle */}
+            <p className={`text-base sm:text-lg font-semibold mb-4 ${isPassed ? "text-blue-600" : "text-gray-600"}`}>
+              {isPassed ? "BẠN ĐÃ VƯỢT QUA BÀI KIỂM TRA" : "BẠN ĐÃ KHÔNG VƯỢT QUA BÀI KIỂM TRA"}
+              <br />
+              {testResults.topicName ? `"${testResults.topicName.toUpperCase()}"` : ""}
+            </p>
+
             {/* Score Display */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-blue-200 mb-6">
-              <div className="text-4xl font-bold text-blue-600 mb-2">{testResults.accuracy}%</div>
-              <div className="text-lg text-gray-600 mb-4">
-                {testResults.accuracy >= 90 ? "🎉 CHÚC MỪNG! Bạn đã hoàn thành xuất sắc!" : "Cần cố gắng thêm!"}
-              </div>
-              {testResults.accuracy >= 90 && (
-                <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4 rounded-r-lg">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-green-700">
-                        <strong>Chủ đề tiếp theo đã được mở khóa!</strong> Bạn có thể tiếp tục học chủ đề mới.
-                      </p>
-                    </div>
+            <div
+              className={`rounded-3xl p-6 sm:p-8 shadow-xl border-2 mb-6 ${
+                isPassed ? "bg-blue-100/80 border-blue-200" : "bg-red-100/80 border-red-200"
+              }`}
+            >
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center">
+                  <div className={`text-2xl sm:text-3xl font-bold mb-1 ${isPassed ? "text-blue-700" : "text-red-700"}`}>
+                    {testResults.totalQuestions}
+                  </div>
+                  <div className={`text-base sm:text-lg font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}>
+                    TỪ VỰNG
                   </div>
                 </div>
-              )}
-              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="text-center">
-                  <div className="text-xl font-bold text-green-600">{testResults.correctAnswers}</div>
-                  <div className="text-gray-600">Câu đúng</div>
+                  <div
+                    className={`text-5xl sm:text-6xl font-extrabold mb-1 ${isPassed ? "text-blue-700" : "text-red-700"}`}
+                  >
+                    {testResults.accuracy}%
+                  </div>
+                  <div className={`text-base sm:text-lg font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}>
+                    ĐỘ CHÍNH XÁC
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-red-600">
-                    {testResults.totalQuestions - testResults.correctAnswers}
+                  <div className={`text-2xl sm:text-3xl font-bold mb-1 ${isPassed ? "text-blue-700" : "text-red-700"}`}>
+                    1
                   </div>
-                  <div className="text-gray-600">Câu sai</div>
+                  <div className={`text-base sm:text-lg font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}>
+                    CẤP
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            <Button
-              onClick={() => router.push("/test-review")}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl"
-            >
-              XEM LẠI BÀI KIỂM TRA
-            </Button>
-            <Button
-              onClick={() => router.push(`/feedback?topicId=${testResults.topicId}&fromTestResult=1`)}
-              className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-xl"
-            >
-              GỬI PHẢN HỒI
-            </Button>
-            <Button
-              onClick={() => {
-                if (testResults.topicId) {
-                  router.push(`/test-topic?topicId=${testResults.topicId}`)
-                } else {
-                  router.push("/test-topic")
-                }
-              }}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl"
-            >
-              LÀM LẠI BÀI KIỂM TRA
-            </Button>
-            <Button
-              onClick={() => {
-                // Clear test results from sessionStorage when going back to homepage
-                sessionStorage.removeItem("testResults");
-                router.push("/homepage");
-              }}
-              className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-xl"
-            >
-              VỀ TRANG CHỦ
-            </Button>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => router.push("/test-review")}
+                className={`w-full font-bold py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 ${
+                  isPassed
+                    ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                    : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                }`}
+              >
+                XEM LẠI BÀI
+              </Button>
+
+              {isPassed && (
+                <Button
+                  onClick={() => router.push(`/feedback?topicId=${testResults.topicId}&fromTestResult=1`)}
+                  className="w-full bg-blue-300 hover:bg-blue-400 text-blue-700 font-bold py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+                >
+                  PHẢN HỒI
+                </Button>
+              )}
+
+              <Button
+                onClick={() => {
+                  if (testResults.topicId) {
+                    router.push(`/test-topic?topicId=${testResults.topicId}`)
+                  } else {
+                    router.push("/test-topic")
+                  }
+                }}
+                className={`w-full font-bold py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 ${
+                  isPassed
+                    ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                    : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                }`}
+              >
+                LÀM LẠI
+              </Button>
+
+              {isPassed ? (
+                <Button
+                  onClick={() => {
+                    // Logic để chuyển sang topic tiếp theo
+                    // Hiện tại chỉ về homepage, bạn có thể thay đổi logic này
+                    sessionStorage.removeItem("testResults")
+                    router.push("/homepage")
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+                >
+                  TIẾP TỤC
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    sessionStorage.removeItem("testResults")
+                    router.push("/homepage")
+                  }}
+                  className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+                >
+                  ĐÓNG
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
       <Footer />
     </div>
   )
-} 
+}

@@ -106,6 +106,14 @@ export function DictionaryPageComponent() {
       {/* Main Content */}
       <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
         <div className="max-w-7xl mx-auto">
+          {/* Page Title */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent mb-4 leading-relaxed">
+              TỪ ĐIỂN NGÔN NGỮ KÝ HIỆU
+            </h1>
+            <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto"></div>
+          </div>
+
           {/* Search Section */}
           <div className="mb-8">
             <div className="max-w-2xl mx-auto">
@@ -115,7 +123,7 @@ export function DictionaryPageComponent() {
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-500 w-5 h-5 z-10" />
                   <Input
                     type="text"
-                    placeholder="Search"
+                    placeholder="Tìm kiếm từ vựng..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-12 pr-4 h-16 border-3 border-blue-300/60 rounded-2xl bg-white/90 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-lg hover:shadow-xl font-medium text-gray-700 placeholder:text-gray-400 w-full text-lg"
