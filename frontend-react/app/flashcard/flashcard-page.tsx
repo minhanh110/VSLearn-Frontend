@@ -10,13 +10,12 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PracticeGroup } from "@/components/flashcard/practice-group"
 import { PracticeTransitionModal } from "@/components/flashcard/practice-transition-modal"
-import { CompletionPopup } from "@/components/flashcard/completion-popup"
 import { useFlashcardLogic } from "@/hooks/useFlashcardLogic"
 import { type Flashcard } from "@/app/services/flashcard.service"
 import { FlashcardService, type SentenceBuildingQuestion } from "@/app/services/flashcard.service"
 import authService from "@/app/services/auth.service"
 
-export default function FlashcardPage() {
+export default function FlashcardPage({ subtopicId: propSubtopicId }: { subtopicId?: string }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -27,19 +26,34 @@ export default function FlashcardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Get parameters from URL
-  const subtopicId = searchParams.get('subtopicId') || searchParams.get('id') || ''
+  // Get parameters from props or URL
+  const subtopicId = propSubtopicId || searchParams.get('subtopicId') || searchParams.get('id') || ''
   const mode = searchParams.get('mode') || 'flashcard'
   const userId = searchParams.get('userId') || 'default-user'
 
   // Check authentication on mount
   useEffect(() => {
+    console.log("🔍 Flashcard page authentication check");
+    console.log("🔍 subtopicId:", subtopicId);
+    console.log("🔍 isAuthenticated:", authService.isAuthenticated());
+    
+    // Allow guest users to access flashcard for the first topic only
+    // Guest users can learn the first topic without authentication
     if (!authService.isAuthenticated()) {
-      router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search))
-      return
+      // Check if this is the first topic (subtopicId 1 or 2)
+      const subtopicIdNum = parseInt(subtopicId);
+      if (subtopicIdNum >= 1 && subtopicIdNum <= 2) {
+        console.log("👤 Guest user accessing first topic flashcard - allowing access");
+      } else {
+        console.log("🚫 Guest user trying to access restricted content - redirecting to login");
+        router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname));
+        return;
+      }
+    } else {
+      console.log("👤 Authenticated user accessing flashcard");
     }
     setIsLoading(false)
-  }, [router])
+  }, [router, subtopicId])
 
   // Sử dụng custom hook để quản lý logic
   const {
@@ -49,23 +63,17 @@ export default function FlashcardPage() {
     nextSubtopicInfo,
     timeline,
     timelinePos,
-    showCompletionPopup,
     showTransitionPopup,
     showPracticeTransitionModal,
-    showCompletionModal,
-    setShowCompletionPopup,
     setShowTransitionPopup,
     setShowPracticeTransitionModal,
-    setShowCompletionModal,
     nextStep,
     prevStep,
     resetTimeline,
     handlePracticeTransitionContinue,
     handlePracticeTransitionReview,
     handlePracticeTransitionClose,
-    handleCompletionRetry,
     handleCompletionNext,
-    handleCompletionClose,
     isLastFlashcard,
     isLastPractice,
     getCurrentStep,
@@ -75,7 +83,6 @@ export default function FlashcardPage() {
     shouldShowPracticeButton,
     totalCards,
     markPracticeCompleted,
-    isAllSubtopicsCompleted,
   } = useFlashcardLogic(subtopicId);
 
   // Tạo key để force re-render khi subtopicId thay đổi
@@ -105,10 +112,7 @@ export default function FlashcardPage() {
     }
   }, [subtopicId]);
 
-  // Debug showCompletionPopup changes
-  useEffect(() => {
-    console.log("🔄 showCompletionPopup state changed to:", showCompletionPopup);
-  }, [showCompletionPopup]);
+
 
   const toggleFlip = () => {
     setIsFlipped(!isFlipped);
@@ -124,12 +128,12 @@ export default function FlashcardPage() {
       nextStep();
       setIsFlipped(false);
       
-      // Kiểm tra xem có còn bước nào không, nếu không thì hiển thị completion modal
-      setTimeout(() => {
+      // Kiểm tra xem có còn bước nào không, nếu không thì chuyển đến trang completion
+      setTimeout(async () => {
         const currentStep = getCurrentStep();
         if (!currentStep) {
-          console.log("🎯 No more steps, showing completion modal");
-          setShowCompletionModal(true);
+          console.log("🎯 No more steps, navigating to completion page");
+          await handleCompletionNext();
         }
       }, 100);
     } else {
@@ -146,7 +150,10 @@ export default function FlashcardPage() {
 
   const handleSentenceBuilding = () => {
     // Chuyển sang trang practice với sentence building
-    router.push(`/practice?lessonId=${subtopicId}&mode=sentence-building`)
+    const topicId = subtopicInfo?.topicId;
+    if (topicId) {
+      router.push(`/practice?topicId=${topicId}&mode=sentence-building`)
+    }
   }
 
   // Show loading while checking authentication
@@ -478,17 +485,11 @@ export default function FlashcardPage() {
                   <div className="text-blue-600 text-xl animate-pulse">👉</div>
                   <Button 
                     onClick={() => {
-                      console.log("🎯 Practice button clicked (mobile)!");
-                      console.log("  - Current step:", currentStep);
-                      console.log("  - Upcoming practice cards:", getUpcomingPracticeCards().length);
-                      
                       // Kiểm tra xem có practice cards sắp tới không
                       const upcomingPracticeCards = getUpcomingPracticeCards();
                       if (upcomingPracticeCards.length > 0) {
-                        console.log("  - Showing practice transition modal");
                         setShowPracticeTransitionModal(true);
                       } else {
-                        console.log("  - No practice cards available, showing alert");
                         alert("Chưa có bài tập practice cho nhóm flashcard này!");
                       }
                     }}
@@ -513,17 +514,11 @@ export default function FlashcardPage() {
                 <div className="text-blue-600 text-2xl animate-pulse hidden lg:block">👉</div>
                 <Button 
                   onClick={() => {
-                    console.log("🎯 Practice button clicked!");
-                    console.log("  - Current step:", currentStep);
-                    console.log("  - Upcoming practice cards:", getUpcomingPracticeCards().length);
-                    
                     // Kiểm tra xem có practice cards sắp tới không
                     const upcomingPracticeCards = getUpcomingPracticeCards();
                     if (upcomingPracticeCards.length > 0) {
-                      console.log("  - Showing practice transition modal");
                       setShowPracticeTransitionModal(true);
                     } else {
-                      console.log("  - No practice cards available, showing alert");
                       alert("Chưa có bài tập practice cho nhóm flashcard này!");
                     }
                   }}
@@ -637,7 +632,7 @@ export default function FlashcardPage() {
             <h2 className="text-2xl font-bold text-green-600 mb-2">Hoàn thành!</h2>
             <p className="text-gray-600 mb-4">Bạn đã hoàn thành tất cả bài học</p>
             <Button 
-              onClick={() => setShowCompletionModal(true)}
+              onClick={async () => await handleCompletionNext()}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
             >
               Xem kết quả
@@ -664,29 +659,6 @@ export default function FlashcardPage() {
         completedCardCount={flashcards.length}
         currentGroupSize={getCurrentGroupSize()}
       />
-
-      {/* Completion Popup */}
-      <CompletionPopup
-        isOpen={showCompletionModal}
-        onClose={handleCompletionClose}
-        onRetry={handleCompletionRetry}
-        onNext={handleCompletionNext}
-        onSentenceBuilding={handleSentenceBuilding}
-        subtopicName={subtopicInfo?.subTopicName || "Subtopic"}
-        hasNextSubtopic={nextSubtopicInfo?.hasNext || false}
-        hasSentenceBuilding={hasSentenceBuilding}
-        isAllSubtopicsCompleted={isAllSubtopicsCompleted}
-      />
-      
-      {/* Debug logs */}
-      {showCompletionModal && (
-        <div style={{ position: 'fixed', top: '10px', left: '10px', background: 'white', padding: '10px', zIndex: 9999, fontSize: '12px' }}>
-          <div>Debug Info:</div>
-          <div>nextSubtopicInfo: {JSON.stringify(nextSubtopicInfo)}</div>
-          <div>hasNextSubtopic: {nextSubtopicInfo?.hasNext || false}</div>
-          <div>showCompletionModal: {showCompletionModal}</div>
-        </div>
-      )}
     </>
   );
 } 

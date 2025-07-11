@@ -102,11 +102,21 @@ export default function PracticePage() {
   // Check authentication on mount
   useEffect(() => {
     if (!authService.isAuthenticated()) {
-      router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search))
-      return
+      // Check if this is practice for the first topic (lessonId 1 or 2)
+      const lessonIdNum = parseInt(lessonId || '0');
+      if (lessonIdNum >= 1 && lessonIdNum <= 2) {
+        console.log("👤 Guest user accessing first topic practice - allowing access");
+        setAuthLoading(false);
+      } else {
+        console.log("🚫 Guest user trying to access restricted practice - redirecting to login");
+        router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search));
+        return;
+      }
+    } else {
+      console.log("👤 Authenticated user accessing practice");
+      setAuthLoading(false);
     }
-    setAuthLoading(false)
-  }, [router])
+  }, [router, lessonId])
 
   // Khởi tạo available words khi câu hỏi thay đổi
   useEffect(() => {
@@ -452,7 +462,7 @@ export default function PracticePage() {
   const handleStartSubtopic = () => {
     // Sử dụng lessonId làm subtopicId
     const subtopicId = lessonId || testId;
-    router.push(`/flashcard?subtopicId=${subtopicId}`)
+    router.push(`/flashcard/${subtopicId}`)
   }
 
   const handleStartSubtopicClose = () => {
