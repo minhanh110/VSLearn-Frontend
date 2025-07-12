@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { LearningPath } from "@/components/learning-path"
+import { RoleDebug } from "@/components/role-debug"
 import axiosInstance from "@/app/services/axios.config"
 import authService from "@/app/services/auth.service"
 import { FlashcardService } from "@/app/services/flashcard.service"
@@ -66,13 +67,15 @@ export default function HomePage() {
           }
         }
         
-        // Gọi API learning-path để lấy dữ liệu units từ database
+        // Gọi API learning-path để lấy dữ liệu units từ database (cho tất cả user)
+        console.log("📊 Calling learning-path API for all users")
+        
         const headers: Record<string, string> = {}
         if (token) {
           headers['Authorization'] = `Bearer ${token}`
         }
         
-        const res1 = await axiosInstance.get("/learning-path", { headers })
+        const res1 = await axiosInstance.get("/api/v1/learning-path", { headers })
         console.log("📊 Learning path response:", res1.data)
         console.log("📊 Response status:", res1.status)
         console.log("📊 Response headers:", res1.headers)
@@ -80,65 +83,35 @@ export default function HomePage() {
         if (res1.data && res1.data.data) {
           setUnits(res1.data.data)
           console.log("📊 Units loaded:", res1.data.data.length, "units")
+          
+          // Extract completed lessons từ units (backend đã tính toán accessible)
+          const allCompletedLessons: string[] = [];
+          res1.data.data.forEach((unit: any) => {
+            unit.lessons.forEach((lesson: any) => {
+              if (lesson.isCompleted) {
+                allCompletedLessons.push(lesson.id.toString());
+              }
+            });
+          });
+          
+          setCompletedLessons(allCompletedLessons);
+          console.log("✅ Completed lessons extracted:", allCompletedLessons);
         } else {
           console.warn("⚠️ No units data in response")
           setUnits([])
         }
         
-        // Chỉ gọi API progress nếu user đã đăng nhập
-        if (isAuthenticated && token) {
-          try {
-            // Lấy userId từ token
-            const decoded = jwtDecode(token) as any;
-            const userId = decoded.id || '1';
-            
-            console.log("🔍 Loading progress for userId:", userId);
-            
-            // Sử dụng FlashcardService để lấy progress
-            const userProgress = await FlashcardService.getUserProgress(userId);
-            console.log("📊 User progress from FlashcardService:", userProgress);
-            
-            if (userProgress.completedSubtopicIds) {
-              const completedIds = userProgress.completedSubtopicIds.map(id => id.toString());
-              setCompletedLessons(completedIds);
-              console.log("✅ Completed lessons loaded:", completedIds);
-              console.log("📊 Completed lessons count:", completedIds.length);
-            } else {
-              console.warn("⚠️ No progress data in response");
-              setCompletedLessons([]);
-            }
-          } catch (progressError) {
-            console.warn("⚠️ Error loading user progress:", progressError);
-            setCompletedLessons([]);
-          }
-        } else {
-          // Guest user - sử dụng demo endpoint
-          try {
-            const res2 = await axiosInstance.get("/progress/demo");
-            console.log("📊 Demo progress response:", res2.data);
-            
-            if (res2.data && res2.data.data) {
-              setCompletedLessons(res2.data.data);
-              console.log("📊 Demo completed lessons loaded:", res2.data.data);
-            } else {
-              setCompletedLessons([]);
-              console.log("👤 Guest user - no demo progress data");
-            }
-          } catch (error) {
-            setCompletedLessons([]);
-            console.log("👤 Guest user - error loading demo progress");
-          }
-        }
+
         
-      } catch (error: any) {
-        console.error("❌ Error fetching data:", error)
-        setError(error.message || "Failed to load data")
-      } finally {
-        setLoading(false)
-        console.log("🏁 Finished loading data")
-        console.log("🏁 Final units state:", units)
-        console.log("🏁 Final completedLessons state:", completedLessons)
-      }
+              } catch (error: any) {
+          console.error("❌ Error fetching data:", error)
+          setError(error.message || "Failed to load data")
+        } finally {
+          setLoading(false)
+          console.log("🏁 Finished loading data")
+          console.log("🏁 Final units state:", units)
+          console.log("🏁 Final completedLessons state:", completedLessons)
+        }
     }
     fetchData()
   }, [router])
@@ -179,8 +152,8 @@ export default function HomePage() {
 
   const markLessonCompleted = async (lessonId: string) => {
     try {
-      // Sử dụng demo endpoint thay vì endpoint yêu cầu auth
-      await axiosInstance.post("/demo/progress", { lessonId: parseInt(lessonId) })
+      // Gọi API thực cho tất cả user
+      await axiosInstance.post("/api/v1/progress", { lessonId: parseInt(lessonId) })
       setCompletedLessons((prev) => prev.includes(lessonId) ? prev : [...prev, lessonId])
     } catch (err) {
       console.error("❌ Error marking lesson completed:", err)
@@ -226,7 +199,7 @@ export default function HomePage() {
           </p>
           <ul className="text-left text-sm text-gray-500 mb-4 max-w-md mx-auto">
             <li>• Database có dữ liệu trong bảng topic và sub_topic</li>
-            <li>• Backend API /learning-path hoạt động</li>
+            <li>• Backend API /api/v1/learning-path hoạt động</li>
             <li>• Console logs để xem chi tiết lỗi</li>
           </ul>
 
@@ -245,6 +218,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-cyan-50">
       {/* Fixed Header */}
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} showMenuButton={true} />
+      
+      {/* Debug component to show current role */}
+      <RoleDebug />
 
       {/* User Type Notification */}
       {userType === 'guest' && (

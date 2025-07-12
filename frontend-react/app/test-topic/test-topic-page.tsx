@@ -248,36 +248,11 @@ export function TestTopicPage() {
 
       setTestScore(score)
       setShowSubmitConfirm(false)
-      // Lưu kết quả vào sessionStorage và chuyển sang trang kết quả
-      sessionStorage.setItem("testResults", JSON.stringify({
-        totalQuestions: testQuestions.length,
-        correctAnswers: correctAnswers,
-        accuracy: score,
-        questions: questionResults,
-        topicName: topicName,
-        topicId: parseInt(topicId!)
-      }))
-      router.push("/test-result")
+      setShowResultPage(true)
 
       // Mark as completed if passed
       if (score >= 90 && testId) {
         markCompleted(testId)
-      }
-
-      // Sau khi nhận được testResults (kết quả bài test)
-      // Lưu lịch sử vào localStorage
-      try {
-        const historyKey = "testHistory";
-        let history: any[] = [];
-        const raw = localStorage.getItem(historyKey);
-        if (raw) history = JSON.parse(raw);
-        history.push({
-          ...testResults,
-          timestamp: Date.now()
-        });
-        localStorage.setItem(historyKey, JSON.stringify(history));
-      } catch (e) {
-        console.warn("Không thể lưu lịch sử bài test:", e);
       }
     } catch (error) {
       console.error("Error submitting test:", error)
@@ -323,7 +298,7 @@ export function TestTopicPage() {
   }
 
   const handleGoToFeedback = () => {
-    router.push(`/feedback?topicId=${topicId}&fromTestResult=1`)
+    router.push(`/feedback?topicId=${topicId}`)
   }
 
   const handleShowReview = () => {
@@ -391,6 +366,105 @@ export function TestTopicPage() {
             Về trang chủ
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  // Result page
+  if (showResultPage) {
+    return (
+      <div className="min-h-screen bg-blue-100 relative overflow-hidden">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+
+        <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
+          <div className="max-w-2xl mx-auto">
+            {/* Result Header */}
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-blue-700 mb-4">
+                KẾT QUẢ BÀI KIỂM TRA
+              </h1>
+
+              {/* Score Display */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-blue-200 mb-6">
+                <div className="text-4xl font-bold text-blue-600 mb-2">{testScore}%</div>
+                <div className="text-lg text-gray-600 mb-4">
+                  {testScore >= 90 ? "🎉 CHÚC MỪNG! Bạn đã hoàn thành xuất sắc!" : "Cần cố gắng thêm!"}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-green-600">{testResults.correctAnswers}</div>
+                    <div className="text-gray-600">Câu đúng</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-red-600">
+                      {testResults.totalQuestions - testResults.correctAnswers}
+                    </div>
+                    <div className="text-gray-600">Câu sai</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Button
+                onClick={handleShowReview}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl"
+              >
+                XEM LẠI BÀI KIỂM TRA
+              </Button>
+
+              <Button
+                onClick={handleGoToFeedback}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-4 rounded-xl"
+              >
+                GỬI PHẢN HỒI
+              </Button>
+
+              {testScore >= 90 && nextTopicInfo && nextTopicInfo.isAvailable ? (
+                <>
+                  <Button
+                    onClick={handleGoToNextTopic}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl"
+                  >
+                    HỌC TIẾP TOPIC: {nextTopicInfo.topicName}
+                  </Button>
+                  <Button
+                    onClick={handleContinueFromResult}
+                    className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-xl"
+                  >
+                    VỀ TRANG CHỦ
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleRetakeTest}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl"
+                  >
+                    LÀM LẠI BÀI KIỂM TRA
+                  </Button>
+                  <Button
+                    onClick={handleContinueFromResult}
+                    className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-xl"
+                  >
+                    VỀ TRANG CHỦ
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+        {/* Login Modal */}
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={handleCloseLoginModal}
+          returnUrl={window.location.href}
+        />
       </div>
     )
   }

@@ -13,7 +13,6 @@ interface CompletionPopupProps {
   subtopicName: string;
   hasNextSubtopic?: boolean;
   hasSentenceBuilding?: boolean;
-  isAllSubtopicsCompleted?: boolean;
 }
 
 export function CompletionPopup({ 
@@ -24,8 +23,7 @@ export function CompletionPopup({
   onSentenceBuilding,
   subtopicName,
   hasNextSubtopic = false,
-  hasSentenceBuilding = false,
-  isAllSubtopicsCompleted = false
+  hasSentenceBuilding = false
 }: CompletionPopupProps) {
   if (!isOpen) return null;
 
@@ -42,6 +40,7 @@ export function CompletionPopup({
   console.log("  - hasSentenceBuilding:", hasSentenceBuilding);
   console.log("  - onSentenceBuilding exists:", !!onSentenceBuilding);
   console.log("  - onNext exists:", !!onNext);
+  console.log("  - Button text will be:", hasNextSubtopic ? "➡️ Học tiếp subtopic kế" : "📝 Làm bài test");
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

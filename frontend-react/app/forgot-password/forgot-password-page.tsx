@@ -26,7 +26,6 @@ export default function ForgotPasswordPage() {
   }>({ type: null, message: "" })
   const router = useRouter()
 
-  
 
   const showNotification = (type: NotificationType, message: string) => {
     setNotification({ type, message })
@@ -141,7 +140,6 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-          
 
             <div className="text-center space-y-2">
               <p className="text-sm text-gray-600">

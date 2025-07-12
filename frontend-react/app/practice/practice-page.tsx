@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect, useMemo, useRef } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -103,11 +102,21 @@ export default function PracticePage() {
   // Check authentication on mount
   useEffect(() => {
     if (!authService.isAuthenticated()) {
-      router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search))
-      return
+      // Check if this is practice for the first topic (lessonId 1 or 2)
+      const lessonIdNum = parseInt(lessonId || '0');
+      if (lessonIdNum >= 1 && lessonIdNum <= 2) {
+        console.log("👤 Guest user accessing first topic practice - allowing access");
+        setAuthLoading(false);
+      } else {
+        console.log("🚫 Guest user trying to access restricted practice - redirecting to login");
+        router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname + window.location.search));
+        return;
+      }
+    } else {
+      console.log("👤 Authenticated user accessing practice");
+      setAuthLoading(false);
     }
-    setAuthLoading(false)
-  }, [router])
+  }, [router, lessonId])
 
   // Khởi tạo available words khi câu hỏi thay đổi
   useEffect(() => {
@@ -334,6 +343,7 @@ export default function PracticePage() {
     setSelectedAnswer(null)
     setShowFeedback(false)
 
+
     if (isCorrect) {
       // Đúng thì chuyển câu tiếp theo
       if (currentPhase === "multiple-choice") {
@@ -452,13 +462,12 @@ export default function PracticePage() {
   const handleStartSubtopic = () => {
     // Sử dụng lessonId làm subtopicId
     const subtopicId = lessonId || testId;
-    router.push(`/flashcard?subtopicId=${subtopicId}`)
+    router.push(`/flashcard/${subtopicId}`)
   }
 
   const handleStartSubtopicClose = () => {
     router.push("/homepage")
   }
-
   // Function để mark lesson/test completed
   const markCompleted = (id: string) => {
     const completedEvent = new CustomEvent("lessonCompleted", {
@@ -575,11 +584,13 @@ export default function PracticePage() {
                     {currentQuestion.options!.map((option, index) => (
                       <button
                         key={index}
+
                         onClick={() => handleSelectAnswer(option.text)}
                         disabled={selectedAnswer !== null}
                         className={`relative py-2 sm:py-3 px-4 sm:px-5 rounded-full border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-all duration-200 font-bold text-blue-700 text-center text-sm sm:text-base whitespace-nowrap flex-1 ${
                           selectedAnswer === option.text
                             ? option.text === currentQuestion.correctAnswer
+
                               ? "bg-green-100 border-green-500 text-green-700"
                               : "bg-red-100 border-red-500 text-red-700"
                             : ""
@@ -589,6 +600,7 @@ export default function PracticePage() {
                         {selectedAnswer === option.text && (
                           <span className="absolute -top-1 -right-1">
                             {option.text === currentQuestion.correctAnswer ? (
+
                               <CheckCircle className="w-4 h-4 text-green-500" />
                             ) : (
                               <XCircle className="w-4 h-4 text-red-500" />
@@ -604,6 +616,7 @@ export default function PracticePage() {
                     {currentQuestion.options!.map((option, index) => (
                       <button
                         key={index}
+
                         onClick={() => handleSelectAnswer(option.text)}
                         disabled={selectedAnswer !== null}
                         className={`relative py-2 sm:py-3 px-3 sm:px-4 rounded-full border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-all duration-200 font-bold text-blue-700 text-center text-sm sm:text-base whitespace-nowrap ${

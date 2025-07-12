@@ -132,7 +132,6 @@ export function TestStartPage() {
 
           {/* Title */}
           <h1 className="text-2xl font-bold text-gray-800 text-center mb-8">BẮT ĐẦU BÀI TEST</h1>
-
           {/* Test Info */}
           <div className="bg-blue-50 rounded-xl p-4 mb-6">
             <div className="text-sm text-gray-600 space-y-2">
