@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -8,12 +8,26 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { VocabService } from "@/app/services/vocab.service";
 
 interface VocabularyItem {
-  id: string
-  letter: string
-  topic: string
-  region: string
+  id: number
+  vocab: string
+  topicName: string
+  subTopicName: string
+  region?: string
+  meaning?: string
+  status: string
+  createdAt: string
+}
+
+interface PaginationInfo {
+  currentPage: number
+  totalPages: number
+  totalElements: number
+  pageSize: number
+  hasNext: boolean
+  hasPrevious: boolean
 }
 
 export function DictionaryPageComponent() {
@@ -24,6 +38,18 @@ export function DictionaryPageComponent() {
   const [selectedRegion, setSelectedRegion] = useState("")
   const [selectedLetter, setSelectedLetter] = useState("TẤT CẢ")
   const [currentPage, setCurrentPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [vocabularyData, setVocabularyData] = useState<VocabularyItem[]>([])
+  const [topics, setTopics] = useState<{ value: string, label: string }[]>([])
+  const [regions, setRegions] = useState<{ value: string, label: string }[]>([])
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    pageSize: 10,
+    hasNext: false,
+    hasPrevious: false
+  })
 
   // Alphabet buttons
   const alphabet = [
@@ -56,33 +82,155 @@ export function DictionaryPageComponent() {
     "Z",
   ]
 
-  // Sample vocabulary data
-  const vocabularyData: VocabularyItem[] = [
-    { id: "1", letter: "A", topic: "Bảng chữ cái", region: "Toàn Quốc" },
-    { id: "2", letter: "Á", topic: "Bảng chữ cái", region: "Toàn Quốc" },
-    { id: "3", letter: "Â", topic: "Bảng chữ cái", region: "Toàn Quốc" },
-    { id: "4", letter: "Ã", topic: "Bảng chữ cái", region: "Toàn Quốc" },
-  ]
+  // Fetch topics and regions on mount
+  useEffect(() => {
+    // Fetch topics
+    fetch("http://localhost:8080/api/v1/vocab/topics")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label })));
+        }
+      })
+      .catch(() => setTopics([]));
+    
+    // Fetch regions
+    fetch("http://localhost:8080/api/v1/vocab/regions")
+      .then(res => res.json())
+      .then(data => {
+        console.log("🔍 Regions data from API:", data);
+        if (Array.isArray(data)) {
+          const mappedRegions = data.map((r: any) => ({ value: r.value || r.id, label: r.label || r.name }));
+          console.log("🔍 Mapped regions:", mappedRegions);
+          setRegions(mappedRegions);
+        }
+      })
+      .catch(() => setRegions([]));
+  }, []);
 
-  const topics = [
-    { value: "bảng-chữ-cái", label: "Bảng chữ cái" },
-    { value: "gia-đình", label: "Gia đình" },
-    { value: "thiên-nhiên", label: "Thiên nhiên" },
-    { value: "học-tập", label: "Học tập" },
-  ]
+  // Debounced search
+  const debouncedSearch = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (value: string) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          setSearchTerm(value);
+          setCurrentPage(1); // Reset to first page when searching
+        }, 500);
+      };
+    })(),
+    []
+  );
 
-  const regions = [
-    { value: "toàn-quốc", label: "Toàn Quốc" },
-    { value: "miền-bắc", label: "Miền Bắc" },
-    { value: "miền-trung", label: "Miền Trung" },
-    { value: "miền-nam", label: "Miền Nam" },
-  ]
+  // Fetch vocabulary data
+  useEffect(() => {
+    const fetchVocabularyData = async () => {
+      try {
+        setLoading(true);
+        
+        // Prepare API parameters
+        const params: any = {
+          page: currentPage - 1, // Backend uses 0-based indexing
+          size: 10, // Page size
+        };
 
-  const handleVocabClick = (id: string) => {
-    router.push(`/vocab-detail-dictionary?id=${id}`)
+        // Add search term if not empty
+        if (searchTerm.trim()) {
+          params.search = searchTerm.trim();
+        }
+
+        // Add topic filter if selected - send topic name, not ID
+        if (selectedTopic && selectedTopic !== "") {
+          // Find topic name from topics array
+          const selectedTopicObj = topics.find(t => t.value === selectedTopic);
+          if (selectedTopicObj) {
+            params.topic = selectedTopicObj.label;
+          }
+        }
+
+        // Add region filter if selected - send region name, not ID
+        if (selectedRegion && selectedRegion !== "") {
+          // Find region name from regions array
+          const selectedRegionObj = regions.find(r => r.value === selectedRegion);
+          console.log("🔍 Selected region value:", selectedRegion);
+          console.log("🔍 Found region object:", selectedRegionObj);
+          if (selectedRegionObj) {
+            params.region = selectedRegionObj.label;
+            console.log("🔍 Sending region to API:", selectedRegionObj.label);
+          }
+        }
+
+        // Add letter filter if selected
+        if (selectedLetter !== "TẤT CẢ") {
+          params.letter = selectedLetter;
+        }
+
+        console.log("API params:", params);
+        
+        const response = await VocabService.getVocabList(params);
+        console.log("API response:", response.data);
+        
+        const filteredData = response.data.vocabList || response.data || [];
+        setVocabularyData(filteredData);
+        
+        // Update pagination info
+        if (response.data) {
+          setPaginationInfo({
+            currentPage: response.data.currentPage || 0,
+            totalPages: response.data.totalPages || 0,
+            totalElements: response.data.totalElements || 0,
+            pageSize: response.data.pageSize || 10,
+            hasNext: response.data.hasNext || false,
+            hasPrevious: response.data.hasPrevious || false
+          });
+        }
+      } catch (error: any) {
+        console.error("Error fetching vocabulary data:", error);
+        setVocabularyData([]);
+        setPaginationInfo({
+          currentPage: 0,
+          totalPages: 0,
+          totalElements: 0,
+          pageSize: 10,
+          hasNext: false,
+          hasPrevious: false
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVocabularyData();
+  }, [currentPage, searchTerm, selectedTopic, selectedRegion, selectedLetter, topics, regions]);
+
+  const handleVocabClick = (id: number) => {
+    router.push(`/vocab-detail?id=${id}`)
   }
 
-  const totalPages = 5
+  const getFirstLetter = (vocab: string) => {
+    return vocab.charAt(0).toUpperCase();
+  }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    debouncedSearch(value);
+  };
+
+  const handleTopicChange = (value: string) => {
+    setSelectedTopic(value);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleRegionChange = (value: string) => {
+    setSelectedRegion(value);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleLetterChange = (letter: string) => {
+    setSelectedLetter(letter);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 relative overflow-hidden">
@@ -106,14 +254,6 @@ export function DictionaryPageComponent() {
       {/* Main Content */}
       <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
         <div className="max-w-7xl mx-auto">
-          {/* Page Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent mb-4 leading-relaxed">
-              TỪ ĐIỂN NGÔN NGỮ KÝ HIỆU
-            </h1>
-            <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto"></div>
-          </div>
-
           {/* Search Section */}
           <div className="mb-8">
             <div className="max-w-2xl mx-auto">
@@ -124,8 +264,7 @@ export function DictionaryPageComponent() {
                   <Input
                     type="text"
                     placeholder="Tìm kiếm từ vựng..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="pl-12 pr-4 h-16 border-3 border-blue-300/60 rounded-2xl bg-white/90 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-lg hover:shadow-xl font-medium text-gray-700 placeholder:text-gray-400 w-full text-lg"
                   />
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none"></div>
@@ -143,7 +282,7 @@ export function DictionaryPageComponent() {
                   {alphabet.map((letter) => (
                     <Button
                       key={letter}
-                      onClick={() => setSelectedLetter(letter)}
+                      onClick={() => handleLetterChange(letter)}
                       className={`h-12 w-12 rounded-2xl font-bold text-sm transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 ${
                         selectedLetter === letter
                           ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
@@ -166,7 +305,7 @@ export function DictionaryPageComponent() {
                 {/* Topic Filter */}
                 <div className="flex-1">
                   <label className="block text-sm font-bold text-gray-700 mb-3">CHỌN TOPIC</label>
-                  <Select value={selectedTopic} onValueChange={setSelectedTopic}>
+                  <Select value={selectedTopic} onValueChange={handleTopicChange}>
                     <SelectTrigger className="h-14 border-2 border-blue-200/60 rounded-2xl bg-white/90 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md">
                       <SelectValue placeholder="Chọn Topic" />
                     </SelectTrigger>
@@ -183,7 +322,7 @@ export function DictionaryPageComponent() {
                 {/* Region Filter */}
                 <div className="flex-1">
                   <label className="block text-sm font-bold text-gray-700 mb-3">CHỌN KHU VỰC</label>
-                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                  <Select value={selectedRegion} onValueChange={handleRegionChange}>
                     <SelectTrigger className="h-14 border-2 border-blue-200/60 rounded-2xl bg-white/90 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md">
                       <SelectValue placeholder="Chọn Khu Vực" />
                     </SelectTrigger>
@@ -202,69 +341,111 @@ export function DictionaryPageComponent() {
 
           {/* Vocabulary List */}
           <div className="space-y-6 mb-8">
-            {vocabularyData.map((vocab) => (
-              <div key={vocab.id} className="group relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div
-                  className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8 hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02] cursor-pointer"
-                  onClick={() => handleVocabClick(vocab.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    {/* Vocabulary Letter */}
-                    <div className="flex items-center gap-8">
-                      <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg">
-                        <span className="text-3xl font-bold text-white">{vocab.letter}</span>
-                      </div>
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-blue-700 font-medium">Đang tải từ vựng...</p>
+              </div>
+            ) : vocabularyData.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600 font-medium">Không tìm thấy từ vựng nào</p>
+              </div>
+            ) : (
+              vocabularyData.map((vocab) => (
+                <div key={vocab.id} className="group relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div
+                    className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8 hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02] cursor-pointer"
+                    onClick={() => handleVocabClick(vocab.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Vocabulary Letter */}
+                      <div className="flex items-center gap-8">
+                        <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg">
+                          <span className="text-3xl font-bold text-white">{getFirstLetter(vocab.vocab)}</span>
+                        </div>
 
-                      {/* Tags */}
-                      <div className="flex gap-4">
-                        <span className="px-6 py-3 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-2xl text-sm font-bold shadow-sm">
-                          {vocab.topic}
-                        </span>
-                        <span className="px-6 py-3 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-2xl text-sm font-bold shadow-sm">
-                          {vocab.region}
-                        </span>
+                        {/* Vocabulary Info */}
+                        <div className="flex flex-col gap-2">
+                          <h3 className="text-2xl font-bold text-gray-800">{vocab.vocab}</h3>
+                          {vocab.meaning && (
+                            <p className="text-gray-600 text-sm">{vocab.meaning}</p>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        <div className="flex gap-4">
+                          <span className="px-6 py-3 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-2xl text-sm font-bold shadow-sm">
+                            {vocab.topicName}
+                          </span>
+                          {vocab.region && (
+                            <span className="px-6 py-3 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-2xl text-sm font-bold shadow-sm">
+                              {vocab.region}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-center items-center gap-3">
-            <Button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="w-12 h-12 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              ←
-            </Button>
-
-            {[1, 2, 3, "...", 5].map((page, index) => (
+          {paginationInfo.totalPages > 1 && (
+            <div className="flex justify-center items-center gap-3">
               <Button
-                key={index}
-                onClick={() => typeof page === "number" && setCurrentPage(page)}
-                className={`w-12 h-12 rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-200 ${
-                  page === currentPage
-                    ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
-                    : "bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800"
-                } ${typeof page !== "number" ? "cursor-default hover:bg-white/80" : ""}`}
-                disabled={typeof page !== "number"}
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={!paginationInfo.hasPrevious}
+                className="w-12 h-12 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                {page}
+                ←
               </Button>
-            ))}
 
-            <Button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="w-12 h-12 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              →
-            </Button>
-          </div>
+              {/* Generate page numbers with proper range */}
+              {(() => {
+                const totalPages = paginationInfo.totalPages;
+                const current = currentPage;
+                const maxVisible = 5;
+                
+                let startPage = Math.max(1, current - Math.floor(maxVisible / 2));
+                let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                
+                // Adjust start if we're near the end
+                if (endPage - startPage + 1 < maxVisible) {
+                  startPage = Math.max(1, endPage - maxVisible + 1);
+                }
+                
+                const pages = [];
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(i);
+                }
+                
+                return pages.map((pageNum) => (
+                  <Button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-12 h-12 rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-200 ${
+                      pageNum === currentPage
+                        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+                        : "bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800"
+                    }`}
+                  >
+                    {pageNum}
+                  </Button>
+                ));
+              })()}
+
+              <Button
+                onClick={() => setCurrentPage(Math.min(paginationInfo.totalPages, currentPage + 1))}
+                disabled={!paginationInfo.hasNext}
+                className="w-12 h-12 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                →
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

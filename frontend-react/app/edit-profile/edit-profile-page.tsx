@@ -344,7 +344,7 @@ export default function EditProfilePage() {
             <Link href="/change-password" className="text-sm block hover:opacity-80" style={{ color: "#93D6F6" }}>
               Đổi mật khẩu
             </Link>
-            <Link href="/lesson-path" className="text-sm text-gray-500 hover:text-gray-700 block">
+            <Link href="/homepage" className="text-sm text-gray-500 hover:text-gray-700 block">
               ← Quay về trang chính
             </Link>
           </div>

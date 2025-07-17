@@ -17,15 +17,21 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useUserRole, UserRole } from "@/hooks/use-user-role"
 
 interface FooterProps {
   isOpen?: boolean
   onClose?: () => void
-  roleId?: string | null // Add roleId prop
+  roleId?: string | null // Legacy prop for backward compatibility
 }
 
 // Define menu items for each role
 const roleMenus = {
+  guest: [
+    { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
+    { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
+    { icon: DollarSign, label: "Đăng nhập", href: "/login" },
+  ],
   learner: [
     { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
     { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
@@ -68,12 +74,24 @@ const getAllMenuItems = () => {
 }
 
 export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) {
-  // Determine which menu items to show
+  const { role, loading } = useUserRole()
+
+  // Determine which menu items to show based on actual role from JWT
   const getMenuItems = () => {
-    if (roleId === null) {
-      return getAllMenuItems()
+    // If loading, show loading state or default menu
+    if (loading) {
+      return roleMenus.guest // Default to guest menu while loading
     }
-    return roleMenus[roleId as keyof typeof roleMenus] || roleMenus.learner
+
+    // Use actual role from JWT if available, otherwise fallback to roleId prop
+    const currentRole = role || roleId as keyof typeof roleMenus
+    
+    if (currentRole && roleMenus[currentRole as keyof typeof roleMenus]) {
+      return roleMenus[currentRole as keyof typeof roleMenus]
+    }
+    
+    // Fallback to guest menu if role not found
+    return roleMenus.guest
   }
 
   const menuItems = getMenuItems()

@@ -14,11 +14,7 @@ import type { Flashcard } from "@/app/services/flashcard.service"
 import { FlashcardService, type SentenceBuildingQuestion } from "@/app/services/flashcard.service"
 import authService from "@/app/services/auth.service"
 
-interface FlashcardPageProps {
-  subtopicId?: string
-}
-
-export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardPageProps) {
+export default function FlashcardPage({ subtopicId: propSubtopicId }: { subtopicId?: string }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -30,25 +26,27 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
   const [error, setError] = useState<string | null>(null)
 
   // Get parameters from props or URL
-  const subtopicId = propSubtopicId || searchParams.get("subtopicId") || searchParams.get("id") || ""
-  const mode = searchParams.get("mode") || "flashcard"
-  const userId = searchParams.get("userId") || "default-user"
+  const subtopicId = propSubtopicId || searchParams.get('subtopicId') || searchParams.get('id') || ''
+  const mode = searchParams.get('mode') || 'flashcard'
+  const userId = searchParams.get('userId') || 'default-user'
 
   // Check authentication on mount
   useEffect(() => {
-    console.log("🔍 Flashcard page authentication check")
-    console.log("🔍 subtopicId:", subtopicId)
-    console.log("🔍 isAuthenticated:", authService.isAuthenticated())
-
+    console.log("🔍 Flashcard page authentication check");
+    console.log("🔍 subtopicId:", subtopicId);
+    console.log("🔍 isAuthenticated:", authService.isAuthenticated());
+    
     // Allow guest users to access flashcard for the first topic only
+    // Guest users can learn the first topic without authentication
     if (!authService.isAuthenticated()) {
-      const subtopicIdNum = Number.parseInt(subtopicId)
+      // Check if this is the first topic (subtopicId 1 or 2)
+      const subtopicIdNum = parseInt(subtopicId);
       if (subtopicIdNum >= 1 && subtopicIdNum <= 2) {
-        console.log("👤 Guest user accessing first topic flashcard - allowing access")
+        console.log("👤 Guest user accessing first topic flashcard - allowing access");
       } else {
-        console.log("🚫 Guest user trying to access restricted content - redirecting to login")
-        router.push("/login?returnUrl=" + encodeURIComponent(window.location.pathname))
-        return
+        console.log("🚫 Guest user trying to access restricted content - redirecting to login");
+        router.push('/login?returnUrl=' + encodeURIComponent(window.location.pathname));
+        return;
       }
     } else {
       console.log("👤 Authenticated user accessing flashcard")
@@ -84,7 +82,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     shouldShowPracticeButton,
     totalCards,
     markPracticeCompleted,
-  } = useFlashcardLogic(subtopicId)
+  } = useFlashcardLogic(subtopicId);
 
   // Create key to force re-render when subtopicId changes
   const componentKey = useMemo(() => `flashcard-${subtopicId}`, [subtopicId])
@@ -111,7 +109,9 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     if (subtopicId) {
       loadSentenceBuildingQuestions()
     }
-  }, [subtopicId])
+
+  }, [subtopicId]);
+
 
   const toggleFlip = () => {
     setIsFlipped(!isFlipped)
@@ -121,15 +121,17 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     markPracticeCompleted()
 
     if (isLastPractice()) {
-      console.log("🎯 Last practice completed, moving to next step")
-      nextStep()
-      setIsFlipped(false)
-
+      // Nếu là practice cuối cùng, chuyển sang bước tiếp theo thay vì chỉ hiển thị modal
+      console.log("🎯 Last practice completed, moving to next step");
+      nextStep();
+      setIsFlipped(false);
+      
+      // Kiểm tra xem có còn bước nào không, nếu không thì chuyển đến trang completion
       setTimeout(async () => {
-        const currentStep = getCurrentStep()
+        const currentStep = getCurrentStep();
         if (!currentStep) {
-          console.log("🎯 No more steps, navigating to completion page")
-          await handleCompletionNext()
+          console.log("🎯 No more steps, navigating to completion page");
+          await handleCompletionNext();
         }
       }, 100)
     } else {
@@ -144,7 +146,8 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
   }
 
   const handleSentenceBuilding = () => {
-    const topicId = subtopicInfo?.topicId
+    // Chuyển sang trang practice với sentence building
+    const topicId = subtopicInfo?.topicId;
     if (topicId) {
       router.push(`/practice?topicId=${topicId}&mode=sentence-building`)
     }
@@ -447,11 +450,12 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                     </div>
                   </div>
 
-                  {/* Back Side */}
-                  <div
-                    className={`absolute inset-0 w-full h-full backface-hidden ${
-                      isFlipped ? "opacity-100" : "opacity-0"
-                    } transition-opacity duration-300`}
+              {/* Back Side */}
+              <div
+                className={`absolute inset-0 w-full h-full backface-hidden ${
+                  isFlipped ? "opacity-100" : "opacity-0"
+                } transition-opacity duration-300`}
+
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                   >
                     <div className="w-full h-full bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 rounded-3xl border-4 border-purple-400 shadow-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -470,8 +474,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                   </div>
                 </div>
               </div>
-
-              {/* Mobile Navigation */}
+          {/* Mobile Navigation */}
               <div className="flex items-center gap-3 mt-4">
                 <Button
                   onClick={prevStep}

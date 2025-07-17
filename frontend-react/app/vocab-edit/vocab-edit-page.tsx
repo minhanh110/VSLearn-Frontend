@@ -7,14 +7,34 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter } from "next/navigation"
-import { Plus, ArrowLeft, BookOpen, Globe, FileText, Video } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, BookOpen, Globe, FileText, Video, Save } from "lucide-react"
 import { VocabService } from "@/app/services/vocab.service";
 
-export function AddVocabularyPageComponent() {
+interface VocabularyDetail {
+  id: number
+  vocab: string
+  topicName: string
+  subTopicName: string
+  description?: string
+  videoLink?: string
+  region?: string
+  meaning?: string
+  status: string
+  createdAt: string
+  createdBy: number
+  updatedAt?: string
+  updatedBy?: number
+  deletedAt?: string
+}
+
+export function VocabEditPageComponent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const vocabId = searchParams.get("id")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -33,6 +53,43 @@ export function AddVocabularyPageComponent() {
   const [regions, setRegions] = useState<{ value: string, label: string }[]>([])
   const [subTopics, setSubTopics] = useState<{ value: string, label: string, id: string | number }[]>([])
 
+  // Fetch vocabulary detail on mount
+  useEffect(() => {
+    if (!vocabId) {
+      alert("Không tìm thấy ID từ vựng!")
+      router.push("/list-vocab")
+      return
+    }
+
+    const fetchVocabDetail = async () => {
+      try {
+        setLoading(true)
+        const response = await VocabService.getVocabDetail(vocabId)
+        const vocab = response.data
+        
+        // Set form data with existing vocabulary data
+        setFormData({
+          vocab: vocab.vocab || "",
+          topicId: "", // Will be set after fetching topics
+          subTopicId: "", // Will be set after fetching subtopics
+          region: vocab.region || "",
+          description: vocab.description || "",
+          videoLink: vocab.videoLink || "",
+          status: vocab.status || "active",
+          meaning: vocab.meaning || "",
+        })
+      } catch (error: any) {
+        console.error("Error fetching vocab detail:", error)
+        alert("Không thể tải thông tin từ vựng. Vui lòng thử lại!")
+        router.push("/list-vocab")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchVocabDetail()
+  }, [vocabId, router])
+
   // Fetch topics and regions on mount
   useEffect(() => {
     // Fetch topics
@@ -44,6 +101,7 @@ export function AddVocabularyPageComponent() {
         }
       })
       .catch(() => setTopics([]));
+    
     // Fetch regions
     fetch("http://localhost:8080/api/v1/vocab/regions")
       .then(res => res.json())
@@ -71,7 +129,6 @@ export function AddVocabularyPageComponent() {
       })
       .catch(() => setSubTopics([]));
   }, [formData.topicId]);
->>>>>>> origin/QuocPMHE172252
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -96,7 +153,7 @@ export function AddVocabularyPageComponent() {
     }
     setIsSubmitting(true)
     try {
-      await VocabService.createVocab({
+      await VocabService.updateVocab(vocabId!, {
         vocab: formData.vocab,
         topicId: formData.topicId,
         subTopicId: formData.subTopicId,
@@ -106,18 +163,8 @@ export function AddVocabularyPageComponent() {
         status: formData.status,
         meaning: formData.meaning,
       });
-      alert("Thêm từ vựng thành công!")
-      setFormData({
-        vocab: "",
-        topicId: "",
-        subTopicId: "",
-        region: "",
-        description: "",
-        videoLink: "",
-        status: "active",
-        meaning: "",
-      })
-      router.push("/content-creator/vocabulary")
+      alert("Cập nhật từ vựng thành công!")
+      router.push(`/vocab-detail?id=${vocabId}`)
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
     } finally {
@@ -127,6 +174,17 @@ export function AddVocabularyPageComponent() {
 
   const handleGoBack = () => {
     router.back()
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-700 font-medium">Đang tải...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -161,12 +219,12 @@ export function AddVocabularyPageComponent() {
               {/* Form Header with icon */}
               <div className="text-center mb-10">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mb-4 shadow-lg">
-                  <BookOpen className="w-8 h-8 text-white" />
+                  <Save className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent mb-2">
-                  THÊM TỪ VỰNG
+                  CHỈNH SỬA TỪ VỰNG
                 </h2>
-                <p className="text-gray-600 text-sm font-medium">CHI TIẾT TỪ VỰNG</p>
+                <p className="text-gray-600 text-sm font-medium">CẬP NHẬT THÔNG TIN TỪ VỰNG</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
 
@@ -200,12 +258,12 @@ export function AddVocabularyPageComponent() {
                     </label>
                     <div className="relative">
                       <Select value={formData.topicId} onValueChange={(value) => handleInputChange("topicId", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 shadow-sm hover:shadow-md group-hover:border-blue-300 transition-all duration-300">
+                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
                           <SelectValue placeholder="Chọn chủ đề..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl border-blue-200 shadow-xl">
+                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
                           {topics.map((topic) => (
-                            <SelectItem key={topic.value} value={topic.value} className="rounded-lg">
+                            <SelectItem key={topic.value} value={topic.value} className="hover:bg-blue-50">
                               {topic.label}
                             </SelectItem>
                           ))}
@@ -223,13 +281,13 @@ export function AddVocabularyPageComponent() {
                     </label>
                     <div className="relative">
                       <Select value={formData.subTopicId} onValueChange={(value) => handleInputChange("subTopicId", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 shadow-sm hover:shadow-md group-hover:border-blue-300 transition-all duration-300">
+                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
                           <SelectValue placeholder="Chọn chủ đề phụ..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl border-blue-200 shadow-xl">
-                          {subTopics.map((st) => (
-                            <SelectItem key={st.value} value={st.value} className="rounded-lg">
-                              {st.label}
+                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
+                          {subTopics.map((subTopic) => (
+                            <SelectItem key={subTopic.value} value={subTopic.value} className="hover:bg-blue-50">
+                              {subTopic.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -242,16 +300,16 @@ export function AddVocabularyPageComponent() {
                   <div className="group">
                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
                       <Globe className="w-4 h-4 text-blue-500" />
-                      KHU VỰC <span className="text-red-500">*</span>
+                      KHU VỰC
                     </label>
                     <div className="relative">
                       <Select value={formData.region} onValueChange={(value) => handleInputChange("region", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 shadow-sm hover:shadow-md group-hover:border-blue-300 transition-all duration-300">
+                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
                           <SelectValue placeholder="Chọn khu vực..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl border-blue-200 shadow-xl">
+                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
                           {regions.map((region) => (
-                            <SelectItem key={region.value} value={region.value} className="rounded-lg">
+                            <SelectItem key={region.value} value={region.value} className="hover:bg-blue-50">
                               {region.label}
                             </SelectItem>
                           ))}
@@ -264,6 +322,23 @@ export function AddVocabularyPageComponent() {
 
                 {/* Right Column */}
                 <div className="space-y-6">
+                  {/* Ý nghĩa */}
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      Ý NGHĨA
+                    </label>
+                    <div className="relative">
+                      <Textarea
+                        value={formData.meaning}
+                        onChange={(e) => handleInputChange("meaning", e.target.value)}
+                        placeholder="Nhập ý nghĩa từ vựng..."
+                        className="w-full min-h-[120px] px-4 py-3 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300 resize-none"
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </div>
+                  </div>
+
                   {/* Mô tả */}
                   <div className="group">
                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
@@ -274,28 +349,8 @@ export function AddVocabularyPageComponent() {
                       <Textarea
                         value={formData.description}
                         onChange={(e) => handleInputChange("description", e.target.value)}
-                        placeholder="Mô tả điền vào đây..."
-                        className="w-full h-32 p-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium resize-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300"
-                        maxLength={500}
-                      />
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2 text-right font-medium">
-                      {formData.description.length}/500 ký tự
-                    </p>
-                  </div>
-                  {/* Nghĩa của từ */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      NGHĨA CỦA TỪ
-                    </label>
-                    <div className="relative">
-                      <Textarea
-                        value={formData.meaning}
-                        onChange={(e) => handleInputChange("meaning", e.target.value)}
-                        placeholder="Nhập nghĩa của từ..."
-                        className="w-full h-24 p-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium resize-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300"
+                        placeholder="Nhập mô tả từ vựng..."
+                        className="w-full min-h-[120px] px-4 py-3 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300 resize-none"
                       />
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </div>
@@ -312,9 +367,29 @@ export function AddVocabularyPageComponent() {
                         type="url"
                         value={formData.videoLink}
                         onChange={(e) => handleInputChange("videoLink", e.target.value)}
-                        placeholder="https://example.com/video.mp4"
+                        placeholder="Nhập link video..."
                         className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300"
                       />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </div>
+                  </div>
+
+                  {/* Trạng thái */}
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                      <BookOpen className="w-4 h-4 text-blue-500" />
+                      TRẠNG THÁI
+                    </label>
+                    <div className="relative">
+                      <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
+                          <SelectValue placeholder="Chọn trạng thái..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
+                          <SelectItem value="active" className="hover:bg-blue-50">Hoạt động</SelectItem>
+                          <SelectItem value="inactive" className="hover:bg-blue-50">Không hoạt động</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </div>
                   </div>
@@ -322,42 +397,22 @@ export function AddVocabularyPageComponent() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-6 mt-12 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 mt-10 justify-center">
                 <Button
                   onClick={handleGoBack}
-                  disabled={isSubmitting}
-                  className="group relative flex items-center gap-3 bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 disabled:opacity-50 disabled:transform-none overflow-hidden"
+                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <ArrowLeft className="w-5 h-5 relative z-10" />
-                  <span className="relative z-10">QUAY LẠI</span>
+                  <ArrowLeft className="w-5 h-5" />
+                  QUAY LẠI
                 </Button>
-
                 <Button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 disabled:opacity-50 disabled:transform-none overflow-hidden"
+                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin relative z-10" />
-                      <span className="relative z-10">ĐANG THÊM...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5 relative z-10" />
-                      <span className="relative z-10">THÊM</span>
-                    </>
-                  )}
+                  <Save className="w-5 h-5" />
+                  {isSubmitting ? "ĐANG CẬP NHẬT..." : "CẬP NHẬT"}
                 </Button>
-              </div>
-
-              {/* Required fields note */}
-              <div className="text-center mt-6">
-                <p className="text-xs text-gray-500 font-medium">
-                  <span className="text-red-500">*</span> Các trường bắt buộc
-                </p>
               </div>
             </div>
           </div>
@@ -365,9 +420,7 @@ export function AddVocabularyPageComponent() {
       </div>
 
       {/* Footer */}
-      <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} roleId="content-creator" />
+      <Footer />
     </div>
   )
-}
-
-export default AddVocabularyPageComponent
+} 
