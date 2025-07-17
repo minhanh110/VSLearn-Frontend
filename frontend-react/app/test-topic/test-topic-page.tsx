@@ -4,27 +4,32 @@ import { useState, useMemo, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter, useSearchParams } from "next/navigation"
-import { testService, TestQuestion, TestAnswer, TestSubmissionRequest } from "@/app/services/testService"
+import { testService, type TestQuestion, type TestAnswer, type TestSubmissionRequest } from "@/app/services/testService"
 import authService from "@/app/services/auth.service"
 import { LoginModal } from "@/components/login-modal"
-import { jwtDecode } from 'jwt-decode'
+import { jwtDecode } from "jwt-decode"
 
-export function TestTopicPage() {
-  console.log("=== TestTopicPage rendered ===");
-  
+interface TestTopicPageProps {
+  testId?: string
+  topicId?: string
+}
+
+export function TestTopicPage({ testId: propTestId, topicId: propTopicId }: TestTopicPageProps) {
+  console.log("=== TestTopicPage rendered ===")
+
   const router = useRouter()
   const searchParams = useSearchParams()
-  const testId = searchParams.get("testId")
-  const topicId = searchParams.get("topicId")
-  
-  // Get actual user ID from authentication service
+
+  const testId = propTestId || searchParams.get("testId")
+  const topicId = propTopicId || searchParams.get("topicId")
+
   const [userId, setUserId] = useState<string>("1")
 
-  console.log("URL params:", { testId, topicId });
+  console.log("URL params:", { testId, topicId })
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -39,7 +44,6 @@ export function TestTopicPage() {
   const [nextTopicInfo, setNextTopicInfo] = useState<any>(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
 
-  // Get user ID from authentication service
   useEffect(() => {
     const getCurrentUserId = async () => {
       try {
@@ -59,46 +63,46 @@ export function TestTopicPage() {
         console.error("Error decoding token:", error)
       }
     }
-    
+
     getCurrentUserId()
   }, [])
 
-  // Load test questions when component mounts
   useEffect(() => {
-    console.log("useEffect triggered");
-    console.log("useEffect dependencies:", { topicId, userId });
+    console.log("useEffect triggered")
+    console.log("useEffect dependencies:", { topicId, userId })
     const loadTestQuestions = async () => {
-      console.log("loadTestQuestions started");
-      
-      // Check authentication first
+      console.log("loadTestQuestions started")
+
       if (!authService.isAuthenticated()) {
-        console.log("User not authenticated, showing login modal");
+        console.log("User not authenticated, showing login modal")
         setShowLoginModal(true)
         setLoading(false)
         return
       }
-      
+
       if (!topicId) {
-        console.log("No topicId provided");
+        console.log("No topicId provided")
         setError("Topic ID is required")
         setLoading(false)
         return
       }
 
       try {
-        console.log("Calling testService.generateTest with:", { userId: parseInt(userId), topicId: parseInt(topicId) });
+        console.log("Calling testService.generateTest with:", {
+          userId: Number.parseInt(userId),
+          topicId: Number.parseInt(topicId),
+        })
         setLoading(true)
-        const questions = await testService.generateTest(parseInt(userId), parseInt(topicId))
-        console.log("Received questions:", questions);
-        console.log("Questions length:", questions.length);
+        const questions = await testService.generateTest(Number.parseInt(userId), Number.parseInt(topicId))
+        console.log("Received questions:", questions)
+        console.log("Questions length:", questions.length)
         setTestQuestions(questions)
         setLoading(false)
-        console.log("Test questions loaded successfully");
+        console.log("Test questions loaded successfully")
       } catch (err: any) {
         console.error("Error loading test questions:", err)
-        
-        // Handle authentication errors
-        if (err.message?.includes('Authentication required') || err.message?.includes('Network Error')) {
+
+        if (err.message?.includes("Authentication required") || err.message?.includes("Network Error")) {
           setError("Vui lòng đăng nhập để tiếp tục")
           setShowLoginModal(true)
         } else {
@@ -111,17 +115,14 @@ export function TestTopicPage() {
     loadTestQuestions()
   }, [topicId, userId])
 
-  // Debug: Log state changes
   useEffect(() => {
-    console.log("State changed - loading:", loading, "error:", error, "questions count:", testQuestions.length);
+    console.log("State changed - loading:", loading, "error:", error, "questions count:", testQuestions.length)
   }, [loading, error, testQuestions.length])
 
-  // Debug: Test useEffect with empty dependencies
   useEffect(() => {
-    console.log("Component mounted - testing useEffect");
+    console.log("Component mounted - testing useEffect")
   }, [])
 
-  // Function để mark test completed
   const markCompleted = (id: string) => {
     const completedEvent = new CustomEvent("lessonCompleted", {
       detail: { lessonId: Number.parseInt(id) },
@@ -136,13 +137,12 @@ export function TestTopicPage() {
         id: question.id,
         videoUrl: question.videoUrl,
         imageUrl: question.imageUrl,
-        type: question.type
-      });
+        type: question.type,
+      })
     }
     return question
   }, [testQuestions, currentQuestionIndex])
 
-  // Handle answer selection for any question type
   const handleAnswerChange = (questionId: number, answer: any) => {
     setAnswers((prev) => ({
       ...prev,
@@ -150,7 +150,6 @@ export function TestTopicPage() {
     }))
   }
 
-  // Navigation functions
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1)
@@ -163,21 +162,18 @@ export function TestTopicPage() {
     }
   }
 
-  // Submit confirmation
   const handleSubmitTest = () => {
     setShowSubmitConfirm(true)
   }
 
   const handleConfirmSubmit = async () => {
     try {
-      // Prepare answers for submission
       const testAnswers: TestAnswer[] = testQuestions.map((question) => ({
         questionId: question.id,
         answer: answers[question.id] || "",
         questionType: question.type,
       }))
 
-      // Calculate score
       let correctAnswers = 0
       testQuestions.forEach((question) => {
         const userAnswer = answers[question.id]
@@ -192,10 +188,9 @@ export function TestTopicPage() {
 
       const score = Math.round((correctAnswers / testQuestions.length) * 100)
 
-      // Submit to backend
       const submissionRequest: TestSubmissionRequest = {
-        userId: parseInt(userId),
-        topicId: parseInt(topicId!),
+        userId: Number.parseInt(userId),
+        topicId: Number.parseInt(topicId!),
         answers: testAnswers,
         score: score,
       }
@@ -203,7 +198,6 @@ export function TestTopicPage() {
       const result = await testService.submitTest(submissionRequest)
       setNextTopicInfo(result.nextTopic)
 
-      // Set detailed test results for review
       const questionResults = testQuestions.map((question) => {
         const userAnswer = answers[question.id]
         let isCorrect = false
@@ -229,12 +223,11 @@ export function TestTopicPage() {
         }
       })
 
-      // Get topic name for test results
-      let topicName = "Chủ đề hiện tại";
+      let topicName = "Chủ đề hiện tại"
       try {
-        topicName = await testService.getTopicName(parseInt(topicId!));
+        topicName = await testService.getTopicName(Number.parseInt(topicId!))
       } catch (error) {
-        console.error("Error getting topic name:", error);
+        console.error("Error getting topic name:", error)
       }
 
       setTestResults({
@@ -243,14 +236,14 @@ export function TestTopicPage() {
         accuracy: score,
         questions: questionResults,
         topicName: topicName,
-        topicId: parseInt(topicId!)
+        topicId: Number.parseInt(topicId!),
       })
 
       setTestScore(score)
       setShowSubmitConfirm(false)
+
       setShowResultPage(true)
 
-      // Mark as completed if passed
       if (score >= 90 && testId) {
         markCompleted(testId)
       }
@@ -264,20 +257,24 @@ export function TestTopicPage() {
   const handleRetakeTest = () => {
     setAnswers({})
     setCurrentQuestionIndex(0)
-    setShowResultPage(false)
+    setShowResultPage(false) // Hide the result popup
     setTestScore(0)
     setTestResults(null)
     setNextTopicInfo(null)
   }
 
   const handleContinueFromResult = () => {
-    if (testId) {
-      markCompleted(testId)
+    // This function is now for the "TIẾP TỤC" button in the success popup
+    // It should navigate to the next topic or homepage
+    if (nextTopicInfo && nextTopicInfo.isAvailable) {
+      router.push(`/lesson/${nextTopicInfo.topicId}/subtopic/${nextTopicInfo.id}`)
+    } else {
+      router.push("/homepage")
     }
-    router.push("/homepage")
+    sessionStorage.removeItem("testResults") // Clear results after continuing
   }
 
-  const handleGoToNextTopic = async () => {
+    const handleGoToNextTopic = async () => {
     if (nextTopicInfo && nextTopicInfo.isAvailable) {
       try {
         // Get the first subtopic of the next topic
@@ -296,13 +293,18 @@ export function TestTopicPage() {
       router.push("/homepage")
     }
   }
+  const handleCloseResultPopup = () => {
+    // This function is for the "ĐÓNG" button in the failure popup
+    sessionStorage.removeItem("testResults") // Clear results after closing
+    router.push("/homepage")
+  }
 
   const handleGoToFeedback = () => {
+    sessionStorage.setItem("testResults", JSON.stringify(testResults)) // Save results for feedback page
     router.push(`/feedback?topicId=${topicId}`)
   }
 
   const handleShowReview = () => {
-    // Save test results to sessionStorage for review page
     if (testResults) {
       sessionStorage.setItem("testResults", JSON.stringify(testResults))
       router.push("/test-review")
@@ -310,23 +312,20 @@ export function TestTopicPage() {
   }
 
   const getCurrentAnswer = () => {
-    const answer = answers[currentQuestion?.id];
-    // For true/false questions, return boolean or undefined
+    const answer = answers[currentQuestion?.id]
     if (currentQuestion?.type === "true-false") {
-      return answer === true || answer === false ? answer : undefined;
+      return answer === true || answer === false ? answer : undefined
     }
-    return answer || "";
+    return answer || ""
   }
 
-  // Debug: Log current answer for true/false questions
   useEffect(() => {
     if (currentQuestion?.type === "true-false") {
-      console.log("Current answer:", getCurrentAnswer(), "Type:", typeof getCurrentAnswer());
+      console.log("Current answer:", getCurrentAnswer(), "Type:", typeof getCurrentAnswer())
     }
-  }, [currentQuestion, answers]);
+  }, [currentQuestion, answers])
 
   const getExplanationForQuestion = (questionId: number) => {
-    // Add explanations for questions
     const explanations: { [key: number]: string } = {
       1: "Đây là từ vựng cơ bản về chủ đề này",
       2: "Từ này thường được sử dụng trong giao tiếp hàng ngày",
@@ -340,14 +339,12 @@ export function TestTopicPage() {
 
   const handleCloseLoginModal = () => {
     setShowLoginModal(false)
-    // Redirect back to homepage if user closes the modal
     router.push("/homepage")
   }
 
-  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-blue-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-blue-700 font-medium">Đang tải bài kiểm tra...</p>
@@ -356,10 +353,9 @@ export function TestTopicPage() {
     )
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-blue-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 font-medium mb-4">{error}</p>
           <Button onClick={() => router.push("/homepage")} className="bg-blue-500 hover:bg-blue-600 text-white">
@@ -369,6 +365,8 @@ export function TestTopicPage() {
       </div>
     )
   }
+
+  const isPassed = testScore >= 90 // Determine pass/fail for the popup
 
   // Result page
   if (showResultPage) {
@@ -471,15 +469,14 @@ export function TestTopicPage() {
 
   // Main test interface
   return (
-    <div className="min-h-screen bg-blue-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden">
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
-      {/* Submit Button - Top Right Corner */}
       {currentQuestionIndex < testQuestions.length - 1 && (
-        <div className="fixed top-20 right-4 z-20">
+        <div className="fixed top-24 right-4 lg:top-32 lg:right-8 z-20">
           <Button
             onClick={handleSubmitTest}
-            className="bg-gradient-to-r from-red-400 to-pink-400 hover:from-red-500 hover:to-pink-500 text-white font-bold py-2 px-4 rounded-full transition-all duration-200 hover:shadow-lg shadow-md"
+            className="bg-gradient-to-r from-rose-400 to-pink-400 hover:from-rose-500 hover:to-pink-500 text-white font-bold py-2.5 px-5 lg:py-3 lg:px-6 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             NỘP BÀI
           </Button>
@@ -488,22 +485,22 @@ export function TestTopicPage() {
 
       <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
         <div className="max-w-4xl mx-auto">
-          {/* Progress Bar */}
-          <div className="bg-white rounded-2xl p-4 shadow-lg border-2 border-blue-200 mb-6">
+          {/* Progress Bar - Removed solid white background */}
+          <div className="bg-blue-50/80 backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-200 mb-6">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-600">
+              <span className="text-sm sm:text-base font-semibold text-blue-700">
                 Câu {currentQuestionIndex + 1} / {testQuestions.length}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Có thể nộp bài bất cứ lúc nào</span>
-                <span className="text-sm font-medium text-blue-600">
+                <span className="text-xs sm:text-sm text-gray-500">Có thể nộp bài bất cứ lúc nào</span>
+                <span className="text-sm sm:text-base font-semibold text-blue-700">
                   {Math.round(((currentQuestionIndex + 1) / testQuestions.length) * 100)}%
                 </span>
               </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2.5 rounded-full transition-all duration-300"
                 style={{
                   width: `${((currentQuestionIndex + 1) / testQuestions.length) * 100}%`,
                 }}
@@ -511,25 +508,27 @@ export function TestTopicPage() {
             </div>
           </div>
 
-          {/* Question Card */}
           {currentQuestion && (
-            <div className="bg-white rounded-2xl shadow-2xl border-4 border-blue-100 p-6 mb-6">
-              {/* Question Header */}
+            <div className="bg-blue-50/80 backdrop-blur-sm rounded-3xl shadow-3xl border-4 border-blue-200 p-6 sm:p-8 mb-6">
               <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">
-                  {currentQuestion.question}
-                </h2>
-                <div className="text-sm text-gray-600">
+                <h2 className="text-xl sm:text-2xl font-bold text-blue-800 mb-2">{currentQuestion.question}</h2>
+                <div className="text-sm sm:text-base text-blue-600">
                   {currentQuestion.type === "multiple-choice" && "Chọn đáp án đúng"}
                   {currentQuestion.type === "true-false" && "Đúng hay Sai"}
                   {currentQuestion.type === "essay" && "Điền đáp án"}
                 </div>
               </div>
 
-              {/* Media Content */}
               <div className="flex justify-center mb-6">
-                <div className="relative w-64 h-64 bg-gray-100 rounded-xl overflow-hidden">
-                  {currentQuestion.videoUrl && (currentQuestion.videoUrl.includes('.mp4') || currentQuestion.videoUrl.includes('storage.googleapis.com')) ? (
+                <div className="relative w-full max-w-[250px] h-[250px] sm:max-w-[300px] sm:h-[300px] md:max-w-[350px] md:h-[350px] bg-gradient-to-br from-pink-200 via-purple-200 to-blue-200 rounded-2xl overflow-hidden border-4 border-blue-300 shadow-lg">
+                  <div className="absolute top-4 left-4 w-6 h-6 text-yellow-400">⭐</div>
+                  <div className="absolute top-4 right-4 w-5 h-5 text-blue-400">⭐</div>
+                  <div className="absolute bottom-4 left-4 w-5 h-5 text-green-400">⭐</div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6 text-purple-400">⭐</div>
+
+                  {currentQuestion.videoUrl &&
+                  (currentQuestion.videoUrl.includes(".mp4") ||
+                    currentQuestion.videoUrl.includes("storage.googleapis.com")) ? (
                     <video
                       src={currentQuestion.videoUrl}
                       controls
@@ -542,7 +541,7 @@ export function TestTopicPage() {
                     </video>
                   ) : (
                     <Image
-                      src={currentQuestion.imageUrl}
+                      src={currentQuestion.imageUrl || "/placeholder.svg"}
                       alt="Question image"
                       fill
                       className="object-cover"
@@ -551,18 +550,17 @@ export function TestTopicPage() {
                 </div>
               </div>
 
-              {/* Answer Options */}
               <div className="space-y-4">
                 {currentQuestion.type === "multiple-choice" && currentQuestion.options && (
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {currentQuestion.options.map((option, index) => (
                       <button
                         key={index}
                         onClick={() => handleAnswerChange(currentQuestion.id, option)}
-                        className={`p-4 rounded-xl border-2 text-left font-medium transition-all hover:scale-[1.02] ${
+                        className={`p-3 sm:p-4 rounded-2xl border-2 text-center font-semibold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg text-sm sm:text-base ${
                           getCurrentAnswer() === option
-                            ? "bg-blue-100 border-blue-400 text-blue-800"
-                            : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                            ? "bg-blue-200 border-blue-500 text-blue-800"
+                            : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                         }`}
                       >
                         {option}
@@ -575,20 +573,20 @@ export function TestTopicPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       onClick={() => handleAnswerChange(currentQuestion.id, true)}
-                      className={`p-4 rounded-xl border-2 text-center font-bold transition-all hover:scale-[1.02] ${
+                      className={`p-3 sm:p-4 rounded-2xl border-2 text-center font-bold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg text-sm sm:text-base ${
                         getCurrentAnswer() === true
-                          ? "bg-blue-100 border-blue-400 text-blue-800"
-                          : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                          ? "bg-blue-200 border-blue-500 text-blue-800"
+                          : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                       }`}
                     >
                       ĐÚNG
                     </button>
                     <button
                       onClick={() => handleAnswerChange(currentQuestion.id, false)}
-                      className={`p-4 rounded-xl border-2 text-center font-bold transition-all hover:scale-[1.02] ${
+                      className={`p-3 sm:p-4 rounded-2xl border-2 text-center font-bold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg text-sm sm:text-base ${
                         getCurrentAnswer() === false
-                          ? "bg-blue-100 border-blue-400 text-blue-800"
-                          : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                          ? "bg-blue-200 border-blue-500 text-blue-800"
+                          : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                       }`}
                     >
                       SAI
@@ -598,14 +596,12 @@ export function TestTopicPage() {
 
                 {currentQuestion.type === "essay" && (
                   <div className="space-y-4">
-                    <div className="text-sm text-gray-600 font-medium">
-                      {currentQuestion.essayPrompt}
-                    </div>
+                    <div className="text-sm sm:text-base text-blue-600 font-medium">{currentQuestion.essayPrompt}</div>
                     <Textarea
                       value={getCurrentAnswer()}
                       onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
                       placeholder="Nhập đáp án của bạn..."
-                      className="min-h-[120px] resize-none"
+                      className="min-h-[100px] sm:min-h-[150px] resize-none border-2 border-blue-300 rounded-xl shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 sm:p-4 text-base"
                     />
                   </div>
                 )}
@@ -613,12 +609,11 @@ export function TestTopicPage() {
             </div>
           )}
 
-          {/* Navigation Buttons */}
           <div className="flex justify-between items-center">
             <Button
               onClick={handlePreviousQuestion}
               disabled={currentQuestionIndex === 0}
-              className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-6 rounded-full transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-blue-200 hover:bg-blue-300 text-blue-700 font-bold py-3.5 px-7 rounded-full transition-all duration-200 shadow-md hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-5 h-5 mr-2" />
               TRƯỚC
@@ -627,14 +622,14 @@ export function TestTopicPage() {
             {currentQuestionIndex === testQuestions.length - 1 ? (
               <Button
                 onClick={handleSubmitTest}
-                className="bg-gradient-to-r from-green-400 to-emerald-400 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-3 px-6 rounded-full transition-all duration-200 hover:shadow-lg"
+                className="bg-gradient-to-r from-green-400 to-emerald-400 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-3.5 px-7 rounded-full transition-all duration-200 shadow-md hover:shadow-xl"
               >
                 NỘP BÀI
               </Button>
             ) : (
               <Button
                 onClick={handleNextQuestion}
-                className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3 px-6 rounded-full transition-all duration-200 hover:shadow-lg"
+                className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3.5 px-7 rounded-full transition-all duration-200 shadow-md hover:shadow-xl"
               >
                 TIẾP THEO
                 <ChevronRight className="w-5 h-5 ml-2" />
@@ -644,24 +639,34 @@ export function TestTopicPage() {
         </div>
       </div>
 
-      {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md mx-4">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Xác nhận nộp bài</h3>
-            <p className="text-gray-600 mb-6">
-              Bạn có chắc chắn muốn nộp bài kiểm tra? Không thể thay đổi sau khi nộp.
-            </p>
-            <div className="flex gap-3">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xs sm:max-w-md mx-4 text-center shadow-xl border-4 border-blue-200">
+            {/* Mascot */}
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/images/test-nopbai.png"
+                alt="Whale with question mark"
+                width={120}
+                height={120}
+                className="object-contain animate-bounce"
+              />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl sm:text-2xl font-bold text-blue-800 mb-6">BẠN MUỐN NỘP BÀI ?</h3>
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={() => setShowSubmitConfirm(false)}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700"
+                className="flex-1 bg-gradient-to-r from-blue-300 to-cyan-300 hover:from-blue-400 hover:to-cyan-400 text-white font-bold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
               >
-                HỦY
+                QUAY VỀ
               </Button>
               <Button
                 onClick={handleConfirmSubmit}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
               >
                 NỘP BÀI
               </Button>
@@ -670,14 +675,134 @@ export function TestTopicPage() {
         </div>
       )}
 
-      <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      {showResultPage && testResults && (
+        <>
+          {/* Overlay */}
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
 
-      {/* Login Modal */}
-      <LoginModal
-        isOpen={showLoginModal}
-        onClose={handleCloseLoginModal}
-        returnUrl={window.location.href}
-      />
+          {/* Modal Content */}
+          <div className="fixed top-[55%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-[240px] sm:max-w-[320px] md:max-w-[400px] mx-4">
+            <div className="relative">
+              <div
+                className={`rounded-3xl p-2 sm:p-4 md:p-6 w-full text-center shadow-2xl border-4 ${
+                  isPassed ? "bg-blue-50 border-blue-200" : "bg-pink-50 border-pink-200"
+                }`}
+              >
+                {/* Mascot Image */}
+                <div className="flex justify-center mb-2">
+                  <Image
+                    src={isPassed ? "/images/test-success-whale.png" : "/images/test-failure-whale.png"}
+                    alt={isPassed ? "Happy whale" : "Sad whale"}
+                    width={96} // Base size for Image component
+                    height={96} // Base size for Image component
+                    className="object-contain animate-bounce w-14 h-14 sm:w-18 sm:h-18 md:w-24 md:h-24" // Responsive rendered size
+                  />
+                </div>
+
+                {/* Main Title */}
+                <h1 className={`text-lg sm:text-xl font-bold mb-1 ${isPassed ? "text-blue-800" : "text-red-700"}`}>
+                  {isPassed ? "CHÚC MỪNG BẠN ĐÃ HOÀN THÀNH !" : "ÔI, KHÔNG !"}
+                </h1>
+                {/* Subtitle */}
+                <p className={`text-xs sm:text-sm font-semibold mb-2 ${isPassed ? "text-blue-600" : "text-gray-600"}`}>
+                  {isPassed ? "BẠN ĐÃ VƯỢT QUA BÀI KIỂM TRA" : "BẠN ĐÃ KHÔNG VƯỢT QUA BÀI KIỂM TRA"}
+                  <br />
+                  {testResults.topicName ? `"${testResults.topicName.toUpperCase()}"` : ""}
+                </p>
+
+                {/* Score Display */}
+                <div
+                  className={`rounded-3xl p-3 sm:p-5 shadow-xl border-2 mb-3 ${
+                    isPassed ? "bg-blue-100/80 border-blue-200" : "bg-red-100/80 border-red-200"
+                  }`}
+                >
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="text-center">
+                      <div
+                        className={`text-2xl sm:text-3xl font-bold mb-0.5 ${isPassed ? "text-blue-700" : "text-red-700"}`}
+                      >
+                        {testResults.totalQuestions}
+                      </div>
+                      <div
+                        className={`text-sm sm:text-base font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}
+                      >
+                        TỪ VỰNG
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div
+                        className={`text-2xl sm:text-3xl font-extrabold mb-0.5 ${isPassed ? "text-blue-700" : "text-red-700"}`}
+                      >
+                        {testResults.accuracy}%
+                      </div>
+                      <div
+                        className={`text-sm sm:text-base font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}
+                      >
+                        ĐỘ CHÍNH XÁC
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={handleShowReview}
+                    className={`w-full font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm ${
+                      isPassed
+                        ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                        : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                    }`}
+                  >
+                    XEM LẠI BÀI
+                  </Button>
+
+                  <Button
+                    onClick={handleGoToFeedback}
+                    className={`w-full font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm ${
+                      isPassed
+                        ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                        : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                    }`}
+                  >
+                    PHẢN HỒI
+                  </Button>
+
+                  <Button
+                    onClick={handleRetakeTest}
+                    className={`w-full font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm ${
+                      isPassed
+                        ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                        : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                    }`}
+                  >
+                    LÀM LẠI
+                  </Button>
+
+                  {isPassed ? (
+                    <Button
+                      onClick={handleContinueFromResult}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm"
+                    >
+                      TIẾP TỤC
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleCloseResultPopup}
+                      className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm"
+                    >
+                      ĐÓNG
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <LoginModal isOpen={showLoginModal} onClose={handleCloseLoginModal} returnUrl={window.location.href} />
     </div>
   )
 }
