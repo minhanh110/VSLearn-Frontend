@@ -37,9 +37,9 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
               size="sm"
               onClick={onMenuToggle}
               // Tăng lề âm để dịch chuyển sát hơn nữa về bên trái
-              className="p-3 hidden lg:flex hover:bg-white/30 rounded-xl transition-all duration-300 ml-[-2rem]"
+              className="p-3 hidden lg:flex hover:bg-white/30 rounded-xl transition-all duration-300 ml-[-3rem]"
             >
-              <Menu className="w-10 h-10 text-gray-700" />
+              <Menu className="w-12 h-12 text-gray-700" /> {/* Tăng kích thước icon */}
             </Button>
           )}
         </div>
