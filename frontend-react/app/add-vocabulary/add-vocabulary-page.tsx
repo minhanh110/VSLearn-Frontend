@@ -71,7 +71,6 @@ export function AddVocabularyPageComponent() {
       })
       .catch(() => setSubTopics([]));
   }, [formData.topicId]);
->>>>>>> origin/QuocPMHE172252
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
