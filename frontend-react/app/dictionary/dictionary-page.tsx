@@ -6,7 +6,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search } from "lucide-react"
+import { Search, Play } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { VocabService } from "@/app/services/vocab.service";
 
@@ -19,6 +19,8 @@ interface VocabularyItem {
   meaning?: string
   status: string
   createdAt: string
+  videoUrl?: string
+  thumbnailUrl?: string
 }
 
 interface PaginationInfo {
@@ -46,7 +48,7 @@ export function DictionaryPageComponent() {
     currentPage: 0,
     totalPages: 0,
     totalElements: 0,
-    pageSize: 10,
+    pageSize: 40, // Changed to 40 items per page
     hasNext: false,
     hasPrevious: false
   })
@@ -54,32 +56,8 @@ export function DictionaryPageComponent() {
   // Alphabet buttons
   const alphabet = [
     "TẤT CẢ",
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
   ]
 
   // Fetch topics and regions on mount
@@ -132,7 +110,7 @@ export function DictionaryPageComponent() {
         // Prepare API parameters
         const params: any = {
           page: currentPage - 1, // Backend uses 0-based indexing
-          size: 10, // Page size
+          size: 40, // Page size changed to 40
         };
 
         // Add search term if not empty
@@ -180,7 +158,7 @@ export function DictionaryPageComponent() {
             currentPage: response.data.currentPage || 0,
             totalPages: response.data.totalPages || 0,
             totalElements: response.data.totalElements || 0,
-            pageSize: response.data.pageSize || 10,
+            pageSize: response.data.pageSize || 40,
             hasNext: response.data.hasNext || false,
             hasPrevious: response.data.hasPrevious || false
           });
@@ -192,7 +170,7 @@ export function DictionaryPageComponent() {
           currentPage: 0,
           totalPages: 0,
           totalElements: 0,
-          pageSize: 10,
+          pageSize: 40,
           hasNext: false,
           hasPrevious: false
         });
@@ -206,10 +184,6 @@ export function DictionaryPageComponent() {
 
   const handleVocabClick = (id: number) => {
     router.push(`/vocab-detail?id=${id}`)
-  }
-
-  const getFirstLetter = (vocab: string) => {
-    return vocab.charAt(0).toUpperCase();
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -339,8 +313,8 @@ export function DictionaryPageComponent() {
             </div>
           </div>
 
-          {/* Vocabulary List */}
-          <div className="space-y-6 mb-8">
+          {/* Video Grid Section */}
+          <div className="mb-8">
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -351,44 +325,154 @@ export function DictionaryPageComponent() {
                 <p className="text-gray-600 font-medium">Không tìm thấy từ vựng nào</p>
               </div>
             ) : (
-              vocabularyData.map((vocab) => (
-                <div key={vocab.id} className="group relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div
-                    className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8 hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02] cursor-pointer"
-                    onClick={() => handleVocabClick(vocab.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      {/* Vocabulary Letter */}
-                      <div className="flex items-center gap-8">
-                        <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg">
-                          <span className="text-3xl font-bold text-white">{getFirstLetter(vocab.vocab)}</span>
-                        </div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl"></div>
+                <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
+                  {/* Desktop Grid: 4 videos per row */}
+                  <div className="hidden md:grid md:grid-cols-4 gap-6">
+                    {vocabularyData.map((vocab) => (
+                      <div key={vocab.id} className="group cursor-pointer" onClick={() => handleVocabClick(vocab.id)}>
+                        <div className="relative">
+                          {/* Video Thumbnail */}
+                          <div className="relative aspect-video bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300">
+                            {vocab.videoUrl ? (
+                              <>
+                                <video 
+                                  className="w-full h-full object-cover"
+                                  poster={vocab.thumbnailUrl}
+                                  preload="metadata"
+                                  muted
+                                  playsInline
+                                  onLoadedMetadata={(e) => {
+                                    const video = e.target as HTMLVideoElement;
+                                    video.currentTime = 1; // Seek to 1 second to get a frame
+                                  }}
+                                >
+                                  <source src={vocab.videoUrl} type="video/mp4" />
+                                </video>
+                                {/* Fallback nếu video không có poster */}
+                                {!vocab.thumbnailUrl && (
+                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                                    <span className="text-4xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : vocab.thumbnailUrl ? (
+                              <img 
+                                src={vocab.thumbnailUrl} 
+                                alt={vocab.vocab}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                                <span className="text-4xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
+                              </div>
+                            )}
+                            
+                            {/* Play Button Overlay */}
+                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-lg">
+                                <Play className="w-6 h-6 text-blue-600 ml-1" />
+                              </div>
+                            </div>
 
-                        {/* Vocabulary Info */}
-                        <div className="flex flex-col gap-2">
-                          <h3 className="text-2xl font-bold text-gray-800">{vocab.vocab}</h3>
-                          {vocab.meaning && (
-                            <p className="text-gray-600 text-sm">{vocab.meaning}</p>
-                          )}
-                        </div>
-
-                        {/* Tags */}
-                        <div className="flex gap-4">
-                          <span className="px-6 py-3 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-2xl text-sm font-bold shadow-sm">
-                            {vocab.topicName}
-                          </span>
-                          {vocab.region && (
-                            <span className="px-6 py-3 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-2xl text-sm font-bold shadow-sm">
-                              {vocab.region}
-                            </span>
-                          )}
+                            {/* Region Tags - chỉ hiển thị region, bỏ topic */}
+                            <div className="absolute top-2 left-2 flex gap-1">
+                              {vocab.region && (
+                                <span className="px-2 py-1 bg-cyan-500/80 text-white text-xs font-bold rounded-lg backdrop-blur-sm">
+                                  {vocab.region}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Vocabulary Name */}
+                          <div className="mt-3 text-center">
+                            <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-300">
+                              {vocab.vocab}
+                            </h3>
+                            {vocab.meaning && (
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{vocab.meaning}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
+                  </div>
+
+                  {/* Mobile Layout: 1 video per row with text on the right */}
+                  <div className="md:hidden space-y-4">
+                    {vocabularyData.map((vocab) => (
+                      <div key={vocab.id} className="group cursor-pointer" onClick={() => handleVocabClick(vocab.id)}>
+                        <div className="flex gap-4 items-center">
+                          {/* Video Thumbnail */}
+                          <div className="relative w-32 aspect-video bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300 flex-shrink-0">
+                            {vocab.videoUrl ? (
+                              <>
+                                <video 
+                                  className="w-full h-full object-cover"
+                                  poster={vocab.thumbnailUrl}
+                                  preload="metadata"
+                                  muted
+                                  playsInline
+                                  onLoadedMetadata={(e) => {
+                                    const video = e.target as HTMLVideoElement;
+                                    video.currentTime = 1; // Seek to 1 second to get a frame
+                                  }}
+                                >
+                                  <source src={vocab.videoUrl} type="video/mp4" />
+                                </video>
+                                {/* Fallback nếu video không có poster */}
+                                {!vocab.thumbnailUrl && (
+                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                                    <span className="text-2xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : vocab.thumbnailUrl ? (
+                              <img 
+                                src={vocab.thumbnailUrl} 
+                                alt={vocab.vocab}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                                <span className="text-2xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
+                              </div>
+                            )}
+                            
+                            {/* Play Button Overlay */}
+                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg">
+                                <Play className="w-4 h-4 text-blue-600 ml-0.5" />
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Vocabulary Info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors duration-300">
+                              {vocab.vocab}
+                            </h3>
+                            {vocab.meaning && (
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{vocab.meaning}</p>
+                            )}
+                            
+                            {/* Tags - chỉ hiển thị region, bỏ topic */}
+                            <div className="flex gap-2 mt-2">
+                              {vocab.region && (
+                                <span className="px-3 py-1 bg-cyan-100 text-cyan-700 text-xs font-bold rounded-lg">
+                                  {vocab.region}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))
+              </div>
             )}
           </div>
 

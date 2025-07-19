@@ -297,7 +297,6 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
   const [selectedSentenceBuilding, setSelectedSentenceBuilding] = useState<number | null>(null)
-  const [lessonPopupPosition, setLessonPopupPosition] = useState<{ x: number, y: number } | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeModalData, setUpgradeModalData] = useState({
     userType: "guest" as "guest" | "registered",
@@ -434,19 +433,9 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
       return;
     }
     // Nếu lesson thường mở, mở popup lesson
-    
     if (!lesson.isTest) {
-      const ref = lessonRefs.current[lesson.id.toString()]
-      if (ref) {
-        const rect = ref.getBoundingClientRect()
-        setLessonPopupPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top
-        })
-      }
       setSelectedLesson(lesson.id.toString())
     }
-
   }
 
   const getPositionClass = (index: number) => {
@@ -470,6 +459,37 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
     }
   }
 
+  // Thêm useEffect để đóng popup khi click ra ngoài (bỏ handleScroll)
+  // Thêm useEffect để đóng popup khi click ra ngoài và khi scroll
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Nếu click không phải trên lesson button hoặc popup, đóng popup
+      if (!target.closest('[data-lesson-id]') && 
+          !target.closest('[data-test-lesson]') && 
+          !target.closest('.lesson-popup') && 
+          !target.closest('.test-popup')) {
+        setSelectedLesson(null);
+        setSelectedTest(null);
+      }
+    };
+
+    const handleScroll = () => {
+      // Đóng popup khi scroll
+      setSelectedLesson(null);
+      setSelectedTest(null);
+      setSelectedSentenceBuilding(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true); // true để capture tất cả scroll events
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, []);
   // Kiểm tra sentence building cho mỗi topic
   useEffect(() => {
     const checkSentenceBuilding = async () => {
@@ -629,17 +649,19 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                 </button>
                 {/* Popup test */}
                 {String(selectedTest) === String(testLesson.id) && !showUpgradeModal && !showTestRequirementModal && !showTopicLockedModal && (
-                  <TestPopup
-                    isOpen={true}
-                    onClose={() => setSelectedTest(null)}
-                    testNumber={testLesson.id}
-                    questionCount={testLesson.questionCount || 10}
-                    testTitle={testLesson.title || ""}
-                    position={undefined}
-                    testId={testLesson.id}
-                    topicId={unit.unitId}
-                    
-                  />
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999]">
+                    <TestPopup
+                      isOpen={true}
+                      onClose={() => setSelectedTest(null)}
+                      testNumber={testLesson.id}
+                      questionCount={testLesson.questionCount || 10}
+                      testTitle={testLesson.title || ""}
+                      position={undefined}
+                      testId={testLesson.id}
+                      topicId={unit.unitId}
+                      isLocked={testLesson.accessible === false}
+                    />
+                  </div>
                 )}
               </div>
             )}
@@ -723,19 +745,21 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
                     )}
                   </div>
                   {/* LESSON POPUP */}
-                  {selectedLesson === lesson.id.toString() && canPopup && selectedLesson && unit && (
-                    <LessonPopup
-                      isOpen={true}
-                      onClose={() => setSelectedLesson(null)}
-                      lessonNumber={getLessonInfo(selectedLesson, unit.lessons).lessonNumber}
-                      totalLessons={getLessonInfo(selectedLesson, unit.lessons).totalLessons}
-                      wordCount={lesson.wordCount || 0}
-                      lessonTitle={lesson.title || ""}
-                      position={undefined}
-                      direction={"down"}
-                      lessonId={parseInt(selectedLesson)}
-                      subtopicId={lesson.id}
-                    />
+                  {selectedLesson === lesson.id.toString() && canPopup && (
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999]">
+                      <LessonPopup
+                        isOpen={true}
+                        onClose={() => setSelectedLesson(null)}
+                        lessonNumber={getLessonInfo(selectedLesson, unit.lessons).lessonNumber}
+                        totalLessons={getLessonInfo(selectedLesson, unit.lessons).totalLessons}
+                        wordCount={lesson.wordCount || 0}
+                        lessonTitle={lesson.title || ""}
+                        position={undefined}
+                        direction={"down"}
+                        lessonId={parseInt(selectedLesson)}
+                        subtopicId={lesson.id}
+                      />
+                    </div>
                   )}
                 </div>
               );
@@ -919,36 +943,7 @@ export function LearningPath({ sidebarOpen = false, units, completedLessons, mar
             {renderUnit(unit, unitIdx)}
           </div>
         ))}
-      
-      {/* LESSON POPUP AS FIXED OVERLAY */}
-      {selectedLesson && lessonPopupPosition && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setSelectedLesson(null)} />
-          <div
-            className="fixed z-50"
-            style={{
-              left: `${lessonPopupPosition.x}px`,
-              top: `${lessonPopupPosition.y}px`,
-              transform: "translate(-50%, 0)"
-            }}
-          >
-            <LessonPopup
-              isOpen={true}
-              onClose={() => setSelectedLesson(null)}
-              lessonNumber={getLessonInfo(selectedLesson, units.flatMap(u => u.lessons)).lessonNumber}
-              totalLessons={getLessonInfo(selectedLesson, units.flatMap(u => u.lessons)).totalLessons}
-              wordCount={units.flatMap(u => u.lessons).find(l => l.id.toString() === selectedLesson)?.wordCount || 0}
-              lessonTitle={units.flatMap(u => u.lessons).find(l => l.id.toString() === selectedLesson)?.title || ""}
-              position={undefined}
-              direction={"down"}
-              lessonId={parseInt(selectedLesson)}
-              subtopicId={parseInt(selectedLesson)}
-            />
-          </div>
-        </>
-      )}
-
-</div>
+      </div>
 
       {/* Upgrade Modal */}
       <UpgradeModal
