@@ -24,6 +24,11 @@ export function useUserRole(): { role: UserRole | null; loading: boolean } {
         const tokenFromCookies = Cookies.get('token')
         const tokenFromLocalStorage = localStorage.getItem('token')
         const token = tokenFromCookies || tokenFromLocalStorage
+
+        // Thêm log debug
+        console.log('Token from cookies:', tokenFromCookies)
+        console.log('Token from localStorage:', tokenFromLocalStorage)
+        console.log('Token used:', token)
         
         if (!token) {
           setRole('guest')
@@ -32,7 +37,9 @@ export function useUserRole(): { role: UserRole | null; loading: boolean } {
         }
 
         const decoded = jwtDecode<JwtPayload>(token)
+        console.log('Decoded token:', decoded)
         const scope = decoded.scope
+        console.log('Scope in token:', scope)
 
         // Map JWT scope to role
         let userRole: UserRole = 'guest'

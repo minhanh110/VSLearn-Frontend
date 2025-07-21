@@ -41,13 +41,11 @@ export function VocabEditPageComponent() {
   // Form state
   const [formData, setFormData] = useState({
     vocab: "",
-    topicId: "",
-    subTopicId: "",
     region: "",
     description: "",
     videoLink: "",
     meaning: "",
-    status: "", // Chỉ để hiển thị trạng thái hiện tại
+    status: "",
   })
 
   // Dynamic data
@@ -72,8 +70,6 @@ export function VocabEditPageComponent() {
         // Set form data with existing vocabulary data
         setFormData({
           vocab: vocab.vocab || "",
-          topicId: "", // Will be set after fetching topics
-          subTopicId: "", // Will be set after fetching subtopics
           region: vocab.region || "",
           description: vocab.description || "",
           videoLink: vocab.videoLink || "",
@@ -117,20 +113,9 @@ export function VocabEditPageComponent() {
 
   // Fetch subtopics when topic changes
   useEffect(() => {
-    if (!formData.topicId) {
-      setSubTopics([]);
-      setFormData(f => ({ ...f, subTopicId: "" }));
-      return;
-    }
-    fetch(`http://localhost:8080/api/v1/flashcards/topic/${formData.topicId}/subtopics`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setSubTopics(data.map((st: any) => ({ value: st.id?.toString() || st.value, label: st.name || st.label, id: st.id })));
-        }
-      })
-      .catch(() => setSubTopics([]));
-  }, [formData.topicId]);
+    // Xóa các useEffect fetch topics, subtopics
+    // Sửa handleSubmit: chỉ gửi các trường còn lại
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -145,19 +130,14 @@ export function VocabEditPageComponent() {
       alert("Vui lòng nhập tên từ vựng!")
       return
     }
-    if (!formData.topicId) {
-      alert("Vui lòng chọn chủ đề!")
-      return
-    }
-    if (!formData.subTopicId) {
-      alert("Vui lòng chọn chủ đề phụ!")
+    if (!formData.region) {
+      alert("Vui lòng chọn khu vực!")
       return
     }
     setIsSubmitting(true)
     try {
       await VocabService.updateVocab(vocabId!, {
         vocab: formData.vocab,
-        subTopicId: parseInt(formData.subTopicId),
         region: formData.region,
         description: formData.description,
         videoLink: formData.videoLink,
@@ -249,52 +229,6 @@ export function VocabEditPageComponent() {
                         placeholder="Nhập tên từ vựng..."
                         className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300"
                       />
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                  </div>
-
-                  {/* Chủ đề */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                      CHỦ ĐỀ <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Select value={formData.topicId} onValueChange={(value) => handleInputChange("topicId", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn chủ đề..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          {topics.map((topic) => (
-                            <SelectItem key={topic.value} value={topic.value} className="hover:bg-blue-50">
-                              {topic.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                  </div>
-
-                  {/* Chủ đề phụ */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                      CHỦ ĐỀ PHỤ <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Select value={formData.subTopicId} onValueChange={(value) => handleInputChange("subTopicId", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn chủ đề phụ..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          {subTopics.map((subTopic) => (
-                            <SelectItem key={subTopic.value} value={subTopic.value} className="hover:bg-blue-50">
-                              {subTopic.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </div>
                   </div>

@@ -48,7 +48,7 @@ const roleMenus = {
   ],
   "content-approver": [
     { icon: GraduationCap, label: "Duyệt chủ đề", href: "/content-approver/topics" },
-    { icon: FileText, label: "Duyệt từ vựng", href: "/content-approver/vocabulary" },
+    { icon: FileText, label: "Duyệt từ vựng", href: "/content-approver/vocabularies" },
     { icon: Shield, label: "Lịch sử duyệt", href: "/content-approver/history" },
     { icon: Users, label: "Quản lý người tạo", href: "/content-approver/creators" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },

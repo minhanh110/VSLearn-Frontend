@@ -83,19 +83,11 @@ class UserManagementService {
   private baseUrl = 'http://localhost:8080/api/v1/admin'
 
   private async getAuthHeaders() {
-    const token = authService.getCurrentToken()
-    console.log('🔑 Auth token:', token ? 'Present' : 'Missing')
-    
-    // Check if user has proper role
-    if (!authService.isGeneralManager()) {
-      console.error('❌ User is not GENERAL_MANAGER')
-      throw new Error('Access denied: Requires GENERAL_MANAGER role')
-    }
-    
+    const token = authService.getCurrentToken();
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    }
+    };
   }
 
   // ==================== LEARNERS MANAGEMENT ====================

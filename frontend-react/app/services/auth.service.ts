@@ -252,6 +252,21 @@ class AuthService {
       throw new Error(error.response?.data?.message || 'Registration failed');
     }
   }
+
+  isGeneralManager() {
+    const token = this.getCurrentToken();
+    if (!token) return false;
+    try {
+      const decoded: any = jwtDecode(token);
+      // Tùy backend, có thể là 'ROLE_GENERAL_MANAGER' hoặc 'general-manager'
+      return (
+        decoded.scope === 'ROLE_GENERAL_MANAGER' ||
+        decoded.role === 'general-manager'
+      );
+    } catch {
+      return false;
+    }
+  }
 }
 
 export default new AuthService();

@@ -20,8 +20,6 @@ export function AddVocabularyPageComponent() {
   // Form state
   const [formData, setFormData] = useState({
     vocab: "",
-    topicId: "",
-    subTopicId: "",
     region: "",
     description: "",
     videoLink: "",
