@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import { Plus, ArrowLeft, BookOpen, FileText } from "lucide-react"
 import { TopicService } from "@/app/services/topic.service";
+import { ApprovalNotice } from "@/components/approval-notice";
 
 export function CreateTopicPageComponent() {
   const router = useRouter()
@@ -19,7 +20,6 @@ export function CreateTopicPageComponent() {
   const [formData, setFormData] = useState({
     topicName: "",
     isFree: true,
-    status: "active",
     sortOrder: 0,
     subtopics: [] as string[],
   })
@@ -49,15 +49,13 @@ export function CreateTopicPageComponent() {
       await TopicService.createTopic({
         topicName: formData.topicName,
         isFree: formData.isFree,
-        status: formData.status,
         sortOrder: formData.sortOrder,
         subtopics: formData.subtopics,
       });
-      alert("Thêm chủ đề thành công!")
+      alert("Thêm chủ đề thành công! Chủ đề đã được gửi để duyệt và sẽ hiển thị sau khi được phê duyệt.")
       setFormData({
         topicName: "",
         isFree: true,
-        status: "active",
         sortOrder: 0,
         subtopics: [],
       })
@@ -113,6 +111,9 @@ export function CreateTopicPageComponent() {
                 <p className="text-gray-600 text-sm font-medium mb-2">CHI TIẾT CHỦ ĐỀ</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
+
+              {/* Approval Notice */}
+              <ApprovalNotice type="create" contentType="topic" />
 
               {/* Topic Name Input */}
               <div className="mb-8">

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save, BookOpen, FileText } from "lucide-react"
 import { TopicService } from "@/app/services/topic.service"
+import { ApprovalNotice } from "@/components/approval-notice"
+import { StatusDisplay } from "@/components/status-display"
 
 interface StatusOption {
   value: string
@@ -29,9 +31,9 @@ export function TopicEditPageComponent() {
   const [formData, setFormData] = useState({
     topicName: "",
     isFree: true,
-    status: "",
     sortOrder: 0,
     subtopics: [] as string[],
+    status: "", // Chỉ để hiển thị trạng thái hiện tại
   })
 
   // Fetch status options
@@ -63,9 +65,9 @@ export function TopicEditPageComponent() {
         setFormData({
           topicName: topic.topicName || "",
           isFree: topic.isFree ?? true,
-          status: topic.status || "",
           sortOrder: topic.sortOrder ?? 0,
           subtopics: [], // TODO: fetch subtopics if needed
+          status: topic.status || "", // Hiển thị trạng thái hiện tại
         })
       } catch (error) {
         alert("Không thể tải chi tiết chủ đề. Vui lòng thử lại!")
@@ -88,20 +90,16 @@ export function TopicEditPageComponent() {
       alert("Vui lòng nhập tên chủ đề!")
       return
     }
-    if (!formData.status) {
-      alert("Vui lòng chọn trạng thái!")
-      return
-    }
+    // Content Creator không cần chọn status, sẽ tự động chuyển về pending
     setIsSubmitting(true)
     try {
       await TopicService.updateTopic(topicId!, {
         topicName: formData.topicName,
         isFree: formData.isFree,
-        status: formData.status,
         sortOrder: formData.sortOrder,
         subtopics: formData.subtopics,
       })
-      alert("Cập nhật chủ đề thành công!")
+      alert("Cập nhật chủ đề thành công! Chủ đề đã được gửi để duyệt lại và sẽ hiển thị sau khi được phê duyệt.")
       router.push("/list-topics")
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
@@ -156,6 +154,9 @@ export function TopicEditPageComponent() {
                 <p className="text-gray-600 text-sm font-medium mb-2">CẬP NHẬT THÔNG TIN CHỦ ĐỀ</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
+
+              {/* Approval Notice */}
+              <ApprovalNotice type="edit" contentType="topic" />
               {/* Topic Name Input */}
               <div className="mb-8">
                 <div className="group">
@@ -175,27 +176,24 @@ export function TopicEditPageComponent() {
                   </div>
                 </div>
               </div>
-              {/* Status Selection */}
+              {/* Status Display (Read-only for Content Creator) */}
               <div className="mb-8">
                 <div className="group">
                   <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
                     <FileText className="w-4 h-4 text-blue-500" />
-                    TRẠNG THÁI <span className="text-red-500">*</span>
+                    TRẠNG THÁI HIỆN TẠI
                   </label>
                   <div className="relative">
-                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                      <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                        <SelectValue placeholder="Chọn trạng thái..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="w-full h-14 px-4 border-2 border-gray-200 rounded-2xl bg-gray-50 flex items-center justify-center">
+                      {formData.status ? (
+                        <StatusDisplay status={formData.status} />
+                      ) : (
+                        <span className="text-gray-500">Chưa có trạng thái</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      * Trạng thái sẽ tự động chuyển về "Đang kiểm duyệt" sau khi cập nhật
+                    </div>
                   </div>
                 </div>
               </div>

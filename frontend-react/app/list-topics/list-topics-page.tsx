@@ -28,7 +28,7 @@ export function ListTopicsPageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState("")
+  const [selectedStatus, setSelectedStatus] = useState("active") // Mặc định chỉ hiển thị topics active
   const [currentPage, setCurrentPage] = useState(1)
   const [topics, setTopics] = useState<TopicItem[]>([])
   const [loading, setLoading] = useState(true)

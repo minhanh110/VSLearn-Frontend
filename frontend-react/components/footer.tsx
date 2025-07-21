@@ -40,10 +40,10 @@ const roleMenus = {
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "content-creator": [
-    { icon: GraduationCap, label: "Chủ đề", href: "/content-creator/topics" },
-    { icon: FileText, label: "Từ vựng", href: "/content-creator/vocabulary" },
-    { icon: XCircle, label: "Chủ đề bị từ chối", href: "/content-creator/rejected-topics" },
-    { icon: Edit, label: "Từ vựng bị từ chối", href: "/content-creator/rejected-vocabulary" },
+    { icon: GraduationCap, label: "Chủ đề", href: "/list-topics" },
+    { icon: FileText, label: "Từ vựng", href: "/list-vocab" },
+    { icon: XCircle, label: "Chủ đề bị từ chối", href: "/list-rejected-topic" },
+    { icon: Edit, label: "Từ vựng bị từ chối", href: "/list-rejected-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "content-approver": [
@@ -54,15 +54,10 @@ const roleMenus = {
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "general-manager": [
-    { icon: BarChart3, label: "Dashboard", href: "/general-manager/dashboard" },
-    { icon: Users, label: "Quản lý người dùng", href: "/general-manager/users" },
-    { icon: GraduationCap, label: "Quản lý nội dung", href: "/general-manager/content" },
-    { icon: DollarSign, label: "Báo cáo doanh thu", href: "/general-manager/revenue" },
-    { icon: FileText, label: "Báo cáo hoạt động", href: "/general-manager/activity" },
-    { icon: Shield, label: "Bảo mật hệ thống", href: "/general-manager/security" },
-    { icon: Users, label: "Phân quyền", href: "/general-manager/permissions" },
-    { icon: BarChart3, label: "Thống kê chi tiết", href: "/general-manager/analytics" },
-    { icon: Settings, label: "Cài đặt hệ thống", href: "/general-manager/settings" },
+    { icon: Users, label: "Quản lý Learners", href: "/general-manager/learners" },
+    { icon: Users, label: "Quản lý Creators", href: "/general-manager/creators" },
+    { icon: Users, label: "Quản lý Approvers", href: "/general-manager/approvers" },
+    { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
 }
 

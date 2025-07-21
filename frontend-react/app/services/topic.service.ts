@@ -4,7 +4,6 @@ export const TopicService = {
   async createTopic(data: { 
     topicName: string; 
     isFree: boolean;
-    status: string;
     sortOrder: number;
     subtopics: string[] 
   }) {
@@ -13,7 +12,6 @@ export const TopicService = {
   async updateTopic(id: string, data: { 
     topicName: string; 
     isFree: boolean;
-    status: string;
     sortOrder: number;
     subtopics: string[] 
   }) {
@@ -27,5 +25,8 @@ export const TopicService = {
   },
   async getTopicList(params?: any) {
     return axios.get(`/api/v1/topics/list`, { params });
+  },
+  async updateTopicStatus(id: number, status: string) {
+    return axios.put(`/api/v1/topics/${id}/status`, { status });
   },
 }; 

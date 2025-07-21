@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, BookOpen, Globe, FileText, Video, Save } from "lucide-react"
 import { VocabService } from "@/app/services/vocab.service";
+import { ApprovalNotice } from "@/components/approval-notice";
+import { StatusDisplay } from "@/components/status-display";
 
 interface VocabularyDetail {
   id: number
@@ -44,8 +46,8 @@ export function VocabEditPageComponent() {
     region: "",
     description: "",
     videoLink: "",
-    status: "active",
     meaning: "",
+    status: "", // Chỉ để hiển thị trạng thái hiện tại
   })
 
   // Dynamic data
@@ -75,8 +77,8 @@ export function VocabEditPageComponent() {
           region: vocab.region || "",
           description: vocab.description || "",
           videoLink: vocab.videoLink || "",
-          status: vocab.status || "active",
           meaning: vocab.meaning || "",
+          status: vocab.status || "", // Hiển thị trạng thái hiện tại
         })
       } catch (error: any) {
         console.error("Error fetching vocab detail:", error)
@@ -155,15 +157,13 @@ export function VocabEditPageComponent() {
     try {
       await VocabService.updateVocab(vocabId!, {
         vocab: formData.vocab,
-        topicId: formData.topicId,
-        subTopicId: formData.subTopicId,
+        subTopicId: parseInt(formData.subTopicId),
         region: formData.region,
         description: formData.description,
         videoLink: formData.videoLink,
-        status: formData.status,
         meaning: formData.meaning,
       });
-      alert("Cập nhật từ vựng thành công!")
+      alert("Cập nhật từ vựng thành công! Từ vựng đã được gửi để duyệt lại và sẽ hiển thị sau khi được phê duyệt.")
       router.push(`/vocab-detail?id=${vocabId}`)
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
@@ -227,6 +227,9 @@ export function VocabEditPageComponent() {
                 <p className="text-gray-600 text-sm font-medium">CẬP NHẬT THÔNG TIN TỪ VỰNG</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
+
+              {/* Approval Notice */}
+              <ApprovalNotice type="edit" contentType="vocab" />
 
               {/* Form Fields in grid layout */}
               <div className="grid md:grid-cols-2 gap-8">
@@ -374,23 +377,23 @@ export function VocabEditPageComponent() {
                     </div>
                   </div>
 
-                  {/* Trạng thái */}
+                  {/* Trạng thái hiện tại (Read-only) */}
                   <div className="group">
                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
                       <BookOpen className="w-4 h-4 text-blue-500" />
-                      TRẠNG THÁI
+                      TRẠNG THÁI HIỆN TẠI
                     </label>
                     <div className="relative">
-                      <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn trạng thái..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          <SelectItem value="active" className="hover:bg-blue-50">Hoạt động</SelectItem>
-                          <SelectItem value="inactive" className="hover:bg-blue-50">Không hoạt động</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="w-full h-14 px-4 border-2 border-gray-200 rounded-2xl bg-gray-50 flex items-center justify-center">
+                        {formData.status ? (
+                          <StatusDisplay status={formData.status} />
+                        ) : (
+                          <span className="text-gray-500">Chưa có trạng thái</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">
+                        * Trạng thái sẽ tự động chuyển về "Đang kiểm duyệt" sau khi cập nhật
+                      </div>
                     </div>
                   </div>
                 </div>

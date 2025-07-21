@@ -27,18 +27,24 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
   const userAvatar = userInfo?.userAvatar
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-200 to-cyan-200 px-4 py-2 shadow-sm">
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-200 to-cyan-200 py-2 shadow-sm">
+      <div className="flex items-center justify-between max-w-7xl mx-auto px-4">
         {/* Left side - Menu button only for desktop - BIGGER */}
-        <div className="flex items-center gap-3 w-1/4">
+        <div className="flex items-center gap-3 w-1/4 pl-0">
           {showMenuButton && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={onMenuToggle}
-              className="p-3 hidden lg:flex hover:bg-white/30 rounded-xl transition-all duration-300"
+              onClick={() => {
+                console.log("Menu button clicked in Header component");
+                if (onMenuToggle) {
+                  onMenuToggle();
+                }
+              }}
+              // Tăng lề âm để dịch chuyển sát hơn nữa về bên trái
+              className="p-3 hidden lg:flex hover:bg-white/30 rounded-xl transition-all duration-300 ml-[-3rem]"
             >
-              <Menu className="w-10 h-10 text-gray-700" />
+              <Menu className="w-12 h-12 text-gray-700" /> {/* Tăng kích thước icon */}
             </Button>
           )}
         </div>
@@ -69,7 +75,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 group-hover:scale-110 shadow-lg">
                   {userAvatar ? (
                     <Image
-                      src={userAvatar}
+                      src={userAvatar || "/placeholder.svg"}
                       alt="User avatar"
                       width={32}
                       height={32}
@@ -77,7 +83,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                     />
                   ) : (
                     <span className="text-white font-bold text-sm">
-                      {firstName ? firstName.charAt(0).toUpperCase() : (isAuthenticated ? "U" : "G")}
+                      {firstName ? firstName.charAt(0).toUpperCase() : isAuthenticated ? "U" : "G"}
                     </span>
                   )}
                 </div>
@@ -97,7 +103,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
                       {userAvatar ? (
                         <Image
-                          src={userAvatar}
+                          src={userAvatar || "/placeholder.svg"}
                           alt="User avatar"
                           width={40}
                           height={40}

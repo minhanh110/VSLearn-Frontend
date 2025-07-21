@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation"
 import { Plus, ArrowLeft, BookOpen, Globe, FileText, Video } from "lucide-react"
 import { VocabService } from "@/app/services/vocab.service";
+import { ApprovalNotice } from "@/components/approval-notice";
 
 export function AddVocabularyPageComponent() {
   const router = useRouter()
@@ -24,7 +25,6 @@ export function AddVocabularyPageComponent() {
     region: "",
     description: "",
     videoLink: "",
-    status: "active",
     meaning: "",
   })
 
@@ -97,15 +97,14 @@ export function AddVocabularyPageComponent() {
     try {
       await VocabService.createVocab({
         vocab: formData.vocab,
-        topicId: formData.topicId,
-        subTopicId: formData.subTopicId,
+        topicId: parseInt(formData.topicId),
+        subTopicId: parseInt(formData.subTopicId),
         region: formData.region,
         description: formData.description,
         videoLink: formData.videoLink,
-        status: formData.status,
         meaning: formData.meaning,
       });
-      alert("Thêm từ vựng thành công!")
+      alert("Thêm từ vựng thành công! Từ vựng đã được gửi để duyệt và sẽ hiển thị sau khi được phê duyệt.")
       setFormData({
         vocab: "",
         topicId: "",
@@ -113,7 +112,6 @@ export function AddVocabularyPageComponent() {
         region: "",
         description: "",
         videoLink: "",
-        status: "active",
         meaning: "",
       })
       router.push("/content-creator/vocabulary")
@@ -168,6 +166,9 @@ export function AddVocabularyPageComponent() {
                 <p className="text-gray-600 text-sm font-medium">CHI TIẾT TỪ VỰNG</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
+
+              {/* Approval Notice */}
+              <ApprovalNotice type="create" contentType="vocab" />
 
               {/* Form Fields in grid layout */}
               <div className="grid md:grid-cols-2 gap-8">
@@ -283,7 +284,6 @@ export function AddVocabularyPageComponent() {
                       {formData.description.length}/500 ký tự
                     </p>
                   </div>
-
                   {/* Nghĩa của từ */}
                   <div className="group">
                     <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">

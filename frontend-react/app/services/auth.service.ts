@@ -65,7 +65,9 @@ class AuthService {
       }
       
       if (jsonObj.status === 200) {
+        // Store token in both Cookies and localStorage for compatibility
         Cookies.set('token', jsonObj.data);
+        localStorage.setItem('token', jsonObj.data);
         return jsonObj;
       } else {
         // Handle unsuccessful response with proper status code
@@ -121,12 +123,25 @@ class AuthService {
 
   logout() {
     Cookies.remove('token');
+    localStorage.removeItem('token');
     Cookies.remove('email-reset');
     Cookies.remove('otp');
   }
 
   getCurrentToken() {
-    return Cookies.get('token');
+    // Try to get token from both Cookies and localStorage for compatibility
+    const tokenFromCookies = Cookies.get('token');
+    const tokenFromLocalStorage = localStorage.getItem('token');
+    const token = tokenFromCookies || tokenFromLocalStorage;
+    
+    // If we have token in one place but not the other, sync them
+    if (tokenFromCookies && !tokenFromLocalStorage) {
+      localStorage.setItem('token', tokenFromCookies);
+    } else if (tokenFromLocalStorage && !tokenFromCookies) {
+      Cookies.set('token', tokenFromLocalStorage);
+    }
+    
+    return token;
   }
 
   isAuthenticated() {
@@ -194,7 +209,9 @@ class AuthService {
       const data = await response.json();
       
       if (data.status === 200 && data.data) {
+        // Store token in both Cookies and localStorage for compatibility
         Cookies.set('token', data.data);
+        localStorage.setItem('token', data.data);
         return data;
       }
       throw new Error(data.message || 'Authentication failed');

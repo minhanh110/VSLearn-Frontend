@@ -3,23 +3,22 @@ import axios from "./axios.config";
 export const VocabService = {
   async createVocab(data: { 
     vocab: string; 
-    topicName: string; 
-    subTopicName: string; 
+    topicId: number; 
+    subTopicId: number; 
     region?: string; 
     description?: string; 
     videoLink?: string;
-    status?: string;
+    meaning?: string;
   }) {
     return axios.post("/api/v1/vocab/create", data);
   },
   async updateVocab(id: string, data: { 
     vocab: string; 
-    topicName: string; 
-    subTopicName: string; 
+    subTopicId: number; 
     region?: string; 
     description?: string; 
     videoLink?: string;
-    status?: string;
+    meaning?: string;
   }) {
     return axios.put(`/api/v1/vocab/${id}`, data);
   },
@@ -31,5 +30,8 @@ export const VocabService = {
   },
   async getVocabList(params?: any) {
     return axios.get(`/api/v1/vocab/list`, { params });
+  },
+  async updateVocabStatus(id: number, status: string) {
+    return axios.put(`/api/v1/vocab/${id}/status`, { status });
   },
 }; 
