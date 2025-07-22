@@ -28,7 +28,7 @@ export function ListTopicsPageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState("active") // Mặc định chỉ hiển thị topics active
+  const [selectedStatus, setSelectedStatus] = useState("all") // Mặc định là tất cả trạng thái
   const [currentPage, setCurrentPage] = useState(1)
   const [topics, setTopics] = useState<TopicItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,7 +41,7 @@ export function ListTopicsPageComponent() {
         const response = await TopicService.getTopicList({
           page: currentPage - 1, // Backend uses 0-based indexing
           search: searchTerm,
-          status: selectedStatus,
+          ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
         });
         setTopics(response.data.topicList || response.data);
       } catch (error: any) {
@@ -58,6 +58,7 @@ export function ListTopicsPageComponent() {
   }, [currentPage, searchTerm, selectedStatus]);
 
   const statusOptions = [
+    { value: "all", label: "Tất cả trạng thái" },
     { value: "active", label: "Hoạt động" },
     { value: "pending", label: "Đang kiểm duyệt" },
     { value: "rejected", label: "Bị từ chối" },
@@ -228,7 +229,7 @@ export function ListTopicsPageComponent() {
                       <div className="font-bold text-gray-900 truncate">{topic.id}</div>
                       <div className="text-gray-700 font-medium truncate">{topic.topicName}</div>
                       <div className="text-gray-700 font-medium">{topic.createdAt}</div>
-                      <div className="text-gray-700 font-medium">{topic.sortOrder}</div>
+                      <div className="text-gray-700 font-medium">{topic.subtopicCount ?? 0}</div>
                       <div>
                         <span
                           className={`px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl text-xs font-bold border-2 shadow-sm ${getStatusColor(
