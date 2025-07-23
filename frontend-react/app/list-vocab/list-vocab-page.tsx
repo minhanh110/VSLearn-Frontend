@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, Ban, Plus, Search } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { VocabService } from "@/app/services/vocab.service";
+import { VocabService } from "@/app/services/vocab.service"
 
 interface VocabularyItem {
   id: number
@@ -38,63 +38,87 @@ export function ListVocabPageComponent() {
   const [loading, setLoading] = useState(true)
 
   // Dynamic regions state
-  const [regions, setRegions] = useState<{ value: string, label: string }[]>([])
+  const [regions, setRegions] = useState<{ value: string; label: string }[]>([])
   // Dynamic topics state
-  const [topics, setTopics] = useState<{ value: string, label: string, id: string | number }[]>([])
+  const [topics, setTopics] = useState<{ value: string; label: string; id: string | number }[]>([])
 
   // Fetch regions and topics on mount
   useEffect(() => {
     // Fetch regions
     fetch("http://localhost:8080/api/v1/vocab/regions")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (Array.isArray(data)) {
-          setRegions(data.map((r: any) => ({ value: r.value || r.id, label: r.label || r.name })));
+          setRegions(data.map((r: any) => ({ value: r.value || r.id, label: r.label || r.name })))
         }
       })
-      .catch(() => setRegions([]));
-    
+      .catch(() => setRegions([]))
+
     // Fetch topics
     fetch("http://localhost:8080/api/v1/vocab/topics")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (Array.isArray(data)) {
-          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label, id: t.id })));
+          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label, id: t.id })))
         }
       })
-      .catch(() => setTopics([]));
-  }, []);
+      .catch(() => setTopics([]))
+  }, [])
 
   // Fetch vocabularies data
   useEffect(() => {
     const fetchVocabularies = async () => {
       try {
-        setLoading(true);
+        setLoading(true)
         const response = await VocabService.getVocabList({
           page: currentPage,
           search: searchTerm,
           topic: selectedTopic,
           region: selectedRegion,
-        });
-        // API trả về { vocabList: [...] } nên cần lấy response.data.vocabList
-        console.log("API Response:", response.data);
-        console.log("Selected Topic:", selectedTopic);
-        console.log("Selected Region:", selectedRegion);
-        const vocabData = response.data.vocabList || response.data.content || response.data || [];
-        console.log("Vocab data:", vocabData);
-        setVocabularies(Array.isArray(vocabData) ? vocabData : []);
+        })
+        const vocabData = response.data.vocabList || response.data.content || response.data || []
+        setVocabularies(Array.isArray(vocabData) ? vocabData : [])
       } catch (error: any) {
-        console.error("Error fetching vocabularies:", error);
-        // Không set fallback data, chỉ hiển thị error
-        alert("Không thể tải danh sách từ vựng. Vui lòng thử lại!");
-        setVocabularies([]);
+        console.error("Error fetching vocabularies:", error)
+        alert("Không thể tải danh sách từ vựng. Vui lòng thử lại!")
+        setVocabularies([])
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchVocabularies();
-  }, [currentPage, searchTerm, selectedTopic, selectedRegion]);
+    fetchVocabularies()
+  }, [currentPage, searchTerm, selectedTopic, selectedRegion])
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-gradient-to-r from-green-100 to-green-200 text-green-700 border-green-300"
+      case "pending":
+        return "bg-gradient-to-r from-orange-100 to-orange-200 text-orange-700 border-orange-300"
+      case "rejected":
+        return "bg-gradient-to-r from-red-100 to-red-200 text-red-700 border-red-300"
+      case "inactive":
+        return "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-gray-300"
+      default:
+        return "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 border-gray-300"
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "active":
+        return "HOẠT ĐỘNG"
+      case "pending":
+        return "ĐANG KIỂM DUYỆT"
+      case "rejected":
+        return "BỊ TỪ CHỐI"
+      case "inactive":
+        return "VÔ HIỆU HÓA"
+      default:
+        return "KHÔNG XÁC ĐỊNH"
+    }
+  }
 
   const handleViewVocab = (id: number) => {
     router.push(`/vocab-detail?id=${id.toString()}`)
@@ -103,13 +127,13 @@ export function ListVocabPageComponent() {
   const handleDisableVocab = async (id: number) => {
     if (confirm("Bạn có chắc chắn muốn vô hiệu hóa từ vựng này?")) {
       try {
-        await VocabService.deleteVocab(id);
-        alert("Vô hiệu hóa từ vựng thành công!");
+        await VocabService.deleteVocab(id)
+        alert("Vô hiệu hóa từ vựng thành công!")
         // Refresh the list
-        const updatedVocabularies = vocabularies.filter(vocab => vocab.id !== id);
-        setVocabularies(updatedVocabularies);
+        const updatedVocabularies = vocabularies.filter((vocab) => vocab.id !== id)
+        setVocabularies(updatedVocabularies)
       } catch (error: any) {
-        alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!");
+        alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
       }
     }
   }
@@ -144,7 +168,7 @@ export function ListVocabPageComponent() {
         <div className="max-w-7xl mx-auto">
           {/* Page Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent mb-4 leading-relaxed">
               DANH SÁCH TỪ VỰNG
             </h1>
             <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto"></div>
@@ -218,59 +242,109 @@ export function ListVocabPageComponent() {
             </div>
           </div>
 
-          {/* Vocabulary List */}
-          <div className="space-y-6 mb-8">
-            {loading ? (
-              <p>Đang tải dữ liệu...</p>
-            ) : vocabularies.length === 0 ? (
-              <p>Không tìm thấy từ vựng nào.</p>
-            ) : (
-              vocabularies.map((vocab) => (
-                <div key={vocab.id} className="group relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8 hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02]">
-                    <div className="flex items-center justify-between">
-                      {/* Vocabulary Letter */}
-                      <div className="flex items-center gap-8">
-                        <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg">
-                          <span className="text-3xl font-bold text-white">{vocab.vocab}</span>
+          {/* Vocabulary Table */}
+          <div className="relative overflow-x-auto mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl"></div>
+            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden min-w-[900px]">
+              {/* Table Header */}
+              <div className="bg-gradient-to-r from-blue-100/80 to-cyan-100/80 px-4 sm:px-8 py-4 sm:py-6">
+                <div className="grid grid-cols-6 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
+                  <div>TỪ VỰNG</div>
+                  <div>CHỦ ĐỀ</div>
+                  <div>KHU VỰC</div>
+                  <div>TRẠNG THÁI</div>
+                  <div>NGÀY TẠO</div>
+                  <div>HÀNH ĐỘNG</div>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              <div className="divide-y divide-blue-100/50">
+                {loading ? (
+                  <div className="px-4 sm:px-8 py-8 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-blue-700 font-medium">Đang tải...</p>
+                  </div>
+                ) : vocabularies.length === 0 ? (
+                  <div className="px-4 sm:px-8 py-8 text-center">
+                    <p className="text-gray-500 text-lg">Không tìm thấy từ vựng nào.</p>
+                  </div>
+                ) : (
+                  vocabularies.map((vocab, index) => (
+                    <div
+                      key={vocab.id}
+                      className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group"
+                    >
+                      <div className="grid grid-cols-6 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
+                        {/* Vocabulary Column */}
+                        <div>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-bold text-gray-900 truncate">{vocab.vocab}</span>
+                            {vocab.description && (
+                              <span className="text-xs text-gray-500 italic truncate">{vocab.description}</span>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Tags */}
-                        <div className="flex gap-4">
-                          <span className="px-6 py-3 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-2xl text-sm font-bold shadow-sm">
-                            {vocab.topicName}
+                        {/* Topic Column */}
+                        <div>
+                          <span className="text-gray-700 font-medium truncate block">
+                            {vocab.topicName || "Chưa phân loại"}
                           </span>
-                                                      <span className="px-6 py-3 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-2xl text-sm font-bold shadow-sm">
-                              {vocab.region || "Toàn Quốc"}
-                            </span>
                         </div>
-                      </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex gap-4">
-                        <Button
-                          onClick={() => handleViewVocab(vocab.id)}
-                          className="group/btn relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Eye className="w-5 h-5 relative z-10" />
-                          <span className="relative z-10">XEM</span>
-                        </Button>
-                        <Button
-                          onClick={() => handleDisableVocab(vocab.id)}
-                          className="group/btn relative flex items-center gap-3 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Ban className="w-5 h-5 relative z-10" />
-                          <span className="relative z-10">VÔ HIỆU HÓA</span>
-                        </Button>
+                        {/* Region Column */}
+                        <div>
+                          <span className="text-gray-700 font-medium truncate block">
+                            {vocab.region || "Toàn quốc"}
+                          </span>
+                        </div>
+
+                        {/* Status Column */}
+                        <div>
+                          <span
+                            className={`px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl text-xs font-bold border-2 shadow-sm ${getStatusColor(
+                              vocab.status,
+                            )}`}
+                          >
+                            {getStatusText(vocab.status)}
+                          </span>
+                        </div>
+
+                        {/* Created Date Column */}
+                        <div>
+                          <span className="text-gray-700 font-medium">
+                            {new Date(vocab.createdAt).toLocaleDateString("vi-VN")}
+                          </span>
+                        </div>
+
+                        {/* Actions Column */}
+                        <div className="flex gap-1 sm:gap-3">
+                          <Button
+                            onClick={() => handleViewVocab(vocab.id)}
+                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                            size="sm"
+                            title="Xem chi tiết"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                            <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDisableVocab(vocab.id)}
+                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                            size="sm"
+                            title="Vô hiệu hóa"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                            <Ban className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))
-            )}
+                  ))
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Pagination */}
