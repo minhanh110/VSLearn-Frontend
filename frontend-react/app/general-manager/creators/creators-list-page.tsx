@@ -11,6 +11,7 @@ import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import axios from "axios"
+import { useRouter } from "next/navigation"
 
 interface Creator {
   id: number
@@ -33,6 +34,7 @@ export default function CreatorsListPage() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const router = useRouter()
 
   // Fetch creators data from API
   const fetchCreators = async () => {
@@ -209,7 +211,9 @@ export default function CreatorsListPage() {
                       <Download className="w-4 h-4 mr-2" />
                       Xuất Excel
                     </Button>
-                    <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white">
+                    <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+                      onClick={() => router.push('/general-manager/create-creator')}
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Thêm người tạo nội dung
                     </Button>
@@ -303,7 +307,12 @@ export default function CreatorsListPage() {
                                   <Eye className="w-4 h-4" />
                                 </Button>
                               </Link>
-                              <Button size="sm" variant="ghost" className="text-blue-600 hover:bg-blue-100 p-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-blue-600 hover:bg-blue-100 p-2"
+                                onClick={() => router.push(`/general-manager/edit-creator?id=${creator.id}`)}
+                              >
                                 <Edit className="w-4 h-4" />
                               </Button>
                               <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-100 p-2">

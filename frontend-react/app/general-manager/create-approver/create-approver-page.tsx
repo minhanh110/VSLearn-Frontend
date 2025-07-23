@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useEffect, useRef } from "react"
 
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -14,12 +15,17 @@ import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { useState } from "react"
+import axios from "axios"
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const CreateApproverPage = () => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
+    userName: "",
     name: "",
     email: "",
     phone: "",
@@ -62,22 +68,74 @@ const CreateApproverPage = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (validateForm()) {
-      // Handle form submission
-      console.log("Creating new approver:", formData)
-      // Redirect to approvers list
-      router.push("/general-manager/approvers")
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+        const token = localStorage.getItem('token')
+        const res = await axios.post(`${API_BASE_URL}/api/v1/admin/users/create`, {
+          userName: formData.userName,
+          firstName: formData.name.split(' ').slice(0, -1).join(' ') || formData.name,
+          lastName: formData.name.split(' ').slice(-1).join(' '),
+          userEmail: formData.email,
+          phoneNumber: formData.phone,
+          userRole: 'CONTENT_APPROVER',
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.data && res.data.status === 200) {
+          setShowSuccess(true);
+        } else {
+          alert(res.data.message || "Tạo người duyệt thất bại");
+        }
+      } catch (err: any) {
+        alert(err.response?.data?.message || err.message || "Có lỗi xảy ra")
+      }
     }
   }
+
+  const checkDuplicate = async (field: string, value: string) => {
+    if (!value) return false;
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const token = localStorage.getItem('token');
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/v1/admin/users/all?search=${encodeURIComponent(value)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const users = res.data?.content || res.data?.data || [];
+      if (field === 'userName') {
+        return users.some((u: any) => u.userName === value);
+      }
+      if (field === 'userEmail' || field === 'email') {
+        return users.some((u: any) => u.userEmail === value);
+      }
+      if (field === 'phone' || field === 'phoneNumber') {
+        return users.some((u: any) => u.phoneNumber === value);
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const debounceRef = useRef<any>({});
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
+    // Kiểm tra trùng userName, email, phone
+    if (["userName", "email", "phone"].includes(field)) {
+      if (debounceRef.current[field]) clearTimeout(debounceRef.current[field]);
+      debounceRef.current[field] = setTimeout(async () => {
+        const isDup = await checkDuplicate(field, value);
+        if (isDup) {
+          setErrors((prev) => ({ ...prev, [field]: `${field === 'userName' ? 'Tên đăng nhập' : field === 'email' ? 'Email' : 'Số điện thoại'} đã tồn tại` }));
+        }
+      }, 500);
     }
   }
 
@@ -133,6 +191,19 @@ const CreateApproverPage = () => {
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="userName" className="text-gray-700 font-medium">
+                        Tên đăng nhập *
+                      </Label>
+                      <Input
+                        id="userName"
+                        value={formData.userName}
+                        onChange={(e) => handleInputChange("userName", e.target.value)}
+                        placeholder="Nhập tên đăng nhập"
+                        className={`border-blue-200 focus:border-blue-400 ${errors.userName ? "border-red-300" : ""}`}
+                      />
+                      {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="name" className="text-gray-700 font-medium">
                         Họ và tên *
@@ -368,7 +439,19 @@ const CreateApproverPage = () => {
         </div>
       </main>
 
+      {/* Dialog thông báo thành công */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
+            <div className="text-green-600 text-2xl mb-2">✔</div>
+            <div className="font-semibold mb-2">Tạo người duyệt thành công!</div>
+            <div className="mb-4 text-gray-700">Mật khẩu mặc định: <b>123456</b></div>
+            <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={() => router.push("/general-manager/approvers")}>OK</button>
+          </div>
+        </div>
+      )}
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <ToastContainer />
     </div>
   )
 }

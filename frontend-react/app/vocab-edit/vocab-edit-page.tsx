@@ -106,6 +106,29 @@ export function VocabEditPageComponent() {
     }))
   }
 
+  // Thêm hàm upload video
+  const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await fetch("/api/v1/vocab/upload-video", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (data.videoUrl) {
+        setFormData(prev => ({ ...prev, videoLink: data.videoUrl }));
+        alert("Upload video thành công!");
+      } else {
+        alert("Upload video thất bại!");
+      }
+    } catch {
+      alert("Upload video thất bại!");
+    }
+  };
+
   const handleSubmit = async () => {
     // Validate required fields
     if (!formData.vocab.trim()) {
@@ -242,14 +265,16 @@ export function VocabEditPageComponent() {
                   </div>
                   {/* Link video */}
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">LINK VIDEO</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">VIDEO (upload file)</label>
                     <Input
-                      type="text"
-                      value={formData.videoLink}
-                      onChange={e => handleInputChange("videoLink", e.target.value)}
-                      placeholder="https://example.com/video.mp4"
-                      className="w-full border-blue-200 rounded-xl"
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoChange}
+                      className="w-full border-blue-200 rounded-xl mb-2"
                     />
+                    {formData.videoLink && (
+                      <video src={formData.videoLink} controls width={300} className="mt-2 rounded-xl" />
+                    )}
                   </div>
                 </div>
                 {/* Mô tả (full width) */}

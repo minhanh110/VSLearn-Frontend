@@ -213,7 +213,9 @@ const LearnersListPage = () => {
                     <Download className="w-4 h-4 mr-2" />
                     Xuất Excel
                   </Button>
-                  <Button className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg">
+                  <Button className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg"
+                    onClick={() => router.push('/general-manager/create-learner')}
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Thêm học viên
                   </Button>
@@ -301,7 +303,12 @@ const LearnersListPage = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="text-emerald-600 hover:bg-emerald-100 p-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-emerald-600 hover:bg-emerald-100 p-2"
+                              onClick={() => router.push(`/general-manager/edit-learner?id=${learner.id}`)}
+                            >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-100 p-2">
