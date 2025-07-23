@@ -48,16 +48,12 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
             <Button
               variant="ghost"
               size="sm"
-<<<<<<< HEAD
-              onClick={onMenuToggle}
-=======
               onClick={() => {
                 console.log("Menu button clicked in Header component");
                 if (onMenuToggle) {
                   onMenuToggle();
                 }
               }}
->>>>>>> origin/QuocPMHE172252
               // Tăng lề âm để dịch chuyển sát hơn nữa về bên trái
               className="p-3 hidden lg:flex hover:bg-white/30 rounded-xl transition-all duration-300 ml-[-3rem]"
             >
