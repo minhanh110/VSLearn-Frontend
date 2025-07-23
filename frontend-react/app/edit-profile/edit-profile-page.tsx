@@ -13,10 +13,44 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Link from "next/link"
 import { User, Check, Loader2 } from "lucide-react"
+import Image from "next/image"
 
 // Import UserService instead of ProfileService
 import userService, { type ProfileData } from "../services/user.service"
 import authService from "../services/auth.service"
+
+// Cute Whale Component
+const CuteWhale = ({
+  className = "",
+  animationDelay = "0s",
+}: {
+  className?: string
+  animationDelay?: string
+}) => {
+  return (
+    <div className={`${className} animate-bounce`} style={{ animationDelay }}>
+      <div className="relative">
+        <Image
+          src="/images/whale-happy.png"
+          alt="Cute Whale"
+          width={64}
+          height={64}
+          className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 object-contain"
+        />
+        {/* Floating bubbles around the whale */}
+        <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-1 h-1 sm:w-2 sm:h-2 bg-blue-300 rounded-full animate-ping opacity-70"></div>
+        <div
+          className="absolute -top-2 right-2 sm:-top-3 sm:right-3 w-0.5 h-0.5 sm:w-1 sm:h-1 bg-cyan-200 rounded-full animate-ping opacity-50"
+          style={{ animationDelay: "0.5s" }}
+        ></div>
+        <div
+          className="absolute top-1 -left-1 sm:top-2 sm:-left-2 w-1 h-1 sm:w-1.5 sm:h-1.5 bg-blue-200 rounded-full animate-ping opacity-60"
+          style={{ animationDelay: "1s" }}
+        ></div>
+      </div>
+    </div>
+  )
+}
 
 // Predefined avatar options (similar to Quizizz style)
 const AVATAR_OPTIONS = [
@@ -51,10 +85,10 @@ export default function EditProfilePage() {
   useEffect(() => {
     // Check authentication first
     if (!authService.isAuthenticated()) {
-      router.push('/login?returnUrl=' + encodeURIComponent('/edit-profile'))
+      router.push("/login?returnUrl=" + encodeURIComponent("/edit-profile"))
       return
     }
-    
+
     loadProfile()
   }, [router])
 
@@ -76,8 +110,8 @@ export default function EditProfilePage() {
       console.error("Load profile error:", error)
       toast.error("Failed to load profile data")
       // Redirect to login if auth failed
-      if (error instanceof Error && (error.message.includes('Authentication') || error.message.includes('401'))) {
-        router.push('/login?returnUrl=' + encodeURIComponent('/edit-profile'))
+      if (error instanceof Error && (error.message.includes("Authentication") || error.message.includes("401"))) {
+        router.push("/login?returnUrl=" + encodeURIComponent("/edit-profile"))
       }
     } finally {
       setInitialLoading(false)
@@ -169,184 +203,225 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-20 w-32 h-32 bg-blue-200/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-cyan-200/30 rounded-full blur-lg animate-bounce"></div>
+        <div className="absolute bottom-40 left-16 w-40 h-40 bg-indigo-200/20 rounded-full blur-2xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-28 h-28 bg-blue-300/25 rounded-full blur-xl animate-bounce"></div>
+
+        {/* Sparkle stars */}
+        <div className="absolute top-32 left-1/4 w-6 h-6 text-blue-400 animate-pulse">✨</div>
+        <div className="absolute top-48 right-1/4 w-5 h-5 text-cyan-400 animate-bounce">⭐</div>
+        <div className="absolute bottom-48 left-1/3 w-4 h-4 text-indigo-400 animate-pulse">💫</div>
+        <div className="absolute bottom-36 right-1/3 w-6 h-6 text-blue-400 animate-bounce">✨</div>
+      </div>
+
       {/* Header */}
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
       {/* Main Content Container */}
-      <div className="pt-20 pb-28 lg:pb-20 px-4 min-h-screen relative z-10">
-        <div className="max-w-2xl mx-auto w-full space-y-6 p-8 lg:p-12">
-          {/* Title */}
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-gray-900">Chỉnh sửa hồ sơ</h1>
-            <p className="text-gray-700">Chỉnh sửa thông tin cá nhân</p>
-          </div>
-
-          {/* Avatar Selection */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative">
-              <Avatar className="w-24 h-24">
-                <AvatarImage src={formData.userAvatar || "/placeholder.svg?height=96&width=96"} alt="Profile" />
-                <AvatarFallback className="bg-blue-100 text-blue-600 text-2xl">
-                  <User className="w-12 h-12" />
-                </AvatarFallback>
-              </Avatar>
+      <div className="relative z-10 pt-20 pb-28 lg:pb-20 px-4 min-h-screen">
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8 lg:gap-12">
+            {/* Left side - Cute Whales (Hidden on mobile, visible on desktop) */}
+            <div className="hidden lg:flex flex-col items-center space-y-6 flex-shrink-0">
+              <CuteWhale />
+              <CuteWhale className="transform scale-x-[-1]" animationDelay="0.3s" />
+              <CuteWhale animationDelay="0.6s" />
+              <CuteWhale className="transform scale-x-[-1]" animationDelay="0.9s" />
             </div>
 
-            <div className="text-center space-y-2">
-              <p className="text-sm text-gray-700 font-medium">{getSelectedAvatar()?.name || "Choose an avatar"}</p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAvatarSelector(!showAvatarSelector)}
-                className="text-sm"
-                style={{ borderColor: "#93D6F6", color: "#93D6F6" }}
-                disabled={loading}
-              >
-                {showAvatarSelector ? "Hide Avatars" : "Choose Avatar"}
-              </Button>
-            </div>
+            {/* Center - Main Form Content */}
+            <div className="flex-1 max-w-2xl mx-auto w-full space-y-6 p-4 sm:p-8 lg:p-12">
+              {/* Mobile Whales - Top of form */}
+              <div className="lg:hidden flex justify-center space-x-8 mb-6">
+                <CuteWhale className="scale-75" />
+                <CuteWhale className="scale-75 transform scale-x-[-1]" animationDelay="0.3s" />
+              </div>
 
-            {/* Avatar Selector Grid */}
-            {showAvatarSelector && (
-              <div className="w-full max-w-md">
-                <div className="grid grid-cols-4 gap-3 p-4 bg-white/10 rounded-lg">
-                  {AVATAR_OPTIONS.map((avatar) => (
-                    <div
-                      key={avatar.id}
-                      className={`relative cursor-pointer transition-all duration-200 hover:scale-105 ${
-                        formData.userAvatar === avatar.url
-                          ? "ring-2 ring-offset-2"
-                          : "hover:ring-1 hover:ring-offset-1 hover:ring-gray-300"
-                      }`}
-                      style={
-                        {
-                          "--tw-ring-color": formData.userAvatar === avatar.url ? "#93D6F6" : undefined,
-                        } as React.CSSProperties
-                      }
-                      onClick={() => handleAvatarSelect(avatar.url)}
-                    >
-                      <Avatar className="w-16 h-16">
-                        <AvatarImage src={avatar.url || "/placeholder.svg"} alt={avatar.name} />
-                        <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {formData.userAvatar === avatar.url && (
-                        <div
-                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white"
-                          style={{ backgroundColor: "#93D6F6" }}
-                        >
-                          <Check className="w-3 h-3" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {/* Title */}
+              <div className="text-center space-y-2">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Chỉnh sửa hồ sơ</h1>
+                <p className="text-gray-700">Chỉnh sửa thông tin cá nhân</p>
+              </div>
+
+              {/* Avatar Selection */}
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
+                    <AvatarImage src={formData.userAvatar || "/placeholder.svg?height=96&width=96"} alt="Profile" />
+                    <AvatarFallback className="bg-blue-100 text-blue-600 text-xl sm:text-2xl">
+                      <User className="w-10 h-10 sm:w-12 sm:h-12" />
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Edit Profile Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                  Tên *
-                </Label>
-                <Input
-                  id="firstName"
-                  type="text"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
-                  disabled={loading}
-                  required
-                  placeholder="Nhập tên của bạn"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                  Họ *
-                </Label>
-                <Input
-                  id="lastName"
-                  type="text"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                  style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
-                  disabled={loading}
-                  required
-                  placeholder="Nhập họ của bạn"
-                />
-              </div>
-            </div>
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-gray-700 font-medium">{getSelectedAvatar()?.name || "Choose an avatar"}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAvatarSelector(!showAvatarSelector)}
+                    className="text-sm"
+                    style={{ borderColor: "#93D6F6", color: "#93D6F6" }}
+                    disabled={loading}
+                  >
+                    {showAvatarSelector ? "Hide Avatars" : "Choose Avatar"}
+                  </Button>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
-                Số điện thoại
-              </Label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={handleInputChange}
-                placeholder="Nhập số điện thoại"
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent"
-                style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Submit Message */}
-            {submitMessage && (
-              <div
-                className={`p-4 rounded-lg text-center font-medium ${
-                  submitMessage.type === "success"
-                    ? "bg-green-50 text-green-700 border border-green-200"
-                    : "bg-red-50 text-red-700 border border-red-200"
-                }`}
-              >
-                {submitMessage.text}
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
-              <Button
-                type="submit"
-                disabled={loading || !formData.firstName?.trim() || !formData.lastName?.trim()}
-                className="flex-1 text-white py-3 rounded-lg font-medium transition-colors hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: "#93D6F6" }}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Đang lưu...
-                  </>
-                ) : (
-                  "Lưu thay đổi"
+                {/* Avatar Selector Grid */}
+                {showAvatarSelector && (
+                  <div className="w-full max-w-md">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3 p-3 sm:p-4 bg-white/10 rounded-lg">
+                      {AVATAR_OPTIONS.map((avatar) => (
+                        <div
+                          key={avatar.id}
+                          className={`relative cursor-pointer transition-all duration-200 hover:scale-105 ${
+                            formData.userAvatar === avatar.url
+                              ? "ring-2 ring-offset-2"
+                              : "hover:ring-1 hover:ring-offset-1 hover:ring-gray-300"
+                          }`}
+                          style={
+                            {
+                              "--tw-ring-color": formData.userAvatar === avatar.url ? "#93D6F6" : undefined,
+                            } as React.CSSProperties
+                          }
+                          onClick={() => handleAvatarSelect(avatar.url)}
+                        >
+                          <Avatar className="w-12 h-12 sm:w-16 sm:h-16">
+                            <AvatarImage src={avatar.url || "/placeholder.svg"} alt={avatar.name} />
+                            <AvatarFallback>{avatar.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          {formData.userAvatar === avatar.url && (
+                            <div
+                              className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white"
+                              style={{ backgroundColor: "#93D6F6" }}
+                            >
+                              <Check className="w-2 h-2 sm:w-3 sm:h-3" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 py-3 rounded-lg font-medium"
-                onClick={handleCancel}
-                disabled={loading}
-              >
-                Hủy
-              </Button>
-            </div>
-          </form>
+              </div>
 
-          {/* Additional Options */}
-          <div className="text-center space-y-2">
-            <Link href="/change-password" className="text-sm block hover:opacity-80" style={{ color: "#93D6F6" }}>
-              Đổi mật khẩu
-            </Link>
-            <Link href="/lesson-path" className="text-sm text-gray-500 hover:text-gray-700 block">
-              ← Quay về trang chính
-            </Link>
+              {/* Edit Profile Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
+                      Tên *
+                    </Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent text-sm sm:text-base"
+                      style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                      disabled={loading}
+                      required
+                      placeholder="Nhập tên của bạn"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
+                      Họ *
+                    </Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent text-sm sm:text-base"
+                      style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                      disabled={loading}
+                      required
+                      placeholder="Nhập họ của bạn"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
+                    Số điện thoại
+                  </Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={handleInputChange}
+                    placeholder="Nhập số điện thoại"
+                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-200 rounded-lg focus:ring-2 focus:border-transparent text-sm sm:text-base"
+                    style={{ "--tw-ring-color": "#93D6F6" } as React.CSSProperties}
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Submit Message */}
+                {submitMessage && (
+                  <div
+                    className={`p-3 sm:p-4 rounded-lg text-center font-medium text-sm sm:text-base ${
+                      submitMessage.type === "success"
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : "bg-red-50 text-red-700 border border-red-200"
+                    }`}
+                  >
+                    {submitMessage.text}
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
+                  <Button
+                    type="submit"
+                    disabled={loading || !formData.firstName?.trim() || !formData.lastName?.trim()}
+                    className="flex-1 text-white py-2 sm:py-3 rounded-lg font-medium transition-colors hover:opacity-90 disabled:opacity-50 text-sm sm:text-base"
+                    style={{ backgroundColor: "#93D6F6" }}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Đang lưu...
+                      </>
+                    ) : (
+                      "Lưu thay đổi"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 py-2 sm:py-3 rounded-lg font-medium text-sm sm:text-base bg-transparent"
+                    onClick={handleCancel}
+                    disabled={loading}
+                  >
+                    Hủy
+                  </Button>
+                </div>
+              </form>
+
+              {/* Additional Options */}
+              <div className="text-center space-y-2">
+                <Link href="/change-password" className="text-sm block hover:opacity-80" style={{ color: "#93D6F6" }}>
+                  Đổi mật khẩu
+                </Link>
+                <Link href="/homepage" className="text-sm text-gray-500 hover:text-gray-700 block">
+                  ← Quay về trang chính
+                </Link>
+              </div>
+            </div>
+
+            {/* Right side - Cute Whales (Hidden on mobile, visible on desktop) */}
+            <div className="hidden lg:flex flex-col items-center space-y-6 flex-shrink-0">
+              <CuteWhale className="transform scale-x-[-1]" animationDelay="0.2s" />
+              <CuteWhale animationDelay="0.5s" />
+              <CuteWhale className="transform scale-x-[-1]" animationDelay="0.8s" />
+              <CuteWhale animationDelay="1.1s" />
+            </div>
           </div>
         </div>
       </div>

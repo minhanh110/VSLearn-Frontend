@@ -41,15 +41,9 @@ export function LessonPopup({
       <div
         className="fixed z-50"
         style={{
-          left: position?.x ? `${position.x}px` : "50%",
-          top: direction === "up"
-            ? position?.y
-              ? `${position.y - 190}px` // hiển thị phía trên
-              : "50%"
-            : position?.y
-              ? `${position.y + 90}px` // hiển thị phía dưới
-              : "50%",
-          transform: position?.x ? "translateX(-50%)" : "translate(-50%, -50%)",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
         }}
       >
         {/* New popup design - very small */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
@@ -8,13 +8,23 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, Ban, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { VocabService } from "@/app/services/vocab.service";
 
 interface VocabularyItem {
-  id: string
-  name: string
-  topic: string
-  region: string
-  status: "active" | "disabled"
+  id: number
+  vocab: string
+  topicName: string
+  subTopicName: string
+  description?: string
+  videoLink?: string
+  region?: string
+  status: string
+  createdAt: string
+  createdBy: number
+  updatedAt?: string
+  updatedBy?: number
+  deletedAt?: string
+  deletedBy?: number
 }
 
 export function ListVocabPageComponent() {
@@ -24,37 +34,84 @@ export function ListVocabPageComponent() {
   const [selectedTopic, setSelectedTopic] = useState("")
   const [selectedRegion, setSelectedRegion] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+  const [vocabularies, setVocabularies] = useState<VocabularyItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Sample vocabulary data
-  const vocabularyData: VocabularyItem[] = [
-    { id: "1", name: "A", topic: "Bảng chữ cái", region: "Toàn Quốc", status: "active" },
-    { id: "2", name: "Á", topic: "Bảng chữ cái", region: "Toàn Quốc", status: "active" },
-    { id: "3", name: "Â", topic: "Bảng chữ cái", region: "Toàn Quốc", status: "active" },
-    { id: "4", name: "Ã", topic: "Bảng chữ cái", region: "Toàn Quốc", status: "active" },
-    { id: "5", name: "Ă", topic: "Bảng chữ cái", region: "Toàn Quốc", status: "active" },
-  ]
+  // Dynamic regions state
+  const [regions, setRegions] = useState<{ value: string, label: string }[]>([])
+  // Dynamic topics state
+  const [topics, setTopics] = useState<{ value: string, label: string, id: string | number }[]>([])
 
-  const topics = [
-    { value: "bảng-chữ-cái", label: "Bảng chữ cái" },
-    { value: "thiên-nhiên", label: "Thiên nhiên" },
-    { value: "gia-đình", label: "Gia đình" },
-    { value: "học-tập", label: "Học tập" },
-  ]
+  // Fetch regions and topics on mount
+  useEffect(() => {
+    // Fetch regions
+    fetch("http://localhost:8080/api/v1/vocab/regions")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setRegions(data.map((r: any) => ({ value: r.value || r.id, label: r.label || r.name })));
+        }
+      })
+      .catch(() => setRegions([]));
+    
+    // Fetch topics
+    fetch("http://localhost:8080/api/v1/vocab/topics")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label, id: t.id })));
+        }
+      })
+      .catch(() => setTopics([]));
+  }, []);
 
-  const regions = [
-    { value: "toàn-quốc", label: "Toàn Quốc" },
-    { value: "miền-bắc", label: "Miền Bắc" },
-    { value: "miền-trung", label: "Miền Trung" },
-    { value: "miền-nam", label: "Miền Nam" },
-  ]
+  // Fetch vocabularies data
+  useEffect(() => {
+    const fetchVocabularies = async () => {
+      try {
+        setLoading(true);
+        const response = await VocabService.getVocabList({
+          page: currentPage,
+          search: searchTerm,
+          topic: selectedTopic,
+          region: selectedRegion,
+        });
+        // API trả về { vocabList: [...] } nên cần lấy response.data.vocabList
+        console.log("API Response:", response.data);
+        console.log("Selected Topic:", selectedTopic);
+        console.log("Selected Region:", selectedRegion);
+        const vocabData = response.data.vocabList || response.data.content || response.data || [];
+        console.log("Vocab data:", vocabData);
+        setVocabularies(Array.isArray(vocabData) ? vocabData : []);
+      } catch (error: any) {
+        console.error("Error fetching vocabularies:", error);
+        // Không set fallback data, chỉ hiển thị error
+        alert("Không thể tải danh sách từ vựng. Vui lòng thử lại!");
+        setVocabularies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleViewVocab = (id: string) => {
-    router.push(`/vocab-detail?id=${id}`)
+    fetchVocabularies();
+  }, [currentPage, searchTerm, selectedTopic, selectedRegion]);
+
+  const handleViewVocab = (id: number) => {
+    router.push(`/vocab-detail?id=${id.toString()}`)
   }
 
-  const handleDisableVocab = (id: string) => {
-    // Handle disable vocabulary
-    console.log("Disable vocabulary:", id)
+  const handleDisableVocab = async (id: number) => {
+    if (confirm("Bạn có chắc chắn muốn vô hiệu hóa từ vựng này?")) {
+      try {
+        await VocabService.deleteVocab(id);
+        alert("Vô hiệu hóa từ vựng thành công!");
+        // Refresh the list
+        const updatedVocabularies = vocabularies.filter(vocab => vocab.id !== id);
+        setVocabularies(updatedVocabularies);
+      } catch (error: any) {
+        alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!");
+      }
+    }
   }
 
   const handleAddVocab = () => {
@@ -122,7 +179,7 @@ export function ListVocabPageComponent() {
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-blue-200 shadow-xl">
                       {topics.map((topic) => (
-                        <SelectItem key={topic.value} value={topic.value} className="rounded-lg">
+                        <SelectItem key={topic.value} value={topic.label} className="rounded-lg">
                           {topic.label}
                         </SelectItem>
                       ))}
@@ -163,51 +220,57 @@ export function ListVocabPageComponent() {
 
           {/* Vocabulary List */}
           <div className="space-y-6 mb-8">
-            {vocabularyData.map((vocab) => (
-              <div key={vocab.id} className="group relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8 hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02]">
-                  <div className="flex items-center justify-between">
-                    {/* Vocabulary Letter */}
-                    <div className="flex items-center gap-8">
-                      <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg">
-                        <span className="text-3xl font-bold text-white">{vocab.name}</span>
+            {loading ? (
+              <p>Đang tải dữ liệu...</p>
+            ) : vocabularies.length === 0 ? (
+              <p>Không tìm thấy từ vựng nào.</p>
+            ) : (
+              vocabularies.map((vocab) => (
+                <div key={vocab.id} className="group relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8 hover:shadow-2xl transition-all duration-300 group-hover:scale-[1.02]">
+                    <div className="flex items-center justify-between">
+                      {/* Vocabulary Letter */}
+                      <div className="flex items-center gap-8">
+                        <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-3xl flex items-center justify-center shadow-lg">
+                          <span className="text-3xl font-bold text-white">{vocab.vocab}</span>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="flex gap-4">
+                          <span className="px-6 py-3 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-2xl text-sm font-bold shadow-sm">
+                            {vocab.topicName}
+                          </span>
+                                                      <span className="px-6 py-3 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-2xl text-sm font-bold shadow-sm">
+                              {vocab.region || "Toàn Quốc"}
+                            </span>
+                        </div>
                       </div>
 
-                      {/* Tags */}
+                      {/* Action Buttons */}
                       <div className="flex gap-4">
-                        <span className="px-6 py-3 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-2xl text-sm font-bold shadow-sm">
-                          {vocab.topic}
-                        </span>
-                        <span className="px-6 py-3 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-2xl text-sm font-bold shadow-sm">
-                          {vocab.region}
-                        </span>
+                        <Button
+                          onClick={() => handleViewVocab(vocab.id)}
+                          className="group/btn relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                          <Eye className="w-5 h-5 relative z-10" />
+                          <span className="relative z-10">XEM</span>
+                        </Button>
+                        <Button
+                          onClick={() => handleDisableVocab(vocab.id)}
+                          className="group/btn relative flex items-center gap-3 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                          <Ban className="w-5 h-5 relative z-10" />
+                          <span className="relative z-10">VÔ HIỆU HÓA</span>
+                        </Button>
                       </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={() => handleViewVocab(vocab.id)}
-                        className="group/btn relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                        <Eye className="w-5 h-5 relative z-10" />
-                        <span className="relative z-10">XEM</span>
-                      </Button>
-                      <Button
-                        onClick={() => handleDisableVocab(vocab.id)}
-                        className="group/btn relative flex items-center gap-3 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                        <Ban className="w-5 h-5 relative z-10" />
-                        <span className="relative z-10">VÔ HIỆU HÓA</span>
-                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Pagination */}

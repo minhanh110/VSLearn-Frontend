@@ -17,15 +17,21 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useUserRole, UserRole } from "@/hooks/use-user-role"
 
 interface FooterProps {
   isOpen?: boolean
   onClose?: () => void
-  roleId?: string | null // Add roleId prop
+  roleId?: string | null // Legacy prop for backward compatibility
 }
 
 // Define menu items for each role
 const roleMenus = {
+  guest: [
+    { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
+    { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
+    { icon: DollarSign, label: "Đăng nhập", href: "/login" },
+  ],
   learner: [
     { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
     { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
@@ -34,29 +40,24 @@ const roleMenus = {
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "content-creator": [
-    { icon: GraduationCap, label: "Chủ đề", href: "/content-creator/topics" },
-    { icon: FileText, label: "Từ vựng", href: "/content-creator/vocabulary" },
-    { icon: XCircle, label: "Chủ đề bị từ chối", href: "/content-creator/rejected-topics" },
-    { icon: Edit, label: "Từ vựng bị từ chối", href: "/content-creator/rejected-vocabulary" },
+    { icon: GraduationCap, label: "Chủ đề", href: "/list-topics" },
+    { icon: FileText, label: "Từ vựng", href: "/list-vocab" },
+    { icon: XCircle, label: "Chủ đề bị từ chối", href: "/list-rejected-topic" },
+    { icon: Edit, label: "Từ vựng bị từ chối", href: "/list-rejected-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "content-approver": [
     { icon: GraduationCap, label: "Duyệt chủ đề", href: "/content-approver/topics" },
-    { icon: FileText, label: "Duyệt từ vựng", href: "/content-approver/vocabulary" },
+    { icon: FileText, label: "Duyệt từ vựng", href: "/content-approver/vocabularies" },
     { icon: Shield, label: "Lịch sử duyệt", href: "/content-approver/history" },
     { icon: Users, label: "Quản lý người tạo", href: "/content-approver/creators" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "general-manager": [
-    { icon: BarChart3, label: "Dashboard", href: "/general-manager/dashboard" },
-    { icon: Users, label: "Quản lý người dùng", href: "/general-manager/users" },
-    { icon: GraduationCap, label: "Quản lý nội dung", href: "/general-manager/content" },
-    { icon: DollarSign, label: "Báo cáo doanh thu", href: "/general-manager/revenue" },
-    { icon: FileText, label: "Báo cáo hoạt động", href: "/general-manager/activity" },
-    { icon: Shield, label: "Bảo mật hệ thống", href: "/general-manager/security" },
-    { icon: Users, label: "Phân quyền", href: "/general-manager/permissions" },
-    { icon: BarChart3, label: "Thống kê chi tiết", href: "/general-manager/analytics" },
-    { icon: Settings, label: "Cài đặt hệ thống", href: "/general-manager/settings" },
+    { icon: Users, label: "Quản lý Learners", href: "/general-manager/learners" },
+    { icon: Users, label: "Quản lý Creators", href: "/general-manager/creators" },
+    { icon: Users, label: "Quản lý Approvers", href: "/general-manager/approvers" },
+    { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
 }
 
@@ -68,12 +69,24 @@ const getAllMenuItems = () => {
 }
 
 export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) {
-  // Determine which menu items to show
+  const { role, loading } = useUserRole()
+
+  // Determine which menu items to show based on actual role from JWT
   const getMenuItems = () => {
-    if (roleId === null) {
-      return getAllMenuItems()
+    // If loading, show loading state or default menu
+    if (loading) {
+      return roleMenus.guest // Default to guest menu while loading
     }
-    return roleMenus[roleId as keyof typeof roleMenus] || roleMenus.learner
+
+    // Use actual role from JWT if available, otherwise fallback to roleId prop
+    const currentRole = role || roleId as keyof typeof roleMenus
+    
+    if (currentRole && roleMenus[currentRole as keyof typeof roleMenus]) {
+      return roleMenus[currentRole as keyof typeof roleMenus]
+    }
+    
+    // Fallback to guest menu if role not found
+    return roleMenus.guest
   }
 
   const menuItems = getMenuItems()

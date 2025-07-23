@@ -1,31 +1,35 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter, useSearchParams } from "next/navigation"
+import { testService, type TestQuestion, type TestAnswer, type TestSubmissionRequest } from "@/app/services/testService"
+import authService from "@/app/services/auth.service"
+import { LoginModal } from "@/components/login-modal"
+import { jwtDecode } from "jwt-decode"
 
-// Định nghĩa kiểu dữ liệu cho câu hỏi
-interface Question {
-  id: number
-  type: "multiple-choice" | "true-false" | "essay"
-  videoUrl: string
-  imageUrl: string
-  question: string
-  options?: string[] // Cho multiple choice
-  correctAnswer: string
-  trueFalseAnswer?: boolean // Cho true/false
-  essayPrompt?: string // Cho essay
+interface TestTopicPageProps {
+  testId?: string
+  topicId?: string
 }
 
-export function TestTopicPage() {
+export function TestTopicPage({ testId: propTestId, topicId: propTopicId }: TestTopicPageProps) {
+  console.log("=== TestTopicPage rendered ===")
+
   const router = useRouter()
   const searchParams = useSearchParams()
-  const testId = searchParams.get("testId")
+
+  const testId = propTestId || searchParams.get("testId")
+  const topicId = propTopicId || searchParams.get("topicId")
+
+  const [userId, setUserId] = useState<string>("1")
+
+  console.log("URL params:", { testId, topicId })
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -34,8 +38,91 @@ export function TestTopicPage() {
   const [showResultPage, setShowResultPage] = useState(false)
   const [testScore, setTestScore] = useState(0)
   const [testResults, setTestResults] = useState<any>(null)
+  const [testQuestions, setTestQuestions] = useState<TestQuestion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [nextTopicInfo, setNextTopicInfo] = useState<any>(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
-  // Function để mark test completed
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      try {
+        const token = authService.getCurrentToken()
+        if (token) {
+          const decoded = jwtDecode(token) as any
+          if (decoded && decoded.id) {
+            setUserId(decoded.id.toString())
+            console.log("Current user ID from token:", decoded.id)
+          } else {
+            console.log("No user ID in token, using default ID: 1")
+          }
+        } else {
+          console.log("No token found, using default ID: 1")
+        }
+      } catch (error) {
+        console.error("Error decoding token:", error)
+      }
+    }
+
+    getCurrentUserId()
+  }, [])
+
+  useEffect(() => {
+    console.log("useEffect triggered")
+    console.log("useEffect dependencies:", { topicId, userId })
+    const loadTestQuestions = async () => {
+      console.log("loadTestQuestions started")
+
+      if (!authService.isAuthenticated()) {
+        console.log("User not authenticated, showing login modal")
+        setShowLoginModal(true)
+        setLoading(false)
+        return
+      }
+
+      if (!topicId) {
+        console.log("No topicId provided")
+        setError("Topic ID is required")
+        setLoading(false)
+        return
+      }
+
+      try {
+        console.log("Calling testService.generateTest with:", {
+          userId: Number.parseInt(userId),
+          topicId: Number.parseInt(topicId),
+        })
+        setLoading(true)
+        const questions = await testService.generateTest(Number.parseInt(userId), Number.parseInt(topicId))
+        console.log("Received questions:", questions)
+        console.log("Questions length:", questions.length)
+        setTestQuestions(questions)
+        setLoading(false)
+        console.log("Test questions loaded successfully")
+      } catch (err: any) {
+        console.error("Error loading test questions:", err)
+
+        if (err.message?.includes("Authentication required") || err.message?.includes("Network Error")) {
+          setError("Vui lòng đăng nhập để tiếp tục")
+          setShowLoginModal(true)
+        } else {
+          setError("Failed to load test questions")
+        }
+        setLoading(false)
+      }
+    }
+
+    loadTestQuestions()
+  }, [topicId, userId])
+
+  useEffect(() => {
+    console.log("State changed - loading:", loading, "error:", error, "questions count:", testQuestions.length)
+  }, [loading, error, testQuestions.length])
+
+  useEffect(() => {
+    console.log("Component mounted - testing useEffect")
+  }, [])
+
   const markCompleted = (id: string) => {
     const completedEvent = new CustomEvent("lessonCompleted", {
       detail: { lessonId: Number.parseInt(id) },
@@ -43,75 +130,19 @@ export function TestTopicPage() {
     window.dispatchEvent(completedEvent)
   }
 
-  // Câu hỏi test với các dạng khác nhau
-  const testQuestions: Question[] = useMemo(
-    () => [
-      // Multiple Choice Questions
-      {
-        id: 1,
-        type: "multiple-choice",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-dqpema8bKAu3lWH3YFhOtPTQw7dgit.png",
-        question: "HÀNH ĐỘNG NÀY CÓ NGHĨA LÀ GÌ ?",
-        options: ["QUẢ TÁO", "QUẢ BƯỞI", "QUẢ KHẾ"],
-        correctAnswer: "QUẢ TÁO",
-      },
-      {
-        id: 2,
-        type: "multiple-choice",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "HÀNH ĐỘNG NÀY CÓ NGHĨA LÀ GÌ ?",
-        options: ["XIN CHÀO", "TẠM BIỆT", "CẢM ƠN", "XIN LỖI"],
-        correctAnswer: "XIN CHÀO",
-      },
-      // True/False Questions
-      {
-        id: 3,
-        type: "true-false",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-H6N1nBwxDB2DOxGJqdXB1fhcFmxFTc.png",
-        question: "HÀNH ĐỘNG NÀY CÓ NGHĨA LÀ: QUẢ TÁO ?",
-        correctAnswer: "true",
-        trueFalseAnswer: true,
-      },
-      {
-        id: 4,
-        type: "true-false",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "HÀNH ĐỘNG NÀY CÓ NGHĨA LÀ: XIN LỖI ?",
-        correctAnswer: "false",
-        trueFalseAnswer: false,
-      },
-      // Essay Questions
-      {
-        id: 5,
-        type: "essay",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-Aa12pvFhoGGlA29VaRLudhds9auJQD.png",
-        question: "HÀNH ĐỘNG NÀY CÓ NGHĨA LÀ GÌ ?",
-        correctAnswer: "Quả táo", // Sample correct answer for essay
-        essayPrompt: "HÃY ĐIỀN ĐÁP ÁN CỦA BẠN VÀO ĐÂY",
-      },
-      {
-        id: 6,
-        type: "essay",
-        videoUrl: "/videos/sign-language-demo.mp4",
-        imageUrl: "/placeholder.svg?height=300&width=300",
-        question: "MÔ TẢ HÀNH ĐỘNG TRONG VIDEO",
-        correctAnswer: "Chào hỏi", // Sample correct answer
-        essayPrompt: "HÃY MÔ TẢ HÀNH ĐỘNG BẠN THẤY TRONG VIDEO",
-      },
-    ],
-    [],
-  )
-
   const currentQuestion = useMemo(() => {
-    return testQuestions[currentQuestionIndex]
+    const question = testQuestions[currentQuestionIndex]
+    if (question) {
+      console.log("Current question:", {
+        id: question.id,
+        videoUrl: question.videoUrl,
+        imageUrl: question.imageUrl,
+        type: question.type,
+      })
+    }
+    return question
   }, [testQuestions, currentQuestionIndex])
 
-  // Handle answer selection for any question type
   const handleAnswerChange = (questionId: number, answer: any) => {
     setAnswers((prev) => ({
       ...prev,
@@ -119,7 +150,6 @@ export function TestTopicPage() {
     }))
   }
 
-  // Navigation functions
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1)
@@ -132,326 +162,285 @@ export function TestTopicPage() {
     }
   }
 
-  // Submit confirmation
   const handleSubmitTest = () => {
     setShowSubmitConfirm(true)
   }
 
-  const handleConfirmSubmit = () => {
-    // Calculate score and create detailed results
-    let correctAnswers = 0
-    const questionResults = testQuestions.map((question) => {
-      const userAnswer = answers[question.id]
-      let isCorrect = false
+  const handleConfirmSubmit = async () => {
+    try {
+      const testAnswers: TestAnswer[] = testQuestions.map((question) => ({
+        questionId: question.id,
+        answer: answers[question.id] || "",
+        questionType: question.type,
+      }))
 
-      if (question.type === "multiple-choice" && userAnswer === question.correctAnswer) {
-        isCorrect = true
-        correctAnswers++
-      } else if (question.type === "true-false" && userAnswer === question.trueFalseAnswer) {
-        isCorrect = true
-        correctAnswers++
-      } else if (question.type === "essay" && userAnswer && userAnswer.trim().length > 0) {
-        isCorrect = true
-        correctAnswers++
+      let correctAnswers = 0
+      testQuestions.forEach((question) => {
+        const userAnswer = answers[question.id]
+        if (question.type === "multiple-choice" && userAnswer === question.correctAnswer) {
+          correctAnswers++
+        } else if (question.type === "true-false" && userAnswer === question.trueFalseAnswer) {
+          correctAnswers++
+        } else if (question.type === "essay" && userAnswer && userAnswer.trim().length > 0) {
+          correctAnswers++
+        }
+      })
+
+      const score = Math.round((correctAnswers / testQuestions.length) * 100)
+
+      const submissionRequest: TestSubmissionRequest = {
+        userId: Number.parseInt(userId),
+        topicId: Number.parseInt(topicId!),
+        answers: testAnswers,
+        score: score,
       }
 
-      return {
-        id: question.id,
-        type: question.type,
-        question: question.question,
-        imageUrl: question.imageUrl,
-        userAnswer: userAnswer,
-        correctAnswer: question.type === "true-false" ? question.trueFalseAnswer : question.correctAnswer,
-        isCorrect: isCorrect,
-        explanation: getExplanationForQuestion(question.id),
-        options: question.options,
+      const result = await testService.submitTest(submissionRequest)
+      setNextTopicInfo(result.nextTopic)
+
+      const questionResults = testQuestions.map((question) => {
+        const userAnswer = answers[question.id]
+        let isCorrect = false
+
+        if (question.type === "multiple-choice" && userAnswer === question.correctAnswer) {
+          isCorrect = true
+        } else if (question.type === "true-false" && userAnswer === question.trueFalseAnswer) {
+          isCorrect = true
+        } else if (question.type === "essay" && userAnswer && userAnswer.trim().length > 0) {
+          isCorrect = true
+        }
+
+        return {
+          id: question.id,
+          type: question.type,
+          question: question.question,
+          imageUrl: question.imageUrl,
+          userAnswer: userAnswer,
+          correctAnswer: question.type === "true-false" ? question.trueFalseAnswer : question.correctAnswer,
+          isCorrect: isCorrect,
+          explanation: getExplanationForQuestion(question.id),
+          options: question.options,
+        }
+      })
+
+      let topicName = "Chủ đề hiện tại"
+      try {
+        topicName = await testService.getTopicName(Number.parseInt(topicId!))
+      } catch (error) {
+        console.error("Error getting topic name:", error)
       }
-    })
 
-    const score = Math.round((correctAnswers / testQuestions.length) * 100)
-    setTestScore(score)
+      setTestResults({
+        totalQuestions: testQuestions.length,
+        correctAnswers: correctAnswers,
+        accuracy: score,
+        questions: questionResults,
+        topicName: topicName,
+        topicId: Number.parseInt(topicId!),
+      })
 
-    // Set detailed test results
-    setTestResults({
-      totalQuestions: testQuestions.length,
-      correctAnswers: correctAnswers,
-      accuracy: score,
-      questions: questionResults,
-    })
+      setTestScore(score)
+      setShowSubmitConfirm(false)
+      setShowResultPage(true) // Show the result popup
 
-    setShowSubmitConfirm(false)
-    setShowResultPage(true)
+      if (score >= 90 && testId) {
+        markCompleted(testId)
+      }
+    } catch (error) {
+      console.error("Error submitting test:", error)
+      setError("Failed to submit test")
+      setShowSubmitConfirm(false)
+    }
   }
 
   const handleRetakeTest = () => {
     setAnswers({})
     setCurrentQuestionIndex(0)
-    setShowResultPage(false)
+    setShowResultPage(false) // Hide the result popup
     setTestScore(0)
     setTestResults(null)
+    setNextTopicInfo(null)
   }
 
   const handleContinueFromResult = () => {
-    if (testId) {
-      markCompleted(testId)
+    // This function is now for the "TIẾP TỤC" button in the success popup
+    // It should navigate to the next topic or homepage
+    if (nextTopicInfo && nextTopicInfo.isAvailable) {
+      router.push(`/lesson/${nextTopicInfo.topicId}/subtopic/${nextTopicInfo.id}`)
+    } else {
+      router.push("/homepage")
     }
-    router.push("/homepage")
+    sessionStorage.removeItem("testResults") // Clear results after continuing
   }
 
-  const handleCloseResult = () => {
+  const handleCloseResultPopup = () => {
+    // This function is for the "ĐÓNG" button in the failure popup
+    sessionStorage.removeItem("testResults") // Clear results after closing
     router.push("/homepage")
   }
 
   const handleGoToFeedback = () => {
-    router.push("/feedback")
+    sessionStorage.setItem("testResults", JSON.stringify(testResults)) // Save results for feedback page
+    router.push(`/feedback?topicId=${topicId}`)
   }
 
   const handleShowReview = () => {
-    // Store test results in sessionStorage to pass to review page
     if (testResults) {
-      sessionStorage.setItem('testResults', JSON.stringify(testResults))
-      router.push('/test-review')
+      sessionStorage.setItem("testResults", JSON.stringify(testResults))
+      router.push("/test-review")
     }
   }
 
-  // Get current answer for the question
   const getCurrentAnswer = () => {
-    return answers[currentQuestion?.id]
+    const answer = answers[currentQuestion?.id]
+    if (currentQuestion?.type === "true-false") {
+      return answer === true || answer === false ? answer : undefined
+    }
+    return answer || ""
   }
+
+  useEffect(() => {
+    if (currentQuestion?.type === "true-false") {
+      console.log("Current answer:", getCurrentAnswer(), "Type:", typeof getCurrentAnswer())
+    }
+  }, [currentQuestion, answers])
 
   const getExplanationForQuestion = (questionId: number) => {
     const explanations: { [key: number]: string } = {
-      1: "Tay phải nắm, ngón cái và ngón tay trỏ mở ra, giống chữ cái ngón tay 'C', lòng bàn tay hướng vào trong, đặt vào hai bên miệng, dựa nhe tay xuống dưới đồng thời tay chạm vào miệng.",
-      2: "Tay phải giống chữ cái ngón tay 'B', lòng bàn tay hướng vào trong, đặt lên các đầu ngón tay vào cằm. Lòng bàn tay hướng sang trái, đầu ngón tay hướng lên trên, đặt vào hai bên miệng.",
-      3: "Tay phải nắm, ngón cái và ngón tay trỏ mở ra, giống chữ cái ngón tay 'C', lòng bàn tay hướng vào trong, đặt vào hai bên miệng, dựa nhe tay xuống dưới đồng thời tay chạm vào miệng.",
-      4: "Đây không phải là cử chỉ cho 'xin lỗi'. Cử chỉ này có nghĩa khác.",
-      5: "Tay phải nắm, ngón cái và ngón tay trỏ mở ra, giống chữ cái ngón tay 'C', lòng bàn tay hướng vào trong, đặt vào hai bên miệng.",
-      6: "Đây là cử chỉ chào hỏi cơ bản trong ngôn ngữ ký hiệu."
+      1: "Đây là từ vựng cơ bản về chủ đề này",
+      2: "Từ này thường được sử dụng trong giao tiếp hàng ngày",
+      3: "Hãy chú ý đến ngữ cảnh sử dụng",
+      4: "Đây là một từ quan trọng trong chủ đề này",
+      5: "Từ này có ý nghĩa đặc biệt trong văn hóa",
+      6: "Hãy ghi nhớ hành động này chính xác",
     }
-    return explanations[questionId] || "Không có giải thích cho câu hỏi này."
+    return explanations[questionId] || "Hãy ôn tập lại từ vựng này"
   }
 
-  if (showResultPage) {
-    const isPassed = testScore >= 90
+  const handleCloseLoginModal = () => {
+    setShowLoginModal(false)
+    router.push("/homepage")
+  }
 
+  if (loading) {
     return (
-      <div className="min-h-screen bg-blue-100 relative overflow-hidden">
-        {/* Header */}
-        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
-
-        {/* Background decorative image */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src={isPassed ? "/images/success-popup-bg.png" : "/images/failure-popup-bg.png"}
-            alt="Background decoration"
-            fill
-            className="object-cover"
-          />
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-700 font-medium">Đang tải bài kiểm tra...</p>
         </div>
-
-        {/* Result Content */}
-        <div className="relative z-10 flex items-center justify-center min-h-screen p-4 pt-20 pb-28 lg:pb-20">
-          <div className="max-w-sm w-full mx-auto">
-            <div
-              className={`rounded-2xl shadow-2xl border-4 p-6 text-center ${
-                isPassed ? "bg-white border-blue-200" : "bg-pink-50 border-pink-200"
-              }`}
-            >
-              {/* Mascot */}
-              <div className="flex justify-center mb-4">
-                <Image
-                  src={isPassed ? "/images/test-success-whale.png" : "/images/test-failure-whale.png"}
-                  alt={isPassed ? "Success whale" : "Failure whale"}
-                  width={80}
-                  height={80}
-                  className="object-contain"
-                />
-              </div>
-
-              {/* Title */}
-              <h1 className={`text-xl font-bold mb-2 ${isPassed ? "text-gray-800" : "text-gray-800"}`}>
-                {isPassed ? "CHÚC MỪNG BẠN ĐÃ HOÀN THÀNH !" : "ÔI, KHÔNG !"}
-              </h1>
-
-              {/* Subtitle */}
-              <p className={`text-sm font-medium mb-4 ${isPassed ? "text-gray-600" : "text-gray-600"}`}>
-                {isPassed ? "BẠN ĐÃ VƯỢT QUA BÀI KIỂM TRA" : "BẠN ĐÃ KHÔNG VƯỢT QUA BÀI KIỂM TRA"}
-              </p>
-              {!isPassed && <p className="text-sm font-medium mb-4 text-gray-600">TIẾP TỤC!</p>}
-
-              {/* Stats */}
-              <div className={`rounded-lg p-3 mb-4 ${isPassed ? "bg-blue-50" : "bg-red-400"}`}>
-                <div className="flex justify-center gap-8 text-center">
-                  <div>
-                    <div className={`text-lg font-bold ${isPassed ? "text-blue-600" : "text-white"}`}>
-                      {testQuestions.length}
-                    </div>
-                    <div className={`text-xs ${isPassed ? "text-blue-500" : "text-white"}`}>TỪ VỰNG</div>
-                  </div>
-                  <div>
-                    <div className={`text-lg font-bold ${isPassed ? "text-blue-600" : "text-white"}`}>{testScore}%</div>
-                    <div className={`text-xs ${isPassed ? "text-blue-500" : "text-white"}`}>ĐỘ CHÍNH XÁC</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Buttons */}
-              {isPassed ? (
-                // Success - 4 buttons in 2x2 grid
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleShowReview}
-                      className="bg-blue-300 hover:bg-blue-400 text-blue-800 font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      XEM LẠI BÀI
-                    </Button>
-                    <Button
-                      onClick={handleGoToFeedback}
-                      className="bg-blue-300 hover:bg-blue-400 text-blue-800 font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      PHẢN HỒI
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleRetakeTest}
-                      className="bg-blue-300 hover:bg-blue-400 text-blue-800 font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      LÀM LẠI
-                    </Button>
-                    <Button
-                      onClick={handleCloseResult}
-                      className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      ĐÓNG
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                // Failure - 4 buttons in 2x2 grid (added feedback button)
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleShowReview}
-                      className="bg-pink-300 hover:bg-pink-400 text-pink-800 font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      XEM LẠI BÀI
-                    </Button>
-                    <Button
-                      onClick={handleGoToFeedback}
-                      className="bg-pink-300 hover:bg-pink-400 text-pink-800 font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      PHẢN HỒI
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleRetakeTest}
-                      className="bg-pink-300 hover:bg-pink-400 text-pink-800 font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      LÀM LẠI
-                    </Button>
-                    <Button
-                      onClick={handleCloseResult}
-                      className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg text-sm"
-                    >
-                      ĐÓNG
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
       </div>
     )
   }
 
-  return (
-    <div className="h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden flex flex-col">
-      {/* Decorative Stars Background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-20 w-6 h-6 text-yellow-300 animate-pulse">⭐</div>
-        <div className="absolute top-32 right-24 w-5 h-5 text-blue-300 animate-bounce">⭐</div>
-        <div className="absolute top-40 left-1/4 w-4 h-4 text-green-300 animate-pulse">⭐</div>
-        <div className="absolute bottom-40 left-16 w-5 h-5 text-pink-300 animate-pulse">⭐</div>
-        <div className="absolute bottom-32 right-20 w-6 h-6 text-yellow-300 animate-bounce">⭐</div>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 font-medium mb-4">{error}</p>
+          <Button onClick={() => router.push("/homepage")} className="bg-blue-500 hover:bg-blue-600 text-white">
+            Về trang chủ
+          </Button>
+        </div>
       </div>
+    )
+  }
 
-      {/* Header */}
+  const isPassed = testScore >= 90 // Determine pass/fail for the popup
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden">
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 pb-28 lg:pb-4 pt-16 relative z-10 min-h-0">
-        <div className="max-w-4xl mx-auto h-full flex flex-col justify-center">
-          <div className="flex-1 flex flex-col justify-center items-center">
-            {/* Question Number and Progress - Nhỏ hơn */}
-            <div className="mb-3 text-center">
-              <h3 className="text-base font-bold text-blue-600">CÂU HỎI SỐ {currentQuestionIndex + 1}</h3>
-              <div className="text-xs text-gray-600">
-                {currentQuestionIndex + 1} / {testQuestions.length}
+      {currentQuestionIndex < testQuestions.length - 1 && (
+        <div className="fixed top-24 right-4 lg:top-32 lg:right-8 z-20">
+          <Button
+            onClick={handleSubmitTest}
+            className="bg-gradient-to-r from-rose-400 to-pink-400 hover:from-rose-500 hover:to-pink-500 text-white font-bold py-2.5 px-5 lg:py-3 lg:px-6 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            NỘP BÀI
+          </Button>
+        </div>
+      )}
+
+      <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
+        <div className="max-w-4xl mx-auto">
+          {/* Progress Bar - Removed solid white background */}
+          <div className="bg-blue-50/80 backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-200 mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm sm:text-base font-semibold text-blue-700">
+                Câu {currentQuestionIndex + 1} / {testQuestions.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-500">Có thể nộp bài bất cứ lúc nào</span>
+                <span className="text-sm sm:text-base font-semibold text-blue-700">
+                  {Math.round(((currentQuestionIndex + 1) / testQuestions.length) * 100)}%
+                </span>
               </div>
             </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2.5 rounded-full transition-all duration-300"
+                style={{
+                  width: `${((currentQuestionIndex + 1) / testQuestions.length) * 100}%`,
+                }}
+              ></div>
+            </div>
+          </div>
 
-            {/* Video/Image Container - To hơn */}
-            <div className="flex justify-center mb-3">
-              <div className="relative w-72 h-72 sm:w-80 sm:h-80 md:w-88 md:h-88 rounded-2xl overflow-hidden border-4 border-blue-300 bg-gradient-to-br from-pink-200 via-purple-200 to-blue-200">
-                {/* Decorative elements */}
-                <div className="absolute top-2 left-2 w-4 h-4 text-yellow-400 z-10">⭐</div>
-                <div className="absolute top-2 right-2 w-3 h-3 text-blue-400 z-10">⭐</div>
-                <div className="absolute bottom-2 left-2 w-3 h-3 text-green-400 z-10">⭐</div>
-                <div className="absolute bottom-2 right-2 w-4 h-4 text-purple-400 z-10">⭐</div>
-
-                {/* Video/Image */}
-                <div className="absolute inset-4 rounded-xl overflow-hidden bg-blue-900 flex items-center justify-center">
-                  <Image
-                    src={currentQuestion?.imageUrl || "/placeholder.svg"}
-                    alt="Sign language demonstration"
-                    fill
-                    className="object-cover"
-                  />
+          {currentQuestion && (
+            <div className="bg-blue-50/80 backdrop-blur-sm rounded-3xl shadow-3xl border-4 border-blue-200 p-6 sm:p-8 mb-6">
+              <div className="text-center mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-blue-800 mb-2">{currentQuestion.question}</h2>
+                <div className="text-sm sm:text-base text-blue-600">
+                  {currentQuestion.type === "multiple-choice" && "Chọn đáp án đúng"}
+                  {currentQuestion.type === "true-false" && "Đúng hay Sai"}
+                  {currentQuestion.type === "essay" && "Điền đáp án"}
                 </div>
               </div>
-            </div>
 
-            {/* Question - Nhỏ hơn */}
-            <h2 className="text-lg sm:text-xl font-bold text-blue-700 text-center mb-4">{currentQuestion?.question}</h2>
+              <div className="flex justify-center mb-6">
+                <div className="relative w-full max-w-[250px] h-[250px] sm:max-w-[300px] sm:h-[300px] md:max-w-[350px] md:h-[350px] bg-gradient-to-br from-pink-200 via-purple-200 to-blue-200 rounded-2xl overflow-hidden border-4 border-blue-300 shadow-lg">
+                  <div className="absolute top-4 left-4 w-6 h-6 text-yellow-400">⭐</div>
+                  <div className="absolute top-4 right-4 w-5 h-5 text-blue-400">⭐</div>
+                  <div className="absolute bottom-4 left-4 w-5 h-5 text-green-400">⭐</div>
+                  <div className="absolute bottom-4 right-4 w-6 h-6 text-purple-400">⭐</div>
 
-            {/* Multiple Choice Questions */}
-            {currentQuestion?.type === "multiple-choice" && (
-              <div className="mb-4">
-                {currentQuestion.options!.length === 3 ? (
-                  // 3 đáp án - 1 hàng ngang
-                  <div className="flex justify-center gap-2 sm:gap-3 max-w-xs sm:max-w-2xl mx-auto">
-                    {currentQuestion.options!.map((option, index) => (
+                  {currentQuestion.videoUrl &&
+                  (currentQuestion.videoUrl.includes(".mp4") ||
+                    currentQuestion.videoUrl.includes("storage.googleapis.com")) ? (
+                    <video
+                      src={currentQuestion.videoUrl}
+                      controls
+                      className="w-full h-full object-cover rounded-xl"
+                      autoPlay
+                      muted
+                      loop
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : (
+                    <Image
+                      src={currentQuestion.imageUrl || "/placeholder.svg"}
+                      alt="Question image"
+                      fill
+                      className="object-cover"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {currentQuestion.type === "multiple-choice" && currentQuestion.options && (
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    {currentQuestion.options.map((option, index) => (
                       <button
                         key={index}
                         onClick={() => handleAnswerChange(currentQuestion.id, option)}
-                        className={`relative py-2 sm:py-3 px-4 sm:px-5 rounded-full border-2 transition-all duration-200 font-bold text-center text-sm sm:text-base whitespace-nowrap flex-1 ${
+                        className={`p-3 sm:p-4 rounded-2xl border-2 text-center font-semibold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg text-sm sm:text-base ${
                           getCurrentAnswer() === option
-                            ? "bg-blue-200 border-blue-600 text-blue-700"
-                            : "border-blue-600 bg-blue-50 hover:bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  // 4 đáp án - 2x2 grid
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-xs sm:max-w-md mx-auto">
-                    {currentQuestion.options!.map((option, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleAnswerChange(currentQuestion.id, option)}
-                        className={`relative py-2 sm:py-3 px-3 sm:px-4 rounded-full border-2 transition-all duration-200 font-bold text-center text-sm sm:text-base whitespace-nowrap ${
-                          getCurrentAnswer() === option
-                            ? "bg-blue-200 border-blue-600 text-blue-700"
-                            : "border-blue-600 bg-blue-50 hover:bg-blue-100 text-blue-700"
+                            ? "bg-blue-200 border-blue-500 text-blue-800"
+                            : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                         }`}
                       >
                         {option}
@@ -459,142 +448,232 @@ export function TestTopicPage() {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* True/False Questions */}
-            {currentQuestion?.type === "true-false" && (
-              <div className="mb-4">
-                <div className="flex justify-center gap-4 max-w-md mx-auto">
-                  <button
-                    onClick={() => handleAnswerChange(currentQuestion.id, true)}
-                    className={`relative py-3 px-8 rounded-full border-2 font-bold text-lg transition-all duration-200 ${
-                      getCurrentAnswer() === true
-                        ? "bg-blue-200 border-blue-600 text-blue-700"
-                        : "border-blue-600 bg-blue-50 hover:bg-blue-100 text-blue-700"
-                    }`}
-                  >
-                    ĐÚNG
-                  </button>
-                  <button
-                    onClick={() => handleAnswerChange(currentQuestion.id, false)}
-                    className={`relative py-3 px-8 rounded-full border-2 font-bold text-lg transition-all duration-200 ${
-                      getCurrentAnswer() === false
-                        ? "bg-blue-200 border-blue-600 text-blue-700"
-                        : "border-blue-600 bg-blue-50 hover:bg-blue-100 text-blue-700"
-                    }`}
-                  >
-                    SAI
-                  </button>
-                </div>
-              </div>
-            )}
+                {currentQuestion.type === "true-false" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => handleAnswerChange(currentQuestion.id, true)}
+                      className={`p-3 sm:p-4 rounded-2xl border-2 text-center font-bold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg text-sm sm:text-base ${
+                        getCurrentAnswer() === true
+                          ? "bg-blue-200 border-blue-500 text-blue-800"
+                          : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                      }`}
+                    >
+                      ĐÚNG
+                    </button>
+                    <button
+                      onClick={() => handleAnswerChange(currentQuestion.id, false)}
+                      className={`p-3 sm:p-4 rounded-2xl border-2 text-center font-bold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg text-sm sm:text-base ${
+                        getCurrentAnswer() === false
+                          ? "bg-blue-200 border-blue-500 text-blue-800"
+                          : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                      }`}
+                    >
+                      SAI
+                    </button>
+                  </div>
+                )}
 
-            {/* Essay Questions */}
-            {currentQuestion?.type === "essay" && (
-              <div className="mb-4 w-full max-w-2xl">
-                <Textarea
-                  value={getCurrentAnswer() || ""}
-                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                  placeholder={currentQuestion.essayPrompt}
-                  className="w-full h-24 p-4 border-2 border-blue-300 rounded-xl bg-white text-blue-700 font-medium resize-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
+                {currentQuestion.type === "essay" && (
+                  <div className="space-y-4">
+                    <div className="text-sm sm:text-base text-blue-600 font-medium">{currentQuestion.essayPrompt}</div>
+                    <Textarea
+                      value={getCurrentAnswer()}
+                      onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
+                      placeholder="Nhập đáp án của bạn..."
+                      className="min-h-[100px] sm:min-h-[150px] resize-none border-2 border-blue-300 rounded-xl shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 sm:p-4 text-base"
+                    />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Submit Button - Floating ở góc trên phải */}
-          <div className="fixed top-24 right-4 z-30">
+          <div className="flex justify-between items-center">
             <Button
-              onClick={handleSubmitTest}
-              className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full shadow-lg"
+              onClick={handlePreviousQuestion}
+              disabled={currentQuestionIndex === 0}
+              className="bg-blue-200 hover:bg-blue-300 text-blue-700 font-bold py-3.5 px-7 rounded-full transition-all duration-200 shadow-md hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              NỘP BÀI
+              <ChevronLeft className="w-5 h-5 mr-2" />
+              TRƯỚC
             </Button>
-          </div>
 
-          {/* Navigation Controls - Chỉ còn Previous và Next */}
-          <div className="fixed bottom-24 left-0 right-0 lg:relative lg:bottom-auto lg:mt-4 px-4 z-20">
-            <div className="flex justify-between items-center max-w-4xl mx-auto">
-              {/* Previous Button */}
-              {currentQuestionIndex > 0 ? (
-                <Button
-                  onClick={handlePreviousQuestion}
-                  className="flex items-center gap-2 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 lg:py-3 lg:px-5 rounded-full shadow-lg text-sm lg:text-base"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  QUAY LẠI
-                </Button>
-              ) : (
-                <div></div>
-              )}
-
-              {/* Next Button */}
-              {currentQuestionIndex < testQuestions.length - 1 ? (
-                <Button
-                  onClick={handleNextQuestion}
-                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 lg:py-3 lg:px-5 rounded-full shadow-lg text-sm lg:text-base"
-                >
-                  TIẾP THEO
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              ) : (
-                <div></div>
-              )}
-            </div>
-          </div>
-
-          {/* Mascot - Responsive và chỉ hiển thị trên desktop */}
-          <div className="absolute bottom-2 left-2 hidden md:block">
-            <div className="animate-bounce">
-              <Image
-                src="/images/study-mascot-new.png"
-                alt="Study mascot"
-                width={120}
-                height={120}
-                className="object-contain drop-shadow-2xl"
-              />
-            </div>
+            {currentQuestionIndex === testQuestions.length - 1 ? (
+              <Button
+                onClick={handleSubmitTest}
+                className="bg-gradient-to-r from-green-400 to-emerald-400 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-3.5 px-7 rounded-full transition-all duration-200 shadow-md hover:shadow-xl"
+              >
+                NỘP BÀI
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNextQuestion}
+                className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3.5 px-7 rounded-full transition-all duration-200 shadow-md hover:shadow-xl"
+              >
+                TIẾP THEO
+                <ChevronRight className="w-5 h-5 ml-2" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Submit Confirmation Popup */}
       {showSubmitConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xs sm:max-w-md mx-4 text-center shadow-xl border-4 border-blue-200">
+            {/* Mascot */}
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/images/test-nopbai.png"
+                alt="Whale with question mark"
+                width={120}
+                height={120}
+                className="object-contain animate-bounce"
+              />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl sm:text-2xl font-bold text-blue-800 mb-6">BẠN MUỐN NỘP BÀI ?</h3>
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => setShowSubmitConfirm(false)}
+                className="flex-1 bg-gradient-to-r from-blue-300 to-cyan-300 hover:from-blue-400 hover:to-cyan-400 text-white font-bold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                QUAY VỀ
+              </Button>
+              <Button
+                onClick={handleConfirmSubmit}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                NỘP BÀI
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResultPage && testResults && (
         <>
+          {/* Overlay */}
           <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-xs mx-4">
+
+          {/* Modal Content */}
+          <div className="fixed top-[55%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-[240px] sm:max-w-[320px] md:max-w-[400px] mx-4">
             <div className="relative">
-              <div className="bg-white rounded-2xl px-6 py-6 text-center shadow-2xl border-4 border-blue-200">
-                {/* Warning icon */}
-                <div className="flex justify-center mb-4">
-                  <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <span className="text-3xl">⚠️</span>
+              <div
+                className={`rounded-3xl p-2 sm:p-4 md:p-6 w-full text-center shadow-2xl border-4 ${
+                  isPassed ? "bg-blue-50 border-blue-200" : "bg-pink-50 border-pink-200"
+                }`}
+              >
+                {/* Mascot Image */}
+                <div className="flex justify-center mb-2">
+                  <Image
+                    src={isPassed ? "/images/test-success-whale.png" : "/images/test-failure-whale.png"}
+                    alt={isPassed ? "Happy whale" : "Sad whale"}
+                    width={96} // Base size for Image component
+                    height={96} // Base size for Image component
+                    className="object-contain animate-bounce w-14 h-14 sm:w-18 sm:h-18 md:w-24 md:h-24" // Responsive rendered size
+                  />
+                </div>
+
+                {/* Main Title */}
+                <h1 className={`text-lg sm:text-xl font-bold mb-1 ${isPassed ? "text-blue-800" : "text-red-700"}`}>
+                  {isPassed ? "CHÚC MỪNG BẠN ĐÃ HOÀN THÀNH !" : "ÔI, KHÔNG !"}
+                </h1>
+                {/* Subtitle */}
+                <p className={`text-xs sm:text-sm font-semibold mb-2 ${isPassed ? "text-blue-600" : "text-gray-600"}`}>
+                  {isPassed ? "BẠN ĐÃ VƯỢT QUA BÀI KIỂM TRA" : "BẠN ĐÃ KHÔNG VƯỢT QUA BÀI KIỂM TRA"}
+                  <br />
+                  {testResults.topicName ? `"${testResults.topicName.toUpperCase()}"` : ""}
+                </p>
+
+                {/* Score Display */}
+                <div
+                  className={`rounded-3xl p-3 sm:p-5 shadow-xl border-2 mb-3 ${
+                    isPassed ? "bg-blue-100/80 border-blue-200" : "bg-red-100/80 border-red-200"
+                  }`}
+                >
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="text-center">
+                      <div
+                        className={`text-2xl sm:text-3xl font-bold mb-0.5 ${isPassed ? "text-blue-700" : "text-red-700"}`}
+                      >
+                        {testResults.totalQuestions}
+                      </div>
+                      <div
+                        className={`text-sm sm:text-base font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}
+                      >
+                        TỪ VỰNG
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div
+                        className={`text-2xl sm:text-3xl font-extrabold mb-0.5 ${isPassed ? "text-blue-700" : "text-red-700"}`}
+                      >
+                        {testResults.accuracy}%
+                      </div>
+                      <div
+                        className={`text-sm sm:text-base font-medium ${isPassed ? "text-blue-600" : "text-red-600"}`}
+                      >
+                        ĐỘ CHÍNH XÁC
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Title */}
-                <h2 className="text-xl font-bold text-gray-800 mb-2">XÁC NHẬN NỘP BÀI</h2>
-
-                {/* Message */}
-                <p className="text-gray-600 text-base mb-6">
-                  Bạn có chắc chắn muốn nộp bài? Bạn sẽ không thể thay đổi câu trả lời sau khi nộp.
-                </p>
-
-                {/* Buttons */}
-                <div className="flex gap-3">
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
                   <Button
-                    onClick={() => setShowSubmitConfirm(false)}
-                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-xl"
+                    onClick={handleShowReview}
+                    className={`w-full font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm ${
+                      isPassed
+                        ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                        : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                    }`}
                   >
-                    HỦY
+                    XEM LẠI BÀI
                   </Button>
+
                   <Button
-                    onClick={handleConfirmSubmit}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl"
+                    onClick={handleGoToFeedback}
+                    className={`w-full font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm ${
+                      isPassed
+                        ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                        : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                    }`}
                   >
-                    NỘP BÀI
+                    PHẢN HỒI
                   </Button>
+
+                  <Button
+                    onClick={handleRetakeTest}
+                    className={`w-full font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm ${
+                      isPassed
+                        ? "bg-blue-300 hover:bg-blue-400 text-blue-700"
+                        : "bg-pink-300 hover:bg-pink-400 text-pink-800"
+                    }`}
+                  >
+                    LÀM LẠI
+                  </Button>
+
+                  {isPassed ? (
+                    <Button
+                      onClick={handleContinueFromResult}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm"
+                    >
+                      TIẾP TỤC
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleCloseResultPopup}
+                      className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 text-sm"
+                    >
+                      ĐÓNG
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -603,6 +682,7 @@ export function TestTopicPage() {
       )}
 
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <LoginModal isOpen={showLoginModal} onClose={handleCloseLoginModal} returnUrl={window.location.href} />
     </div>
   )
 }

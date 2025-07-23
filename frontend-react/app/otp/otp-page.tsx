@@ -21,8 +21,8 @@ export default function OTPPage() {
       <BackgroundLayout>
         <BackgroundCard>
           <div className="text-center text-gray-600">
-            <h1 className="text-2xl font-bold">Không tìm thấy email!</h1>
-            <p>Vui lòng yêu cầu đặt lại mật khẩu trước.</p>
+            <h1 className="text-2xl font-bold">Mã OTP không hợp lệ!</h1>
+            <p>Vui lòng kiểm tra lại mã OTP hoặc yêu cầu gửi lại mã.</p>
             <Link href="/forgot-password" className="text-blue-500 hover:underline">
               Quay lại "Quên mật khẩu"
             </Link>

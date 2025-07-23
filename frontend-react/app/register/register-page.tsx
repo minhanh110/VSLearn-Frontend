@@ -61,14 +61,39 @@ export default function RegisterPage() {
     e.preventDefault()
     setError("")
     setLoading(true)
-
+    // Frontend validation
+    if (!formData.firstName?.trim()) {
+      setError("Vui lòng nhập Họ")
+      setLoading(false)
+      return
+    }
+    if (!formData.lastName?.trim()) {
+      setError("Vui lòng nhập Tên")
+      setLoading(false)
+      return
+    }
+    if (!formData.username?.trim()) {
+      setError("Vui lòng nhập tên đăng nhập")
+      setLoading(false)
+      return
+    }
+    if (!formData.phoneNumber?.trim()) {
+      setError("Vui lòng nhập số điện thoại")
+      setLoading(false)
+      return
+    }
+    // Check phone format (Việt Nam: 10 số, bắt đầu bằng 0)
+    if (!/^0\d{9}$/.test(formData.phoneNumber.trim())) {
+      setError("Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)")
+      setLoading(false)
+      return
+    }
     // Only frontend validation - password matching check
     if (formData.password !== formData.confirmPassword) {
       setError("Mật khẩu xác nhận không khớp")
       setLoading(false)
       return
     }
-
     try {
       const otpResponse = await authService.requestSignupOtp(formData.email.trim())
       if (otpResponse.status === 200) {
@@ -84,13 +109,19 @@ export default function RegisterPage() {
         }))
         router.push("/signup-otp")
       } else {
-        // Display backend validation message
         setError(otpResponse.message || "Không thể gửi mã OTP")
       }
     } catch (err: any) {
-      console.error('Registration error:', err)
-      // Display backend error messages (họ tên null, username exists, email exists, phone exists, etc.)
-      setError(err.message || "Đăng ký thất bại, vui lòng thử lại")
+      // Hiển thị lỗi rõ ràng cho các trường hợp username/phone/email đã tồn tại
+      if (err.message?.toLowerCase().includes('username')) {
+        setError("Tên đăng nhập đã tồn tại")
+      } else if (err.message?.toLowerCase().includes('phone')) {
+        setError("Số điện thoại đã tồn tại")
+      } else if (err.message?.toLowerCase().includes('email')) {
+        setError("Email đã tồn tại")
+      } else {
+        setError(err.message || "Đăng ký thất bại, vui lòng thử lại")
+      }
     } finally {
       setLoading(false)
     }
