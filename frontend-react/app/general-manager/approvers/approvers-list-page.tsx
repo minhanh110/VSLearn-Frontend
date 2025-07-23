@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,50 +10,68 @@ import { Search, Eye, Edit, Trash2, Plus, Download, UserCheck } from "lucide-rea
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import axios from "axios"
+import { useRouter } from "next/navigation"
+
+interface Approver {
+  id: number
+  name: string
+  email: string
+  phone: string
+  status: string
+  joinDate: string
+  topicsApproved: number
+  pendingReview: number
+  specialization: string
+  avatar: string
+}
 
 export default function ApproversListPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [approvers, setApprovers] = useState<Approver[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const router = useRouter()
 
-  const approvers = [
-    {
-      id: "1",
-      name: "Nguyễn Thị Hoa",
-      email: "hoa.nguyen@email.com",
-      phone: "0123456789",
-      status: "active",
-      joinDate: "2024-01-10",
-      topicsApproved: 45,
-      pendingReview: 8,
-      specialization: "Tiếng Anh",
-      avatar: "/images/whale-character.png",
-    },
-    {
-      id: "2",
-      name: "Trần Văn Minh",
-      email: "minh.tran@email.com",
-      phone: "0987654321",
-      status: "active",
-      joinDate: "2024-02-15",
-      topicsApproved: 32,
-      pendingReview: 5,
-      specialization: "Lập trình",
-      avatar: "/images/whale-character.png",
-    },
-    {
-      id: "3",
-      name: "Lê Thị Lan",
-      email: "lan.le@email.com",
-      phone: "0369852147",
-      status: "inactive",
-      joinDate: "2024-03-05",
-      topicsApproved: 28,
-      pendingReview: 2,
-      specialization: "Thiết kế",
-      avatar: "/images/whale-character.png",
-    },
-  ]
+  // Fetch approvers data from API
+  const fetchApprovers = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        setError("Vui lòng đăng nhập để truy cập trang này")
+        setLoading(false)
+        return
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/approvers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log("API response:", response.data)
+      setApprovers(response.data.content || response.data)
+    } catch (err: any) {
+      console.error("Error fetching approvers:", err)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+      } else if (err.response?.status === 404) {
+        setError("API endpoint không tồn tại")
+      } else {
+        setError("Không thể tải dữ liệu approvers: " + (err.response?.data?.message || err.message))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchApprovers()
+  }, [])
 
   const filteredApprovers = approvers.filter((approver) => {
     const matchesSearch =
@@ -115,25 +133,50 @@ export default function ApproversListPage() {
                 </div>
               </div>
             </div>
+            {/* Loading and Error States */}
+            {loading && (
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardContent className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-2">Đang tải dữ liệu...</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {error && (
+              <Card className="border-0 shadow-lg bg-red-50/95 backdrop-blur-sm">
+                <CardContent className="p-6 text-center">
+                  <p className="text-red-600">{error}</p>
+                  <Button 
+                    onClick={fetchApprovers} 
+                    className="mt-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    Thử lại
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              {stats.map((stat, index) => (
-                <Card key={index} className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">{stat.label}</p>
-                        <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+            {!loading && !error && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                {stats.map((stat, index) => (
+                  <Card key={index} className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">{stat.label}</p>
+                          <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                        </div>
+                        <div className={`p-3 rounded-full ${stat.bg}`}>
+                          <UserCheck className={`w-6 h-6 ${stat.color}`} />
+                        </div>
                       </div>
-                      <div className={`p-3 rounded-full ${stat.bg}`}>
-                        <UserCheck className={`w-6 h-6 ${stat.color}`} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             {/* Search and Filters */}
             <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
@@ -164,7 +207,9 @@ export default function ApproversListPage() {
                       <Download className="w-4 h-4 mr-2" />
                       Xuất Excel
                     </Button>
-                    <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white">
+                    <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+                      onClick={() => router.push('/general-manager/create-approver')}
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Thêm người duyệt
                     </Button>
@@ -174,14 +219,15 @@ export default function ApproversListPage() {
             </Card>
 
             {/* Approvers Table */}
-            <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
-                <CardTitle className="text-lg font-bold text-blue-900 flex items-center gap-2">
-                  <UserCheck className="w-5 h-5" />
-                  Danh sách người duyệt ({filteredApprovers.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
+            {!loading && !error && (
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
+                  <CardTitle className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                    <UserCheck className="w-5 h-5" />
+                    Danh sách người duyệt ({filteredApprovers.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-blue-50/50">
@@ -254,7 +300,12 @@ export default function ApproversListPage() {
                                   <Eye className="w-4 h-4" />
                                 </Button>
                               </Link>
-                              <Button size="sm" variant="ghost" className="text-blue-600 hover:bg-blue-100 p-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-blue-600 hover:bg-blue-100 p-2"
+                                onClick={() => router.push(`/general-manager/edit-approver?id=${approver.id}`)}
+                              >
                                 <Edit className="w-4 h-4" />
                               </Button>
                               <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-100 p-2">
@@ -287,6 +338,7 @@ export default function ApproversListPage() {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </main>

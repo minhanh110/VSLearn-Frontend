@@ -22,6 +22,21 @@ interface TopicDetail {
   updatedBy?: number
   deletedAt?: string
   deletedBy?: number
+  subtopics?: Subtopic[]; // Added subtopics to TopicDetail
+}
+
+// Thêm type cho subtopic và vocab
+interface Vocab {
+  vocab: string;
+  meaning?: string;
+  videoLink?: string;
+  description?: string;
+}
+interface Subtopic {
+  id: number;
+  subTopicName: string;
+  sortOrder: number;
+  vocabs: Vocab[];
 }
 
 export function TopicDetailsPageComponent() {
@@ -31,6 +46,7 @@ export function TopicDetailsPageComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [topic, setTopic] = useState<TopicDetail | null>(null)
   const [loading, setLoading] = useState(true);
+  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
 
   // Sample topic data
   useEffect(() => {
@@ -41,6 +57,7 @@ export function TopicDetailsPageComponent() {
         setLoading(true);
         const response = await TopicService.getTopicDetail(topicId);
         setTopic(response.data);
+        setSubtopics(response.data.subtopics || []);
       } catch (error: any) {
         console.error("Error fetching topic detail:", error);
         // Không set fallback data, chỉ hiển thị error
@@ -201,6 +218,52 @@ export function TopicDetailsPageComponent() {
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none"></div>
                   </div>
                 </div>
+              </div>
+
+              {/* Subtopics & Vocabs */}
+              <div className="mt-10">
+                <h3 className="text-xl font-bold text-blue-700 mb-4">Danh sách Subtopic & Từ vựng</h3>
+                {subtopics.length === 0 && <div className="text-gray-500 italic">Chủ đề này chưa có subtopic nào.</div>}
+                {subtopics.map((sub, idx) => (
+                  <div key={sub.id || idx} className="mb-8 p-4 rounded-xl bg-white/80 shadow border border-blue-100">
+                    <div className="font-semibold text-blue-800 text-lg mb-2">{idx + 1}. {sub.subTopicName}</div>
+                    <div className="text-gray-500 text-sm mb-2">Số từ vựng: {sub.vocabs?.length || 0}</div>
+                    {sub.vocabs && sub.vocabs.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full border text-sm">
+                          <thead>
+                            <tr className="bg-blue-50">
+                              <th className="border px-3 py-2">#</th>
+                              <th className="border px-3 py-2">Từ vựng</th>
+                              <th className="border px-3 py-2">Nghĩa</th>
+                              <th className="border px-3 py-2">Video</th>
+                              <th className="border px-3 py-2">Mô tả</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sub.vocabs.map((vocab, vIdx) => (
+                              <tr key={vIdx} className="hover:bg-blue-50">
+                                <td className="border px-2 py-1 text-center">{vIdx + 1}</td>
+                                <td className="border px-2 py-1">{vocab.vocab}</td>
+                                <td className="border px-2 py-1">{vocab.meaning}</td>
+                                <td className="border px-2 py-1">
+                                  {vocab.videoLink ? (
+                                    <video src={vocab.videoLink} controls width={120} />
+                                  ) : (
+                                    <span className="text-gray-400 italic">Không có</span>
+                                  )}
+                                </td>
+                                <td className="border px-2 py-1">{vocab.description || <span className="text-gray-400 italic">Không có</span>}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 italic">Chưa có từ vựng nào trong subtopic này.</div>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {/* Action Buttons */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { jwtDecode } from 'jwt-decode'
+import Cookies from 'js-cookie'
 
 interface JwtPayload {
   scope: string
@@ -19,7 +20,16 @@ export function useUserRole(): { role: UserRole | null; loading: boolean } {
   useEffect(() => {
     const getRoleFromToken = () => {
       try {
-        const token = localStorage.getItem('token')
+        // Try to get token from both Cookies and localStorage for compatibility
+        const tokenFromCookies = Cookies.get('token')
+        const tokenFromLocalStorage = localStorage.getItem('token')
+        const token = tokenFromCookies || tokenFromLocalStorage
+
+        // Thêm log debug
+        console.log('Token from cookies:', tokenFromCookies)
+        console.log('Token from localStorage:', tokenFromLocalStorage)
+        console.log('Token used:', token)
+        
         if (!token) {
           setRole('guest')
           setLoading(false)
@@ -27,7 +37,9 @@ export function useUserRole(): { role: UserRole | null; loading: boolean } {
         }
 
         const decoded = jwtDecode<JwtPayload>(token)
+        console.log('Decoded token:', decoded)
         const scope = decoded.scope
+        console.log('Scope in token:', scope)
 
         // Map JWT scope to role
         let userRole: UserRole = 'guest'

@@ -19,7 +19,11 @@ interface VocabularyItem {
   meaning?: string
   status: string
   createdAt: string
+<<<<<<< HEAD
   videoUrl?: string
+=======
+  videoLink?: string
+>>>>>>> origin/QuocPMHE172252
   thumbnailUrl?: string
 }
 
@@ -48,7 +52,11 @@ export function DictionaryPageComponent() {
     currentPage: 0,
     totalPages: 0,
     totalElements: 0,
+<<<<<<< HEAD
     pageSize: 40, // Changed to 40 items per page
+=======
+    pageSize: 12, // Giảm xuống 12 items per page
+>>>>>>> origin/QuocPMHE172252
     hasNext: false,
     hasPrevious: false
   })
@@ -110,7 +118,11 @@ export function DictionaryPageComponent() {
         // Prepare API parameters
         const params: any = {
           page: currentPage - 1, // Backend uses 0-based indexing
+<<<<<<< HEAD
           size: 40, // Page size changed to 40
+=======
+          size: 12, // Giảm xuống 12 vocab per page
+>>>>>>> origin/QuocPMHE172252
         };
 
         // Add search term if not empty
@@ -144,16 +156,37 @@ export function DictionaryPageComponent() {
           params.letter = selectedLetter;
         }
 
+        // Hiển thị vocab có status pending (vì chưa có active)
+        params.status = "pending";
+
         console.log("API params:", params);
         
         const response = await VocabService.getVocabList(params);
         console.log("API response:", response.data);
+        console.log("🔍 Response vocabList:", response.data.vocabList);
+        console.log("🔍 Response data:", response.data);
         
         const filteredData = response.data.vocabList || response.data || [];
+        console.log("🔍 Filtered data:", filteredData);
+        console.log("🔍 Data length:", filteredData.length);
+        
+        // Debug: Log status và video URL của từng vocab
+        if (filteredData.length > 0) {
+          console.log("🔍 First vocab status:", filteredData[0].status);
+          console.log("🔍 First vocab videoLink:", filteredData[0].videoLink);
+          console.log("🔍 All vocab data:", filteredData.map(v => ({ 
+            id: v.id, 
+            vocab: v.vocab, 
+            status: v.status, 
+            videoLink: v.videoLink 
+          })));
+        }
+        
         setVocabularyData(filteredData);
         
         // Update pagination info
         if (response.data) {
+<<<<<<< HEAD
           setPaginationInfo({
             currentPage: response.data.currentPage || 0,
             totalPages: response.data.totalPages || 0,
@@ -162,6 +195,16 @@ export function DictionaryPageComponent() {
             hasNext: response.data.hasNext || false,
             hasPrevious: response.data.hasPrevious || false
           });
+=======
+                  setPaginationInfo({
+          currentPage: response.data.currentPage || 0,
+          totalPages: response.data.totalPages || 0,
+          totalElements: response.data.totalElements || 0,
+          pageSize: response.data.pageSize || 12,
+          hasNext: response.data.hasNext || false,
+          hasPrevious: response.data.hasPrevious || false
+        });
+>>>>>>> origin/QuocPMHE172252
         }
       } catch (error: any) {
         console.error("Error fetching vocabulary data:", error);
@@ -170,7 +213,11 @@ export function DictionaryPageComponent() {
           currentPage: 0,
           totalPages: 0,
           totalElements: 0,
+<<<<<<< HEAD
           pageSize: 40,
+=======
+          pageSize: 12,
+>>>>>>> origin/QuocPMHE172252
           hasNext: false,
           hasPrevious: false
         });
@@ -333,29 +380,58 @@ export function DictionaryPageComponent() {
                     {vocabularyData.map((vocab) => (
                       <div key={vocab.id} className="group cursor-pointer" onClick={() => handleVocabClick(vocab.id)}>
                         <div className="relative">
+
                           {/* Video Thumbnail */}
                           <div className="relative aspect-video bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300">
-                            {vocab.videoUrl ? (
+                            {vocab.videoLink ? (
                               <>
+                                {/* Show video thumbnail with seek to get full body */}
                                 <video 
                                   className="w-full h-full object-cover"
-                                  poster={vocab.thumbnailUrl}
                                   preload="metadata"
                                   muted
                                   playsInline
+                                  style={{ 
+                                    display: 'block',
+                                    width: '100%',
+                                    height: '100%',
+                                    backgroundColor: '#f0f0f0',
+                                    border: '2px solid #e0e0e0',
+                                    position: 'relative',
+                                    zIndex: 5,
+                                    minHeight: '200px'
+                                  }}
                                   onLoadedMetadata={(e) => {
                                     const video = e.target as HTMLVideoElement;
-                                    video.currentTime = 1; // Seek to 1 second to get a frame
+                                    // Try different times to find frame with full body
+                                    const times = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+                                    const randomTime = times[Math.floor(Math.random() * times.length)];
+                                    video.currentTime = randomTime;
+                                    console.log("🎬 Seeking to time:", randomTime, "for vocab:", vocab.vocab);
+                                  }}
+                                  onError={(e) => {
+                                    // Fallback to letter if video fails to load
+                                    const video = e.target as HTMLVideoElement;
+                                    video.style.display = 'none';
+                                    const parent = video.parentElement;
+                                    if (parent) {
+                                      const fallback = document.createElement('div');
+                                      fallback.className = 'absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center';
+                                      fallback.innerHTML = `<span class="text-4xl font-bold text-blue-600">${vocab.vocab.charAt(0).toUpperCase()}</span>`;
+                                      parent.appendChild(fallback);
+                                    }
                                   }}
                                 >
-                                  <source src={vocab.videoUrl} type="video/mp4" />
+                                  <source src={vocab.videoLink} type="video/mp4" />
                                 </video>
                                 {/* Fallback nếu video không có poster */}
                                 {!vocab.thumbnailUrl && (
-                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center" style={{ zIndex: 1 }}>
                                     <span className="text-4xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
                                   </div>
                                 )}
+                                
+
                               </>
                             ) : vocab.thumbnailUrl ? (
                               <img 
@@ -364,7 +440,7 @@ export function DictionaryPageComponent() {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                              <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
                                 <span className="text-4xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
                               </div>
                             )}
@@ -375,7 +451,6 @@ export function DictionaryPageComponent() {
                                 <Play className="w-6 h-6 text-blue-600 ml-1" />
                               </div>
                             </div>
-
                             {/* Region Tags - chỉ hiển thị region, bỏ topic */}
                             <div className="absolute top-2 left-2 flex gap-1">
                               {vocab.region && (
@@ -405,26 +480,53 @@ export function DictionaryPageComponent() {
                     {vocabularyData.map((vocab) => (
                       <div key={vocab.id} className="group cursor-pointer" onClick={() => handleVocabClick(vocab.id)}>
                         <div className="flex gap-4 items-center">
+
                           {/* Video Thumbnail */}
                           <div className="relative w-32 aspect-video bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300 flex-shrink-0">
-                            {vocab.videoUrl ? (
+                            {vocab.videoLink ? (
                               <>
+                                {/* Show video thumbnail with seek to get full body */}
                                 <video 
                                   className="w-full h-full object-cover"
-                                  poster={vocab.thumbnailUrl}
                                   preload="metadata"
                                   muted
                                   playsInline
+                                  style={{ 
+                                    display: 'block',
+                                    width: '100%',
+                                    height: '100%',
+                                    backgroundColor: '#f0f0f0',
+                                    border: '2px solid #e0e0e0',
+                                    position: 'relative',
+                                    zIndex: 5,
+                                    minHeight: '120px'
+                                  }}
                                   onLoadedMetadata={(e) => {
                                     const video = e.target as HTMLVideoElement;
-                                    video.currentTime = 1; // Seek to 1 second to get a frame
+                                    // Try different times to find frame with full body
+                                    const times = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+                                    const randomTime = times[Math.floor(Math.random() * times.length)];
+                                    video.currentTime = randomTime;
+                                    console.log("🎬 Seeking to time:", randomTime, "for vocab:", vocab.vocab);
+                                  }}
+                                  onError={(e) => {
+                                    // Fallback to letter if video fails to load
+                                    const video = e.target as HTMLVideoElement;
+                                    video.style.display = 'none';
+                                    const parent = video.parentElement;
+                                    if (parent) {
+                                      const fallback = document.createElement('div');
+                                      fallback.className = 'absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center';
+                                      fallback.innerHTML = `<span class="text-2xl font-bold text-blue-600">${vocab.vocab.charAt(0).toUpperCase()}</span>`;
+                                      parent.appendChild(fallback);
+                                    }
                                   }}
                                 >
-                                  <source src={vocab.videoUrl} type="video/mp4" />
+                                  <source src={vocab.videoLink} type="video/mp4" />
                                 </video>
                                 {/* Fallback nếu video không có poster */}
                                 {!vocab.thumbnailUrl && (
-                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center" style={{ zIndex: 1 }}>
                                     <span className="text-2xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
                                   </div>
                                 )}
@@ -436,7 +538,7 @@ export function DictionaryPageComponent() {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                              <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
                                 <span className="text-2xl font-bold text-blue-600">{vocab.vocab.charAt(0).toUpperCase()}</span>
                               </div>
                             )}

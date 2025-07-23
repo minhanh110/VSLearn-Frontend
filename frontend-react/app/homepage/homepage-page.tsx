@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { LearningPath } from "@/components/learning-path"
-import { RoleDebug } from "@/components/role-debug"
+
 import axiosInstance from "@/app/services/axios.config"
 import authService from "@/app/services/auth.service"
 import { FlashcardService } from "@/app/services/flashcard.service"
@@ -219,7 +219,7 @@ export default function HomePage() {
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} showMenuButton={true} />
       
       {/* Debug component to show current role */}
-      <RoleDebug />
+      
 
       {/* User Type Notification */}
       {userType === 'guest' && (

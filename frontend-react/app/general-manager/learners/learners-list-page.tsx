@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,56 +10,67 @@ import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import axios from "axios"
+
+interface Learner {
+  id: number
+  name: string
+  email: string
+  phone: string
+  status: string
+  joinDate: string
+  topicsCompleted: number
+  packagesOwned: number
+}
 
 const LearnersListPage = () => {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [learners, setLearners] = useState<Learner[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  // Mock data
-  const learners = [
-    {
-      id: "1",
-      name: "Nguyễn Văn An",
-      email: "an.nguyen@email.com",
-      phone: "0123456789",
-      status: "active",
-      joinDate: "2024-01-15",
-      topicsCompleted: 5,
-      packagesOwned: 2,
-    },
-    {
-      id: "2",
-      name: "Trần Thị Bình",
-      email: "binh.tran@email.com",
-      phone: "0987654321",
-      status: "inactive",
-      joinDate: "2024-01-10",
-      topicsCompleted: 3,
-      packagesOwned: 1,
-    },
-    {
-      id: "3",
-      name: "Lê Văn Cường",
-      email: "cuong.le@email.com",
-      phone: "0456789123",
-      status: "active",
-      joinDate: "2024-01-20",
-      topicsCompleted: 4,
-      packagesOwned: 1,
-    },
-    {
-      id: "4",
-      name: "Phạm Thị Dung",
-      email: "dung.pham@email.com",
-      phone: "0789123456",
-      status: "active",
-      joinDate: "2024-01-25",
-      topicsCompleted: 6,
-      packagesOwned: 2,
-    },
-  ]
+  // Fetch learners data from API
+  const fetchLearners = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        setError("Vui lòng đăng nhập để truy cập trang này")
+        setLoading(false)
+        return
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/learners`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log("API response:", response.data)
+      setLearners(response.data.content || response.data)
+    } catch (err: any) {
+      console.error("Error fetching learners:", err)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+      } else if (err.response?.status === 404) {
+        setError("API endpoint không tồn tại")
+      } else {
+        setError("Không thể tải dữ liệu learners: " + (err.response?.data?.message || err.message))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchLearners()
+  }, [])
+
+
 
   const filteredLearners = learners.filter((learner) => {
     const matchesSearch =
@@ -124,25 +135,50 @@ const LearnersListPage = () => {
               </div>
             </div>
           </div>
+          {/* Loading and Error States */}
+          {loading && (
+            <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+              <CardContent className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-gray-600 mt-2">Đang tải dữ liệu...</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {error && (
+            <Card className="border-0 shadow-lg bg-red-50/95 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <p className="text-red-600">{error}</p>
+                <Button 
+                  onClick={fetchLearners} 
+                  className="mt-2 bg-blue-600 hover:bg-blue-700"
+                >
+                  Thử lại
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {stats.map((stat, index) => (
-              <Card key={index} className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{stat.label}</p>
-                      <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+          {!loading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              {stats.map((stat, index) => (
+                <Card key={index} className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">{stat.label}</p>
+                        <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                      </div>
+                      <div className={`p-3 rounded-full ${stat.bg}`}>
+                        <Users className={`w-6 h-6 ${stat.color}`} />
+                      </div>
                     </div>
-                    <div className={`p-3 rounded-full ${stat.bg}`}>
-                      <Users className={`w-6 h-6 ${stat.color}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Search and Filters */}
           <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
@@ -176,7 +212,9 @@ const LearnersListPage = () => {
                     <Download className="w-4 h-4 mr-2" />
                     Xuất Excel
                   </Button>
-                  <Button className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg">
+                  <Button className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg"
+                    onClick={() => router.push('/general-manager/create-learner')}
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Thêm học viên
                   </Button>
@@ -186,14 +224,15 @@ const LearnersListPage = () => {
           </Card>
 
           {/* Learners Table */}
-          <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 rounded-t-lg">
-              <CardTitle className="text-lg font-bold text-blue-800 flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Danh sách học viên ({filteredLearners.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
+          {!loading && !error && (
+            <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-50/80 to-cyan-50/80 rounded-t-lg">
+                <CardTitle className="text-lg font-bold text-blue-800 flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Danh sách học viên ({filteredLearners.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-blue-50/50">
@@ -263,7 +302,12 @@ const LearnersListPage = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="text-emerald-600 hover:bg-emerald-100 p-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-emerald-600 hover:bg-emerald-100 p-2"
+                              onClick={() => router.push(`/general-manager/edit-learner?id=${learner.id}`)}
+                            >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-100 p-2">
@@ -296,6 +340,7 @@ const LearnersListPage = () => {
               </div>
             </CardContent>
           </Card>
+          )}
         </div>
       </main>
 

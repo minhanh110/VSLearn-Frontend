@@ -17,7 +17,6 @@ interface VocabularyDetail {
   description?: string
   videoLink?: string
   region?: string
-  meaning?: string
   status: string
   createdAt: string
   createdBy: number
@@ -72,6 +71,8 @@ export function VocabDetailPageComponent() {
       try {
         setLoading(true);
         const response = await VocabService.getVocabDetail(vocabId);
+        console.log("🔍 Vocab detail response:", response.data);
+        console.log("🔍 VideoLink:", response.data.videoLink);
         setVocabulary(response.data);
       } catch (error: any) {
         console.error("Error fetching vocab detail:", error);
@@ -89,16 +90,11 @@ export function VocabDetailPageComponent() {
     
     try {
       setLoading(true);
-      // API call to get same vocabulary with different region
-      const response = await VocabService.getVocabByWordAndRegion(vocabulary.vocab, region);
-      if (response.data) {
-        setVocabulary(response.data);
-      } else {
-        alert(`Không tìm thấy từ "${vocabulary.vocab}" cho vùng miền ${region}`);
-      }
+      // For now, just show an alert that this feature is not implemented
+      alert(`Tính năng chuyển đổi vùng miền cho từ "${vocabulary.vocab}" chưa được triển khai`);
     } catch (error) {
-      console.error("Error fetching vocab by region:", error);
-      alert(`Không tìm thấy từ "${vocabulary.vocab}" cho vùng miền ${region}`);
+      console.error("Error changing region:", error);
+      alert("Có lỗi xảy ra khi chuyển đổi vùng miền");
     } finally {
       setLoading(false);
     }
@@ -205,17 +201,33 @@ export function VocabDetailPageComponent() {
                 <div className="relative aspect-video bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden shadow-lg max-w-2xl mx-auto">
                   {vocabulary.videoLink ? (
                     <>
-                      <video
-                        ref={setVideoRef}
-                        className="w-full h-full object-cover"
-                        onPlay={() => setIsPlaying(true)}
-                        onPause={() => setIsPlaying(false)}
-                        controls
-                        preload="metadata"
-                      >
-                        <source src={vocabulary.videoLink} type="video/mp4" />
-                        Trình duyệt của bạn không hỗ trợ video.
-                      </video>
+                      {(() => {
+                        // Use signed URL directly from backend response like flashcard does
+                        const videoUrl = vocabulary.videoLink;
+                        console.log("🔍 Video URL:", videoUrl);
+                        return (
+                          <video
+                            ref={setVideoRef}
+                            className="w-full h-full object-cover"
+                            onPlay={() => setIsPlaying(true)}
+                            onPause={() => setIsPlaying(false)}
+                            controls
+                            preload="metadata"
+                            onError={(e) => {
+                              console.error("❌ Video error:", e);
+                              const video = e.target as HTMLVideoElement;
+                              console.error("❌ Video error details:", video.error);
+                              console.error("❌ Video networkState:", video.networkState);
+                              console.error("❌ Video readyState:", video.readyState);
+                            }}
+                            onLoadStart={() => console.log("🔍 Video loading started")}
+                            onCanPlay={() => console.log("✅ Video can play")}
+                          >
+                            <source src={videoUrl} type="video/mp4" />
+                            Trình duyệt của bạn không hỗ trợ video.
+                          </video>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
@@ -279,7 +291,7 @@ export function VocabDetailPageComponent() {
                   <label className="block text-sm font-bold text-gray-700 mb-3">Ý NGHĨA:</label>
                   <div className="relative">
                     <div className="w-full min-h-20 p-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium leading-relaxed">
-                      {vocabulary.meaning || "Chưa có ý nghĩa"}
+                      {vocabulary.description || "Chưa có ý nghĩa"}
                     </div>
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none"></div>
                   </div>

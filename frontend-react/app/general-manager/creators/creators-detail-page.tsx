@@ -9,33 +9,152 @@ import { ArrowLeft, Edit, Mail, Phone, Calendar, BookOpen, FileText, Clock, Chec
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import axios from "axios"
 
 interface CreatorsDetailPageProps {
   creatorId: string
+}
+interface Creator {
+  id: number
+  name: string
+  email: string
+  phone: string
+  status: string
+  joinDate: string
+  lastLogin: string
+  topicsCreated: number
+  vocabularyCreated: number
+  pendingApproval: number
+  approvedContent: number
+  rejectedContent: number
+  avatar: string
+  bio: string
+  specialization: string
 }
 
 const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [creator, setCreator] = useState<Creator | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data - in real app, fetch based on creatorId
-  const creator = {
-    id: creatorId,
-    name: "Phạm Thị Lan",
-    email: "lan.pham@email.com",
-    phone: "0123456789",
-    status: "active",
-    joinDate: "2024-01-10",
-    lastLogin: "2024-01-20 16:45",
-    topicsCreated: 25,
-    vocabularyCreated: 450,
-    pendingApproval: 8,
-    approvedContent: 17,
-    rejectedContent: 3,
-    avatar: "/images/whale-character.png",
-    bio: "Chuyên gia tạo nội dung tiếng Anh với 10 năm kinh nghiệm. Chuyên về tạo chủ đề giao tiếp và từ vựng cơ bản.",
-    specialization: "Tiếng Anh giao tiếp",
+  useEffect(() => {
+    const fetchCreatorDetails = async () => {
+      try {
+        setLoading(true)
+        const token = localStorage.getItem('token')
+        
+        if (!token) {
+          setError("Vui lòng đăng nhập để truy cập trang này")
+          setLoading(false)
+          return
+        }
+
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+        const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${creatorId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        const userData = response.data
+        const creatorData: Creator = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone || "N/A",
+          status: userData.status,
+          joinDate: userData.joinDate,
+          lastLogin: userData.lastLogin || "N/A",
+          topicsCreated: userData.topicsCreated || 0,
+          vocabularyCreated: userData.vocabularyCreated || 0,
+          pendingApproval: userData.pendingApproval || 0,
+          approvedContent: userData.approvedContent || 0,
+          rejectedContent: userData.rejectedContent || 0,
+          avatar: userData.avatar || "/images/whale-character.png",
+          bio: userData.bio || "N/A",
+          specialization: userData.specialization || "N/A",
+        }
+        
+        setCreator(creatorData)
+      } catch (err: any) {
+        console.error("Error fetching creator details:", err)
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+        } else if (err.response?.status === 404) {
+          setError("Không tìm thấy thông tin người tạo nội dung")
+        } else {
+          setError("Không thể tải thông tin người tạo nội dung: " + (err.response?.data?.message || err.message))
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (creatorId) {
+      fetchCreatorDetails()
+    }
+  }, [creatorId])
+
+  // Loading and Error States
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <main className="pt-20 pb-20 px-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-blue-600">Đang tải thông tin người tạo nội dung...</p>
+          </div>
+        </main>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <main className="pt-20 pb-20 px-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <p className="font-bold">Lỗi</p>
+              <p>{error}</p>
+            </div>
+            <Button 
+              onClick={() => router.push("/general-manager/creators")}
+              className="mt-4"
+            >
+              Quay lại danh sách
+            </Button>
+          </div>
+        </main>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      </div>
+    )
+  }
+
+  if (!creator) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <main className="pt-20 pb-20 px-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <p className="text-blue-600">Không tìm thấy thông tin người tạo nội dung</p>
+            <Button 
+              onClick={() => router.push("/general-manager/creators")}
+              className="mt-4"
+            >
+              Quay lại danh sách
+            </Button>
+          </div>
+        </main>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      </div>
+    )
   }
 
   const topics = [

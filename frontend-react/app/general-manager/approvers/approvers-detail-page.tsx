@@ -21,32 +21,150 @@ import {
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import axios from "axios"
 
 interface ApproversDetailPageProps {
   approverId: string
+}
+interface Approver {
+  id: number
+  name: string
+  email: string
+  phone: string
+  status: string
+  joinDate: string
+  lastLogin: string
+  topicsApproved: number
+  pendingReview: number
+  rejectedTopics: number
+  totalReviewed: number
+  avatar: string
+  bio: string
+  specialization: string
 }
 
 const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [approver, setApprover] = useState<Approver | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data - in real app, fetch based on approverId
-  const approver = {
-    id: approverId,
-    name: "Nguyễn Thị Hoa",
-    email: "hoa.nguyen@email.com",
-    phone: "0123456789",
-    status: "active",
-    joinDate: "2024-01-10",
-    lastLogin: "2024-01-20 16:45",
-    topicsApproved: 45,
-    pendingReview: 8,
-    rejectedTopics: 5,
-    totalReviewed: 58,
-    avatar: "/images/whale-character.png",
-    bio: "Chuyên gia duyệt nội dung với 8 năm kinh nghiệm trong lĩnh vực giáo dục. Chuyên về duyệt chủ đề tiếng Anh.",
-    specialization: "Tiếng Anh",
+  useEffect(() => {
+    const fetchApproverDetails = async () => {
+      try {
+        setLoading(true)
+        const token = localStorage.getItem('token')
+        
+        if (!token) {
+          setError("Vui lòng đăng nhập để truy cập trang này")
+          setLoading(false)
+          return
+        }
+
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+        const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${approverId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        const userData = response.data
+        const approverData: Approver = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone || "N/A",
+          status: userData.status,
+          joinDate: userData.joinDate,
+          lastLogin: userData.lastLogin || "N/A",
+          topicsApproved: userData.topicsApproved || 0,
+          pendingReview: userData.pendingReview || 0,
+          rejectedTopics: userData.rejectedTopics || 0,
+          totalReviewed: userData.totalReviewed || 0,
+          avatar: userData.avatar || "/images/whale-character.png",
+          bio: userData.bio || "N/A",
+          specialization: userData.specialization || "N/A",
+        }
+        
+        setApprover(approverData)
+      } catch (err: any) {
+        console.error("Error fetching approver details:", err)
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+        } else if (err.response?.status === 404) {
+          setError("Không tìm thấy thông tin người duyệt")
+        } else {
+          setError("Không thể tải thông tin người duyệt: " + (err.response?.data?.message || err.message))
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (approverId) {
+      fetchApproverDetails()
+    }
+  }, [approverId])
+
+  // Loading and Error States
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <main className="pt-20 pb-20 px-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-blue-600">Đang tải thông tin người duyệt...</p>
+          </div>
+        </main>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <main className="pt-20 pb-20 px-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <p className="font-bold">Lỗi</p>
+              <p>{error}</p>
+            </div>
+            <Button 
+              onClick={() => router.push("/general-manager/approvers")}
+              className="mt-4"
+            >
+              Quay lại danh sách
+            </Button>
+          </div>
+        </main>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      </div>
+    )
+  }
+
+  if (!approver) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <main className="pt-20 pb-20 px-4">
+          <div className="max-w-7xl mx-auto text-center">
+            <p className="text-blue-600">Không tìm thấy thông tin người duyệt</p>
+            <Button 
+              onClick={() => router.push("/general-manager/approvers")}
+              className="mt-4"
+            >
+              Quay lại danh sách
+            </Button>
+          </div>
+        </main>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      </div>
+    )
   }
 
   const topics = [

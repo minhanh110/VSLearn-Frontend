@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
 import { useUser } from "@/hooks/useUser"
+import { useUserRole } from "@/hooks/use-user-role"
 
 interface HeaderProps {
   onMenuToggle?: () => void
@@ -15,6 +16,18 @@ interface HeaderProps {
 export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false)
   const { userInfo, loading, isAuthenticated } = useUser()
+  const { role } = useUserRole()
+
+  // Map role sang tên tiếng Việt
+  const roleLabel = (() => {
+    switch (role) {
+      case 'general-manager': return 'Quản lý tổng';
+      case 'content-creator': return 'Người tạo nội dung';
+      case 'content-approver': return 'Duyệt nội dung';
+      case 'learner': return 'Học viên';
+      default: return 'Khách';
+    }
+  })();
 
   const truncateUsername = (name: string, maxLength = 15) => {
     if (!name || name.length <= maxLength) return name
@@ -35,7 +48,16 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
             <Button
               variant="ghost"
               size="sm"
+<<<<<<< HEAD
               onClick={onMenuToggle}
+=======
+              onClick={() => {
+                console.log("Menu button clicked in Header component");
+                if (onMenuToggle) {
+                  onMenuToggle();
+                }
+              }}
+>>>>>>> origin/QuocPMHE172252
               // Tăng lề âm để dịch chuyển sát hơn nữa về bên trái
               className="p-3 hidden lg:flex hover:bg-white/30 rounded-xl transition-all duration-300 ml-[-3rem]"
             >
@@ -114,7 +136,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                       <p className="font-semibold text-gray-800 text-sm">
                         {loading ? "Loading..." : truncateUsername(displayName, 20)}
                       </p>
-                      <p className="text-xs text-gray-500">Học viên</p>
+                      <p className="text-xs text-gray-500">{roleLabel}</p>
                     </div>
                   </div>
                 </div>

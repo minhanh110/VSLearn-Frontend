@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save, BookOpen, FileText } from "lucide-react"
 import { TopicService } from "@/app/services/topic.service"
+import { ApprovalNotice } from "@/components/approval-notice"
+import { StatusDisplay } from "@/components/status-display"
+import AsyncSelect from 'react-select/async';
+import { VocabService } from "@/app/services/vocab.service";
 
 interface StatusOption {
   value: string
@@ -29,9 +33,9 @@ export function TopicEditPageComponent() {
   const [formData, setFormData] = useState({
     topicName: "",
     isFree: true,
-    status: "",
     sortOrder: 0,
-    subtopics: [] as string[],
+    subtopics: [] as any[], // Thay đổi formData: subtopics là mảng object { subTopicName, sortOrder, vocabs: [{ vocab, vocabId, meaning }] }
+    status: "", // Chỉ để hiển thị trạng thái hiện tại
   })
 
   // Fetch status options
@@ -63,9 +67,16 @@ export function TopicEditPageComponent() {
         setFormData({
           topicName: topic.topicName || "",
           isFree: topic.isFree ?? true,
-          status: topic.status || "",
           sortOrder: topic.sortOrder ?? 0,
-          subtopics: [], // TODO: fetch subtopics if needed
+          subtopics: (topic.subtopics || []).map((sub: any) => ({
+            ...sub,
+            vocabs: (sub.vocabs || []).map((vocab: any) => ({
+              vocab: vocab.vocab,
+              meaning: vocab.meaning,
+              vocabId: vocab.id,
+            }))
+          })),
+          status: topic.status || "",
         })
       } catch (error) {
         alert("Không thể tải chi tiết chủ đề. Vui lòng thử lại!")
@@ -83,25 +94,70 @@ export function TopicEditPageComponent() {
     }))
   }
 
+  // Thêm các hàm quản lý subtopic/vocab giống trang add topic
+  const handleSubtopicChange = (subIdx: number, field: string, value: any) => {
+    setFormData(prev => {
+      const newSubtopics = [...prev.subtopics];
+      newSubtopics[subIdx] = {
+        ...newSubtopics[subIdx],
+        [field]: value,
+      };
+      return { ...prev, subtopics: newSubtopics };
+    });
+  };
+  const handleRemoveSubtopic = (subIdx: number) => {
+    setFormData(prev => {
+      const newSubtopics = prev.subtopics.filter((_, idx) => idx !== subIdx);
+      return { ...prev, subtopics: newSubtopics };
+    });
+  };
+  const handleAddSubtopic = () => {
+    setFormData(prev => ({
+      ...prev,
+      subtopics: [...prev.subtopics, { subTopicName: "", sortOrder: 0, vocabs: [] }],
+    }));
+  };
+  const handleVocabChange = (subIdx: number, vocabIdx: number, field: string, value: any) => {
+    setFormData(prev => {
+      const newSubtopics = [...prev.subtopics];
+      newSubtopics[subIdx].vocabs[vocabIdx] = {
+        ...newSubtopics[subIdx].vocabs[vocabIdx],
+        [field]: value,
+      };
+      return { ...prev, subtopics: newSubtopics };
+    });
+  };
+  const handleRemoveVocab = (subIdx: number, vocabIdx: number) => {
+    setFormData(prev => {
+      const newSubtopics = [...prev.subtopics];
+      newSubtopics[subIdx].vocabs = newSubtopics[subIdx].vocabs.filter((_, idx) => idx !== vocabIdx);
+      return { ...prev, subtopics: newSubtopics };
+    });
+  };
+  const handleAddVocab = (subIdx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      subtopics: prev.subtopics.map((sub, idx) =>
+        idx === subIdx ? { ...sub, vocabs: [...sub.vocabs, { vocab: "", meaning: "", vocabId: undefined }] } : sub
+      ),
+    }));
+  };
+
   const handleSubmit = async () => {
     if (!formData.topicName.trim()) {
       alert("Vui lòng nhập tên chủ đề!")
       return
     }
-    if (!formData.status) {
-      alert("Vui lòng chọn trạng thái!")
-      return
-    }
+    // Content Creator không cần chọn status, sẽ tự động chuyển về pending
     setIsSubmitting(true)
     try {
       await TopicService.updateTopic(topicId!, {
         topicName: formData.topicName,
         isFree: formData.isFree,
-        status: formData.status,
         sortOrder: formData.sortOrder,
         subtopics: formData.subtopics,
       })
-      alert("Cập nhật chủ đề thành công!")
+      alert("Cập nhật chủ đề thành công! Chủ đề đã được gửi để duyệt lại và sẽ hiển thị sau khi được phê duyệt.")
       router.push("/list-topics")
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
@@ -156,6 +212,9 @@ export function TopicEditPageComponent() {
                 <p className="text-gray-600 text-sm font-medium mb-2">CẬP NHẬT THÔNG TIN CHỦ ĐỀ</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
+
+              {/* Approval Notice */}
+              <ApprovalNotice type="edit" contentType="topic" />
               {/* Topic Name Input */}
               <div className="mb-8">
                 <div className="group">
@@ -175,28 +234,114 @@ export function TopicEditPageComponent() {
                   </div>
                 </div>
               </div>
-              {/* Status Selection */}
+              {/* Status Display (Read-only for Content Creator) */}
               <div className="mb-8">
                 <div className="group">
                   <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
                     <FileText className="w-4 h-4 text-blue-500" />
-                    TRẠNG THÁI <span className="text-red-500">*</span>
+                    TRẠNG THÁI HIỆN TẠI
                   </label>
                   <div className="relative">
-                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                      <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                        <SelectValue placeholder="Chọn trạng thái..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="w-full h-14 px-4 border-2 border-gray-200 rounded-2xl bg-gray-50 flex items-center justify-center">
+                      {formData.status ? (
+                        <StatusDisplay status={formData.status} />
+                      ) : (
+                        <span className="text-gray-500">Chưa có trạng thái</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      * Trạng thái sẽ tự động chuyển về "Đang kiểm duyệt" sau khi cập nhật
+                    </div>
                   </div>
+                </div>
+              </div>
+              {/* Subtopics and Vocabs */}
+              <div className="mb-8">
+                <div className="group">
+                  <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    CHỦ ĐỀ PHỤ
+                  </label>
+                  {formData.subtopics.map((sub, subIdx) => (
+                    <div key={subIdx} className="bg-white/80 p-4 rounded-2xl shadow-sm border border-blue-100/50 mb-4">
+                      <div className="grid grid-cols-12 gap-4 mb-2 items-end">
+                        <div className="col-span-7 flex flex-col">
+                          <span className="text-xs text-gray-400 mb-1">Tên chủ đề phụ</span>
+                          <Input
+                            type="text"
+                            value={sub.subTopicName}
+                            onChange={e => handleSubtopicChange(subIdx, "subTopicName", e.target.value)}
+                            placeholder="Tên chủ đề phụ..."
+                            className="border-blue-200 rounded-xl h-12"
+                          />
+                        </div>
+                        <div className="col-span-3 flex flex-col">
+                          <span className="text-xs text-gray-400 mb-1">Thứ tự hiển thị chủ đề phụ, số nhỏ sẽ lên trên</span>
+                          <Input
+                            type="number"
+                            value={sub.sortOrder}
+                            onChange={e => handleSubtopicChange(subIdx, "sortOrder", Number(e.target.value))}
+                            placeholder="Thứ tự"
+                            className="w-full border-blue-200 rounded-xl h-12 text-center"
+                            min={0}
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-end justify-end">
+                          <Button variant="destructive" onClick={() => handleRemoveSubtopic(subIdx)} size="sm">Xóa</Button>
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="font-semibold text-blue-700 mb-2">Từ vựng</div>
+                        {sub.vocabs && sub.vocabs.length > 0 && sub.vocabs.map((vocab, vocabIdx) => (
+                          <div key={vocabIdx} className="flex items-center gap-3 mb-2">
+                            <div className="flex-1">
+                              <AsyncSelect
+                                cacheOptions
+                                defaultOptions
+                                loadOptions={async (inputValue) => {
+                                  console.log("loadOptions called with:", inputValue);
+                                  if (!inputValue || inputValue.trim().length < 1) return [];
+                                  const res = await VocabService.getVocabList({ status: "active", search: inputValue, size: 20 });
+                                  const list = res.data.vocabList || res.data || [];
+                                  console.log("API vocab list response:", list);
+                                  return list
+                                    .filter(v => v.vocab && v.vocab.toLowerCase().includes(inputValue.toLowerCase()))
+                                    .map(v => ({
+                                      value: v.id,
+                                      label: v.vocab + (v.meaning ? ` - ${v.meaning}` : ""),
+                                      vocab: v.vocab,
+                                      meaning: v.meaning,
+                                      id: v.id,
+                                    }));
+                                }}
+                                onChange={option => {
+                                  if (option) {
+                                    handleVocabChange(subIdx, vocabIdx, "vocab", option.vocab);
+                                    handleVocabChange(subIdx, vocabIdx, "meaning", option.meaning);
+                                    handleVocabChange(subIdx, vocabIdx, "vocabId", option.id);
+                                  } else {
+                                    handleVocabChange(subIdx, vocabIdx, "vocab", "");
+                                    handleVocabChange(subIdx, vocabIdx, "meaning", "");
+                                    handleVocabChange(subIdx, vocabIdx, "vocabId", undefined);
+                                  }
+                                }}
+                                isClearable
+                                placeholder="Tìm và chọn từ vựng đã duyệt..."
+                                value={vocab.vocabId ? { value: vocab.vocabId, label: vocab.vocab + (vocab.meaning ? ` - ${vocab.meaning}` : "") } : null}
+                                styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                              />
+                            </div>
+                            {vocab.meaning && (
+                              <div className="flex-1 text-gray-700 italic text-sm pl-2">{vocab.meaning}</div>
+                            )}
+                            <Button variant="destructive" onClick={() => handleRemoveVocab(subIdx, vocabIdx)} size="sm">Xóa</Button>
+                          </div>
+                        ))}
+                        <Button onClick={() => handleAddVocab(subIdx)} size="sm" className="mt-2">+ Thêm từ vựng</Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button onClick={handleAddSubtopic} className="mt-4">+ Thêm chủ đề phụ</Button>
                 </div>
               </div>
               {/* Action Buttons */}

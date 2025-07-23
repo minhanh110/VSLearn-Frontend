@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import { Plus, ArrowLeft, BookOpen, FileText } from "lucide-react"
 import { TopicService } from "@/app/services/topic.service";
+import { ApprovalNotice } from "@/components/approval-notice";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { debounce } from "lodash"
+import { VocabService } from "@/app/services/vocab.service";
+import AsyncSelect from 'react-select/async';
 
 export function CreateTopicPageComponent() {
   const router = useRouter()
@@ -19,9 +24,10 @@ export function CreateTopicPageComponent() {
   const [formData, setFormData] = useState({
     topicName: "",
     isFree: true,
-    status: "active",
     sortOrder: 0,
-    subtopics: [] as string[],
+    subtopics: [
+      // { subTopicName: "", sortOrder: 0, vocabs: [ { vocab: "", meaning: "" } ] }
+    ],
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -32,42 +38,70 @@ export function CreateTopicPageComponent() {
   }
 
   const handleAddSubtopic = () => {
-    // Handle adding subtopic
-    console.log("Add subtopic")
-  }
+    setFormData((prev) => ({
+      ...prev,
+      subtopics: [
+        ...prev.subtopics,
+        { subTopicName: "", sortOrder: 0, vocabs: [] }, // vocabs là mảng rỗng
+      ],
+    }));
+  };
+  const handleRemoveSubtopic = (idx: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      subtopics: prev.subtopics.filter((_, i) => i !== idx),
+    }));
+  };
+  const handleSubtopicChange = (idx: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics];
+      subtopics[idx] = { ...subtopics[idx], [field]: value };
+      return { ...prev, subtopics };
+    });
+  };
+  const handleAddVocab = (subIdx: number) => {
+    const subtopics = [...formData.subtopics];
+    subtopics[subIdx].vocabs = [
+      ...(subtopics[subIdx].vocabs || []),
+      { vocab: "", meaning: "" },
+    ];
+    setFormData({ ...formData, subtopics });
+  };
+  const handleRemoveVocab = (subIdx: number, vocabIdx: number) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics];
+      subtopics[subIdx].vocabs = subtopics[subIdx].vocabs.filter((_, i) => i !== vocabIdx);
+      return { ...prev, subtopics };
+    });
+  };
+  // Sửa handleVocabChange để lưu cả id, vocab, meaning
+  const handleVocabChange = (subIdx: number, vocabIdx: number, field: string, value: any) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics];
+      const vocabs = [...(subtopics[subIdx].vocabs || [])];
+      vocabs[vocabIdx] = { ...vocabs[vocabIdx], [field]: value };
+      subtopics[subIdx].vocabs = vocabs;
+      return { ...prev, subtopics };
+    });
+  };
 
   const handleSubmit = async () => {
-    // Validate required fields
     if (!formData.topicName.trim()) {
-      alert("Vui lòng nhập tên chủ đề!")
-      return
+      alert("Vui lòng nhập tên chủ đề!");
+      return;
     }
-
-    setIsSubmitting(true)
-
+    setIsSubmitting(true);
     try {
-      await TopicService.createTopic({
-        topicName: formData.topicName,
-        isFree: formData.isFree,
-        status: formData.status,
-        sortOrder: formData.sortOrder,
-        subtopics: formData.subtopics,
-      });
-      alert("Thêm chủ đề thành công!")
-      setFormData({
-        topicName: "",
-        isFree: true,
-        status: "active",
-        sortOrder: 0,
-        subtopics: [],
-      })
-      router.push("/list-topics")
+      await TopicService.createTopic(formData);
+      alert("Thêm chủ đề thành công! Chủ đề đã được gửi để duyệt và sẽ hiển thị sau khi được phê duyệt.");
+      setFormData({ topicName: "", isFree: true, sortOrder: 0, subtopics: [] });
+      router.push("/list-topics");
     } catch (error: any) {
-      alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
+      alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleGoBack = () => {
     router.back()
@@ -113,6 +147,9 @@ export function CreateTopicPageComponent() {
                 <p className="text-gray-600 text-sm font-medium mb-2">CHI TIẾT CHỦ ĐỀ</p>
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
+
+              {/* Approval Notice */}
+              <ApprovalNotice type="create" contentType="topic" />
 
               {/* Topic Name Input */}
               <div className="mb-8">
@@ -164,7 +201,90 @@ export function CreateTopicPageComponent() {
               <div className="mb-8">
                 {activeTab === "subtopics" && (
                   <div className="relative">
-                    <div className="min-h-64 p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
+                    <div className="min-h-64 p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm flex flex-col gap-8">
+                      {formData.subtopics.map((sub, subIdx) => (
+                        <div key={subIdx} className="w-full bg-blue-50/60 rounded-2xl p-6 shadow-sm border border-blue-100 mb-4">
+                          <div className="grid grid-cols-12 gap-4 mb-2 items-end">
+                            <div className="col-span-7 flex flex-col">
+                              <span className="text-xs text-gray-400 mb-1">Tên chủ đề phụ</span>
+                              <Input
+                                type="text"
+                                value={sub.subTopicName}
+                                onChange={e => handleSubtopicChange(subIdx, "subTopicName", e.target.value)}
+                                placeholder="Tên chủ đề phụ..."
+                                className="border-blue-200 rounded-xl h-12"
+                              />
+                            </div>
+                            <div className="col-span-3 flex flex-col">
+                              <span className="text-xs text-gray-400 mb-1">Thứ tự hiển thị chủ đề phụ, số nhỏ sẽ lên trên</span>
+                              <Input
+                                type="number"
+                                value={sub.sortOrder}
+                                onChange={e => handleSubtopicChange(subIdx, "sortOrder", Number(e.target.value))}
+                                placeholder="Thứ tự"
+                                className="w-full border-blue-200 rounded-xl h-12 text-center"
+                                min={0}
+                              />
+                            </div>
+                            <div className="col-span-2 flex items-end justify-end">
+                              <Button variant="destructive" onClick={() => handleRemoveSubtopic(subIdx)} size="sm">Xóa</Button>
+                            </div>
+                          </div>
+                          {/* Vocab list for this subtopic */}
+                          <div className="ml-4">
+                            <div className="font-semibold text-blue-700 mb-2">Từ vựng</div>
+                            {sub.vocabs && sub.vocabs.length > 0 && sub.vocabs.map((vocab, vocabIdx) => {
+                              return (
+                                <div key={vocabIdx} className="flex items-center gap-3 mb-2">
+                                  <div className="flex-1">
+                                    <AsyncSelect
+                                      cacheOptions
+                                      defaultOptions
+                                      loadOptions={async (inputValue) => {
+                                        console.log("loadOptions called with:", inputValue);
+                                        if (!inputValue || inputValue.trim().length < 1) return [];
+                                        const res = await VocabService.getVocabList({ status: "active", search: inputValue, size: 20 });
+                                        const list = res.data.vocabList || res.data || [];
+                                        console.log("API vocab list response:", list);
+                                        return list
+                                          .filter(v => v.vocab && v.vocab.toLowerCase().includes(inputValue.toLowerCase()))
+                                          .map(v => ({
+                                            value: v.id,
+                                            label: v.vocab + (v.meaning ? ` - ${v.meaning}` : ""),
+                                            vocab: v.vocab,
+                                            meaning: v.meaning,
+                                            id: v.id,
+                                          }));
+                                      }}
+                                      onChange={option => {
+                                        if (option) {
+                                          handleVocabChange(subIdx, vocabIdx, "vocab", option.vocab);
+                                          handleVocabChange(subIdx, vocabIdx, "meaning", option.meaning);
+                                          handleVocabChange(subIdx, vocabIdx, "vocabId", option.id);
+                                        } else {
+                                          handleVocabChange(subIdx, vocabIdx, "vocab", "");
+                                          handleVocabChange(subIdx, vocabIdx, "meaning", "");
+                                          handleVocabChange(subIdx, vocabIdx, "vocabId", undefined);
+                                        }
+                                      }}
+                                      isClearable
+                                      placeholder="Tìm và chọn từ vựng đã duyệt..."
+                                      value={vocab.vocabId ? { value: vocab.vocabId, label: vocab.vocab + (vocab.meaning ? ` - ${vocab.meaning}` : "") } : null}
+                                      styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                                    />
+                                  </div>
+                                  {/* Ẩn hoặc chỉ hiển thị nghĩa, không cho nhập */}
+                                  {vocab.meaning && (
+                                    <div className="flex-1 text-gray-700 italic text-sm pl-2">{vocab.meaning}</div>
+                                  )}
+                                  <Button variant="destructive" onClick={() => handleRemoveVocab(subIdx, vocabIdx)} size="sm">Xóa</Button>
+                                </div>
+                              );
+                            })}
+                            <Button onClick={() => handleAddVocab(subIdx)} size="sm" className="mt-2">+ Thêm từ vựng</Button>
+                          </div>
+                        </div>
+                      ))}
                       <Button
                         onClick={handleAddSubtopic}
                         className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 overflow-hidden"
