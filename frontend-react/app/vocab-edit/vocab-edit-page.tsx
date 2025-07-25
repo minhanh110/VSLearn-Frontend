@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, BookOpen, Globe, FileText, Video, Save } from "lucide-react"
 import { VocabService } from "@/app/services/vocab.service";
+import { ApprovalNotice } from "@/components/approval-notice";
+import { StatusDisplay } from "@/components/status-display";
 
 interface VocabularyDetail {
   id: number
@@ -39,19 +41,15 @@ export function VocabEditPageComponent() {
   // Form state
   const [formData, setFormData] = useState({
     vocab: "",
-    topicId: "",
-    subTopicId: "",
     region: "",
     description: "",
     videoLink: "",
-    status: "active",
     meaning: "",
+    status: "",
   })
 
   // Dynamic data
-  const [topics, setTopics] = useState<{ value: string, label: string, id: string | number }[]>([])
   const [regions, setRegions] = useState<{ value: string, label: string }[]>([])
-  const [subTopics, setSubTopics] = useState<{ value: string, label: string, id: string | number }[]>([])
 
   // Fetch vocabulary detail on mount
   useEffect(() => {
@@ -70,13 +68,11 @@ export function VocabEditPageComponent() {
         // Set form data with existing vocabulary data
         setFormData({
           vocab: vocab.vocab || "",
-          topicId: "", // Will be set after fetching topics
-          subTopicId: "", // Will be set after fetching subtopics
           region: vocab.region || "",
           description: vocab.description || "",
           videoLink: vocab.videoLink || "",
-          status: vocab.status || "active",
           meaning: vocab.meaning || "",
+          status: vocab.status || "", // Hiển thị trạng thái hiện tại
         })
       } catch (error: any) {
         console.error("Error fetching vocab detail:", error)
@@ -90,18 +86,8 @@ export function VocabEditPageComponent() {
     fetchVocabDetail()
   }, [vocabId, router])
 
-  // Fetch topics and regions on mount
+  // Fetch regions on mount
   useEffect(() => {
-    // Fetch topics
-    fetch("http://localhost:8080/api/v1/vocab/topics")
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label, id: t.id })));
-        }
-      })
-      .catch(() => setTopics([]));
-    
     // Fetch regions
     fetch("http://localhost:8080/api/v1/vocab/regions")
       .then(res => res.json())
@@ -113,23 +99,6 @@ export function VocabEditPageComponent() {
       .catch(() => setRegions([]));
   }, []);
 
-  // Fetch subtopics when topic changes
-  useEffect(() => {
-    if (!formData.topicId) {
-      setSubTopics([]);
-      setFormData(f => ({ ...f, subTopicId: "" }));
-      return;
-    }
-    fetch(`http://localhost:8080/api/v1/flashcards/topic/${formData.topicId}/subtopics`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setSubTopics(data.map((st: any) => ({ value: st.id?.toString() || st.value, label: st.name || st.label, id: st.id })));
-        }
-      })
-      .catch(() => setSubTopics([]));
-  }, [formData.topicId]);
-
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -137,33 +106,50 @@ export function VocabEditPageComponent() {
     }))
   }
 
+  // Thêm hàm upload video
+  const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await fetch("/api/v1/vocab/upload-video", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (data.videoUrl) {
+        setFormData(prev => ({ ...prev, videoLink: data.videoUrl }));
+        alert("Upload video thành công!");
+      } else {
+        alert("Upload video thất bại!");
+      }
+    } catch {
+      alert("Upload video thất bại!");
+    }
+  };
+
   const handleSubmit = async () => {
     // Validate required fields
     if (!formData.vocab.trim()) {
       alert("Vui lòng nhập tên từ vựng!")
       return
     }
-    if (!formData.topicId) {
-      alert("Vui lòng chọn chủ đề!")
-      return
-    }
-    if (!formData.subTopicId) {
-      alert("Vui lòng chọn chủ đề phụ!")
+    if (!formData.region) {
+      alert("Vui lòng chọn khu vực!")
       return
     }
     setIsSubmitting(true)
     try {
-      await VocabService.updateVocab(vocabId!, {
+      const payload: any = {
         vocab: formData.vocab,
-        topicId: formData.topicId,
-        subTopicId: formData.subTopicId,
         region: formData.region,
         description: formData.description,
         videoLink: formData.videoLink,
-        status: formData.status,
         meaning: formData.meaning,
-      });
-      alert("Cập nhật từ vựng thành công!")
+      };
+      await VocabService.updateVocab(vocabId!, payload);
+      alert("Cập nhật từ vựng thành công! Từ vựng đã được gửi để duyệt lại và sẽ hiển thị sau khi được phê duyệt.")
       router.push(`/vocab-detail?id=${vocabId}`)
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
@@ -228,192 +214,91 @@ export function VocabEditPageComponent() {
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
 
+              {/* Approval Notice */}
+              <ApprovalNotice type="edit" contentType="vocab" />
+
               {/* Form Fields in grid layout */}
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Left Column */}
-                <div className="space-y-6">
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleSubmit();
+                }}
+                className="w-full max-w-3xl mx-auto mt-8"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Tên từ vựng */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      TÊN TỪ VỰNG <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        value={formData.vocab}
-                        onChange={(e) => handleInputChange("vocab", e.target.value)}
-                        placeholder="Nhập tên từ vựng..."
-                        className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300"
-                      />
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">TÊN TỪ VỰNG <span className="text-red-500">*</span></label>
+                    <Input
+                      type="text"
+                      value={formData.vocab}
+                      onChange={e => handleInputChange("vocab", e.target.value)}
+                      placeholder="Nhập tên từ vựng..."
+                      className="w-full border-blue-200 rounded-xl"
+                    />
                   </div>
-
-                  {/* Chủ đề */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                      CHỦ ĐỀ <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Select value={formData.topicId} onValueChange={(value) => handleInputChange("topicId", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn chủ đề..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          {topics.map((topic) => (
-                            <SelectItem key={topic.value} value={topic.value} className="hover:bg-blue-50">
-                              {topic.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
+                  {/* Nghĩa của từ */}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">NGHĨA CỦA TỪ</label>
+                    <Textarea
+                      value={formData.meaning}
+                      onChange={e => handleInputChange("meaning", e.target.value)}
+                      placeholder="Nhập nghĩa của từ..."
+                      className="w-full border-blue-200 rounded-xl min-h-[48px]"
+                    />
                   </div>
-
-                  {/* Chủ đề phụ */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                      CHỦ ĐỀ PHỤ <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Select value={formData.subTopicId} onValueChange={(value) => handleInputChange("subTopicId", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn chủ đề phụ..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          {subTopics.map((subTopic) => (
-                            <SelectItem key={subTopic.value} value={subTopic.value} className="hover:bg-blue-50">
-                              {subTopic.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                  </div>
-
                   {/* Khu vực */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <Globe className="w-4 h-4 text-blue-500" />
-                      KHU VỰC
-                    </label>
-                    <div className="relative">
-                      <Select value={formData.region} onValueChange={(value) => handleInputChange("region", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn khu vực..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          {regions.map((region) => (
-                            <SelectItem key={region.value} value={region.value} className="hover:bg-blue-50">
-                              {region.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">KHU VỰC <span className="text-red-500">*</span></label>
+                    <Select value={formData.region} onValueChange={val => handleInputChange("region", val)}>
+                      <SelectTrigger className="w-full h-14 border-2 border-blue-200/60 rounded-2xl bg-white/90 text-gray-700 font-medium">
+                        <SelectValue placeholder="Chọn khu vực..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-blue-200 shadow-xl">
+                        {regions.map(region => (
+                          <SelectItem key={region.value} value={region.value} className="rounded-lg">
+                            {region.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-6">
-                  {/* Ý nghĩa */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      Ý NGHĨA
-                    </label>
-                    <div className="relative">
-                      <Textarea
-                        value={formData.meaning}
-                        onChange={(e) => handleInputChange("meaning", e.target.value)}
-                        placeholder="Nhập ý nghĩa từ vựng..."
-                        className="w-full min-h-[120px] px-4 py-3 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300 resize-none"
-                      />
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                  </div>
-
-                  {/* Mô tả */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <FileText className="w-4 h-4 text-blue-500" />
-                      MÔ TẢ
-                    </label>
-                    <div className="relative">
-                      <Textarea
-                        value={formData.description}
-                        onChange={(e) => handleInputChange("description", e.target.value)}
-                        placeholder="Nhập mô tả từ vựng..."
-                        className="w-full min-h-[120px] px-4 py-3 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300 resize-none"
-                      />
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                  </div>
-
                   {/* Link video */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <Video className="w-4 h-4 text-blue-500" />
-                      LINK VIDEO
-                    </label>
-                    <div className="relative">
-                      <Input
-                        type="url"
-                        value={formData.videoLink}
-                        onChange={(e) => handleInputChange("videoLink", e.target.value)}
-                        placeholder="Nhập link video..."
-                        className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300"
-                      />
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
-                  </div>
-
-                  {/* Trạng thái */}
-                  <div className="group">
-                    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                      TRẠNG THÁI
-                    </label>
-                    <div className="relative">
-                      <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                        <SelectTrigger className="w-full h-14 px-4 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-700 font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md group-hover:border-blue-300">
-                          <SelectValue placeholder="Chọn trạng thái..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white/95 backdrop-blur-lg border border-blue-200/60 rounded-2xl shadow-lg">
-                          <SelectItem value="active" className="hover:bg-blue-50">Hoạt động</SelectItem>
-                          <SelectItem value="inactive" className="hover:bg-blue-50">Không hoạt động</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">VIDEO (upload file)</label>
+                    <Input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoChange}
+                      className="w-full border-blue-200 rounded-xl mb-2"
+                    />
+                    {formData.videoLink && (
+                      <video src={formData.videoLink} controls width={300} className="mt-2 rounded-xl" />
+                    )}
                   </div>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 mt-10 justify-center">
-                <Button
-                  onClick={handleGoBack}
-                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  QUAY LẠI
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Save className="w-5 h-5" />
-                  {isSubmitting ? "ĐANG CẬP NHẬT..." : "CẬP NHẬT"}
-                </Button>
-              </div>
+                {/* Mô tả (full width) */}
+                <div className="mt-6">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">MÔ TẢ</label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={e => handleInputChange("description", e.target.value)}
+                    placeholder="Mô tả điền vào đây..."
+                    className="w-full border-blue-200 rounded-xl min-h-[48px]"
+                    maxLength={500}
+                  />
+                  <div className="text-right text-xs text-gray-400 mt-1">{formData.description.length}/500 ký tự</div>
+                </div>
+                {/* Nút hành động */}
+                <div className="flex justify-between mt-8">
+                  <Button type="button" variant="secondary" onClick={() => router.back()}>
+                    QUAY LẠI
+                  </Button>
+                  <Button type="submit" className="bg-gradient-to-r from-blue-400 to-cyan-400 text-white font-bold px-8 py-3 rounded-2xl shadow-lg hover:shadow-xl">
+                    LƯU
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

@@ -14,11 +14,7 @@ import type { Flashcard } from "@/app/services/flashcard.service"
 import { FlashcardService, type SentenceBuildingQuestion } from "@/app/services/flashcard.service"
 import authService from "@/app/services/auth.service"
 
-interface FlashcardPageProps {
-  subtopicId?: string
-}
-
-export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardPageProps) {
+export default function FlashcardPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -29,8 +25,8 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Get parameters from props or URL
-  const subtopicId = propSubtopicId || searchParams.get("subtopicId") || searchParams.get("id") || ""
+  // Get parameters from URL
+  const subtopicId = searchParams.get("subtopicId") || searchParams.get("id") || ""
   const mode = searchParams.get("mode") || "flashcard"
   const userId = searchParams.get("userId") || "default-user"
 
@@ -40,23 +36,19 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     console.log("🔍 subtopicId:", subtopicId)
     console.log("🔍 isAuthenticated:", authService.isAuthenticated())
 
-    // Allow guest users to access flashcard for the first topic only
+    // Allow guest users to access flashcard for the first topic
+    // Guest users can learn the first topic without authentication
     if (!authService.isAuthenticated()) {
-      const subtopicIdNum = Number.parseInt(subtopicId)
-      if (subtopicIdNum >= 1 && subtopicIdNum <= 2) {
-        console.log("👤 Guest user accessing first topic flashcard - allowing access")
-      } else {
-        console.log("🚫 Guest user trying to access restricted content - redirecting to login")
-        router.push("/login?returnUrl=" + encodeURIComponent(window.location.pathname))
-        return
-      }
+      // For guest users, we'll allow access to flashcard
+      // The backend will handle guest user logic
+      console.log("👤 Guest user accessing flashcard - allowing access")
     } else {
       console.log("👤 Authenticated user accessing flashcard")
     }
     setIsLoading(false)
   }, [router, subtopicId])
 
-  // Use custom hook for flashcard logic
+  // Sử dụng custom hook để quản lý logic
   const {
     flashcards,
     isLoading: flashcardLoading,
@@ -64,8 +56,10 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     nextSubtopicInfo,
     timeline,
     timelinePos,
+    showCompletionPopup,
     showTransitionPopup,
     showPracticeTransitionModal,
+    setShowCompletionPopup,
     setShowTransitionPopup,
     setShowPracticeTransitionModal,
     nextStep,
@@ -74,7 +68,9 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     handlePracticeTransitionContinue,
     handlePracticeTransitionReview,
     handlePracticeTransitionClose,
+    handleCompletionRetry,
     handleCompletionNext,
+    handleCompletionClose,
     isLastFlashcard,
     isLastPractice,
     getCurrentStep,
@@ -86,10 +82,10 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     markPracticeCompleted,
   } = useFlashcardLogic(subtopicId)
 
-  // Create key to force re-render when subtopicId changes
+  // Tạo key để force re-render khi subtopicId thay đổi
   const componentKey = useMemo(() => `flashcard-${subtopicId}`, [subtopicId])
 
-  // Reset videoError when flashcard changes
+  // Reset videoError khi flashcard thay đổi
   useEffect(() => {
     setVideoError(false)
   }, [timelinePos])
@@ -113,18 +109,26 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
     }
   }, [subtopicId])
 
+  // Debug showCompletionPopup changes
+  useEffect(() => {
+    console.log("🔄 showCompletionPopup state changed to:", showCompletionPopup)
+  }, [showCompletionPopup])
+
   const toggleFlip = () => {
     setIsFlipped(!isFlipped)
   }
 
   const handlePracticeComplete = () => {
+    // Mark practice as completed
     markPracticeCompleted()
 
     if (isLastPractice()) {
+      // Nếu là practice cuối cùng, chuyển sang bước tiếp theo thay vì chỉ hiển thị modal
       console.log("🎯 Last practice completed, moving to next step")
       nextStep()
       setIsFlipped(false)
 
+      // Kiểm tra xem có còn bước nào không, nếu không thì chuyển đến trang completion
       setTimeout(async () => {
         const currentStep = getCurrentStep()
         if (!currentStep) {
@@ -141,13 +145,12 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
   const handleVideoError = () => {
     setVideoError(true)
     console.warn("Video failed to load, showing fallback")
+    console.warn("This might be due to expired signed URL or network issues")
   }
 
   const handleSentenceBuilding = () => {
-    const topicId = subtopicInfo?.topicId
-    if (topicId) {
-      router.push(`/practice?topicId=${topicId}&mode=sentence-building`)
-    }
+    // Chuyển sang trang practice với sentence building
+    router.push(`/practice?lessonId=${subtopicId}&mode=sentence-building`)
   }
 
   // Show loading while checking authentication
@@ -179,6 +182,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
 
     if (currentStep?.type === "practice") {
       const practiceCards = getPracticeCards()
+      const isLastPracticeStep = isLastPractice()
 
       return (
         <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden flex flex-col">
@@ -189,21 +193,20 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
             <div className="absolute top-40 left-1/4 w-4 h-4 text-green-300 animate-pulse">⭐</div>
             <div className="absolute bottom-40 left-16 w-5 h-5 text-pink-300 animate-pulse">⭐</div>
             <div className="absolute bottom-32 right-20 w-6 h-6 text-yellow-300 animate-bounce">⭐</div>
-
-            {/* Animated Study Mascot for Practice Mode - Bottom Left */}
-            <div className="absolute bottom-20 left-4 lg:bottom-12 lg:left-8 animate-bounce z-20">
-              <Image
-                src="/images/study-mascot-new.png"
-                alt="Study mascot"
-                width={80}
-                height={80}
-                className="object-contain lg:w-36 lg:h-36 opacity-75 hover:opacity-100 transition-opacity duration-300"
-              />
-            </div>
           </div>
 
+          <div className="absolute bottom-20 left-4 lg:bottom-12 lg:left-8 animate-bounce z-20">
+            <Image
+              src="/images/study-mascot-new.png"
+              alt="Study mascot"
+              width={80}
+              height={80}
+              className="object-contain lg:w-36 lg:h-36 opacity-75 hover:opacity-100 transition-opacity duration-300"
+            />
+          </div>
+          {/* Header */}
           <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
-
+          {/* Main Content */}
           <div className="flex-1 px-4 pb-4 pt-16 relative z-10 min-h-0 flex flex-col justify-center items-center">
             <PracticeGroup
               practiceCards={practiceCards}
@@ -212,9 +215,9 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
               subtopicId={subtopicId}
             />
           </div>
-
           <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
+          {/* Practice Transition Modal */}
           <PracticeTransitionModal
             isOpen={showPracticeTransitionModal}
             onClose={handlePracticeTransitionClose}
@@ -240,31 +243,32 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
       // Nút Next hiển thị nếu không phải là flashcard cuối cùng của lượt flashcard liên tiếp
       const showNextButton = timelinePos < timeline.length - 1 && timeline[timelinePos + 1]?.type === "flashcard"
 
+      // Debug log để xem dữ liệu
+      console.log("🔍 Current flashcard data:", currentFlashcard)
+      console.log("  - Front type:", currentFlashcard?.front.type)
+      console.log("  - Front content:", currentFlashcard?.front.content)
+      console.log("  - Is video type:", currentFlashcard?.front.type === "video")
+      console.log("  - Contains .mp4:", currentFlashcard?.front.content?.includes(".mp4"))
+      console.log(
+        "  - Should show video:",
+        currentFlashcard?.front.type === "video" || currentFlashcard?.front.content?.includes(".mp4"),
+      )
+
       return (
         <div
           key={componentKey}
           className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden"
         >
-          {/* Decorative Stars Background with Animated Mascot */}
+          {/* Decorative Stars Background */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-20 left-20 w-8 h-8 text-yellow-300 animate-pulse">⭐</div>
             <div className="absolute top-32 right-24 w-6 h-6 text-blue-300 animate-bounce">⭐</div>
             <div className="absolute top-40 left-1/4 w-5 h-5 text-green-300 animate-pulse">⭐</div>
             <div className="absolute bottom-40 left-16 w-6 h-6 text-pink-300 animate-pulse">⭐</div>
             <div className="absolute bottom-32 right-20 w-8 h-8 text-yellow-300 animate-bounce">⭐</div>
-
-            {/* Animated Study Mascot - Bottom Left */}
-            <div className="absolute bottom-20 left-4 lg:bottom-12 lg:left-8 animate-bounce z-20">
-              <Image
-                src="/images/study-mascot-new.png"
-                alt="Study mascot"
-                width={80}
-                height={80}
-                className="object-contain lg:w-36 lg:h-36 opacity-80 hover:opacity-100 transition-opacity duration-300"
-              />
-            </div>
           </div>
 
+          {/* Header */}
           <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
           {/* Main Content Container */}
@@ -323,6 +327,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                                 <Button
                                   onClick={() => {
                                     setVideoError(false)
+                                    // Force re-render by changing key
                                     const videoElement = document.querySelector("video")
                                     if (videoElement) {
                                       videoElement.load()
@@ -400,13 +405,11 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                     style={{ backfaceVisibility: "hidden" }}
                   >
                     <div className="w-full h-full bg-gradient-to-br from-pink-200 via-purple-200 to-blue-200 rounded-3xl border-4 border-blue-400 shadow-2xl p-6 flex items-center justify-center relative overflow-hidden">
-                      {/* Decorative Stars Background */}
-                      <div className="absolute inset-0 pointer-events-none">
-                        <div className="absolute top-3 left-3 w-5 h-5 text-yellow-400">⭐</div>
-                        <div className="absolute top-3 right-3 w-4 h-4 text-blue-400">⭐</div>
-                        <div className="absolute bottom-3 left-3 w-4 h-4 text-green-400">⭐</div>
-                        <div className="absolute bottom-3 right-3 w-5 h-5 text-purple-400">⭐</div>
-                      </div>
+                      {/* Decorative border stars */}
+                      <div className="absolute top-3 left-3 w-5 h-5 text-yellow-400">⭐</div>
+                      <div className="absolute top-3 right-3 w-4 h-4 text-blue-400">⭐</div>
+                      <div className="absolute bottom-3 left-3 w-4 h-4 text-green-400">⭐</div>
+                      <div className="absolute bottom-3 right-3 w-5 h-5 text-purple-400">⭐</div>
 
                       {/* Content */}
                       {currentFlashcard?.front.type === "video" || currentFlashcard?.front.content?.includes(".mp4") ? (
@@ -427,6 +430,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                               <Button
                                 onClick={() => {
                                   setVideoError(false)
+                                  // Force re-render by changing key
                                   const videoElement = document.querySelector("video")
                                   if (videoElement) {
                                     videoElement.load()
@@ -499,6 +503,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                   <div className="text-blue-600 text-xl animate-pulse">👉</div>
                   <Button
                     onClick={() => {
+                      // Kiểm tra xem có practice cards sắp tới không
                       const upcomingPracticeCards = getUpcomingPracticeCards()
                       if (upcomingPracticeCards.length > 0) {
                         setShowPracticeTransitionModal(true)
@@ -528,6 +533,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
                 <div className="text-blue-600 text-2xl animate-pulse hidden lg:block">👉</div>
                 <Button
                   onClick={() => {
+                    // Kiểm tra xem có practice cards sắp tới không
                     const upcomingPracticeCards = getUpcomingPracticeCards()
                     if (upcomingPracticeCards.length > 0) {
                       setShowPracticeTransitionModal(true)
@@ -543,8 +549,10 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
             )}
           </div>
 
+          {/* Footer */}
           <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
+          {/* Practice Transition Modal */}
           <PracticeTransitionModal
             isOpen={showPracticeTransitionModal}
             onClose={handlePracticeTransitionClose}
@@ -557,6 +565,79 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
         </div>
       )
     }
+  }
+
+  // Transition popup for when flashcard is finished
+  if (showTransitionPopup) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 relative overflow-hidden flex flex-col items-center justify-center">
+        {/* Decorative Stars Background */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute top-20 left-20 w-8 h-8 text-yellow-300 animate-pulse">⭐</div>
+          <div className="absolute top-32 right-24 w-6 h-6 text-blue-300 animate-bounce">⭐</div>
+          <div className="absolute top-40 left-1/4 w-5 h-5 text-green-300 animate-pulse">⭐</div>
+          <div className="absolute top-60 right-1/3 w-7 h-7 text-purple-300 animate-bounce">⭐</div>
+          <div className="absolute bottom-40 left-16 w-6 h-6 text-pink-300 animate-pulse">⭐</div>
+          <div className="absolute bottom-32 right-20 w-8 h-8 text-yellow-300 animate-bounce">⭐</div>
+        </div>
+
+        {/* Popup content */}
+        <div className="relative z-10 w-full max-w-md mx-auto">
+          <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 w-full text-center shadow-2xl border-4 border-blue-300">
+            {/* Study mascot */}
+            <div className="flex justify-center mb-6">
+              <Image
+                src="/images/study-mascot-new.png"
+                alt="Study mascot"
+                width={100}
+                height={100}
+                className="object-contain animate-bounce"
+              />
+            </div>
+
+            {/* Message */}
+            <h1 className="text-2xl font-bold text-blue-700 mb-4">🎯 BẠN SẼ ĐƯỢC CHUYỂN SANG</h1>
+            <p className="text-lg font-semibold text-blue-700 mb-2">Luyện tập những từ vựng vừa học</p>
+            <p className="text-base text-blue-600 mb-6">Chọn cách bạn muốn tiếp tục:</p>
+
+            {/* Navigation buttons */}
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={() => {
+                  setShowTransitionPopup(false)
+                  resetTimeline() // Quay lại flashcard đầu tiên
+                  setIsFlipped(false)
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Học tiếp
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowTransitionPopup(false)
+                  handlePracticeTransitionContinue() // Chuyển sang practice
+                }}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Tiếp tục
+              </Button>
+            </div>
+          </div>
+        </div>
+        <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+        {/* Practice Transition Modal */}
+        <PracticeTransitionModal
+          isOpen={showPracticeTransitionModal}
+          onClose={handlePracticeTransitionClose}
+          onContinue={handlePracticeTransitionContinue}
+          onReview={handlePracticeTransitionReview}
+          practiceCardCount={getUpcomingPracticeCards().length}
+          completedCardCount={flashcards.length}
+          currentGroupSize={getCurrentGroupSize()}
+        />
+      </div>
+    )
   }
 
   // Default loading state
@@ -584,9 +665,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
 
                 {/* Congratulations message */}
                 <h1 className="text-xl sm:text-3xl font-bold text-blue-700 mb-2">CHÚC MỪNG BẠN ĐÃ HOÀN THÀNH !</h1>
-                <p className="text-sm sm:text-base text-blue-600 mb-4 sm:mb-6">
-                  BẠN ĐÃ CHINH PHỤC ĐƯỢC SUB-TOPIC
-                </p>
+                <p className="text-sm sm:text-base text-blue-600 mb-4 sm:mb-6">BẠN ĐÃ CHINH PHỤC ĐƯỢC SUB-TOPIC</p>
 
                 {/* Navigation buttons */}
                 <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
@@ -617,6 +696,7 @@ export default function FlashcardPage({ subtopicId: propSubtopicId }: FlashcardP
         </div>
       )}
 
+      {/* Practice Transition Modal */}
       <PracticeTransitionModal
         isOpen={showPracticeTransitionModal}
         onClose={handlePracticeTransitionClose}

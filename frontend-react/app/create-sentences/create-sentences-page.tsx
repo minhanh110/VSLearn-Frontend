@@ -1,9 +1,11 @@
 "use client"
 
-import React from "react"
+import type React from "react"
 import type { ReactElement } from "react"
 
 import { useState, useRef, useEffect } from "react"
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +19,7 @@ const mockWords = [
   { word: "Tôi", topicId: "1", subtopicName: "Chủ đề con 1.1" },
   { word: "là", topicId: "1", subtopicName: "Chủ đề con 1.1" },
   { word: "bác sĩ", topicId: "1", subtopicName: "Chủ đề con 1.2" },
-  { word: "tệ", topicId: "1", subtopicName: "Chủ đề con 1.2" },
+  { word: "tệ", topicId: "1", topicId: "1", subtopicName: "Chủ đề con 1.2" },
   { word: "giỏi", topicId: "2", subtopicName: "Chủ đề con 2.1" },
   { word: "cô giáo", topicId: "2", subtopicName: "Chủ đề con 2.1" },
   { word: "học sinh", topicId: "2", subtopicName: "Chủ đề con 2.2" },
@@ -90,6 +92,7 @@ export default function CreateSentencesPageContent(): ReactElement {
   const [selectedFilter, setSelectedFilter] = useState<string>("all")
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [isMenuOpen, setIsMenuOpen] = useState(false) // Add this line
 
   const handleAddWordSlot = () => {
     setSentenceWords([...sentenceWords, ""])
@@ -105,7 +108,7 @@ export default function CreateSentencesPageContent(): ReactElement {
     setSentenceWords(newWords)
   }
 
-  const handleAddWordFromGlobalSearch = (word: string) => {
+  const handleAddWordFromGlobalSearch = (word: string, topicId: string) => {
     // Find the first empty slot or add a new one
     const firstEmptyIndex = sentenceWords.findIndex((w) => w === "")
     if (firstEmptyIndex !== -1) {
@@ -160,192 +163,196 @@ export default function CreateSentencesPageContent(): ReactElement {
     setDragOverIndex(null)
   }
 
-  const filteredGlobalWords = mockWords
-    .filter((item) => {
-      const matchesSearchTerm = item.word.toLowerCase().includes(globalSearchTerm.toLowerCase())
+  const filteredGlobalWords = mockWords.filter((item) => {
+    const matchesSearchTerm = item.word.toLowerCase().includes(globalSearchTerm.toLowerCase())
 
-      if (selectedFilter === "all") {
-        return matchesSearchTerm
-      }
+    if (selectedFilter === "all") {
+      return matchesSearchTerm
+    }
 
-      // Check if selectedFilter matches a major topic ID
-      const majorTopic = mockTopics.find((t) => t.id === selectedFilter)
-      if (majorTopic && majorTopic.id !== "all") {
-        // If it's a major topic, filter by words belonging to that major topic
-        return matchesSearchTerm && item.topicId === majorTopic.id
-      }
-
-      // Check if selectedFilter matches a subtopic name
-      let matchesSubtopic = false
-      mockTopics.forEach((topic) => {
-        if (topic.subtopics.includes(selectedFilter)) {
-          if (item.subtopicName === selectedFilter) {
-            matchesSubtopic = true
-          }
-        }
-      })
-
-      return matchesSearchTerm && matchesSubtopic
-    })
-    .map((item) => item.word) // Map back to just the word string
+    // Filter only by major topic ID
+    return matchesSearchTerm && item.topicId === selectedFilter
+  })
 
   return (
-    <div className="flex min-h-screen bg-blue-50 p-4">
-      {/* Main content area */}
-      <div className="flex flex-col lg:flex-row flex-1 p-6 gap-6">
-        {/* Left Section: Video Upload & Sentence Builder */}
-        <div className="flex flex-col w-full lg:w-3/5 gap-6 items-center">
-          {/* Video Upload/Record Area */}
-          <Card className="relative flex items-center justify-center w-[350px] h-[350px] bg-blue-100 rounded-2xl overflow-hidden border-2 border-blue-300 border-dashed p-2 mx-auto">
-            {/* Decorative border elements */}
-            <div className="absolute inset-0 border-4 border-pink-200 rounded-2xl z-0"></div>
-            <div className="absolute inset-1 border-2 border-blue-200 rounded-xl z-0"></div>
-            {/* Stars and circles */}
-            <div className="absolute top-2 left-2 w-6 h-6 bg-yellow-300 rounded-full transform rotate-45"></div>
-            <div className="absolute bottom-2 right-2 w-6 h-6 bg-yellow-300 rounded-full transform -rotate-30"></div>
-            <div className="absolute top-1/4 right-1/4 w-4 h-4 bg-yellow-300 rounded-full transform rotate-60"></div>
-            <div className="absolute bottom-1/4 left-1/4 w-4 h-4 bg-yellow-300 rounded-full transform -rotate-15"></div>
-            <div className="absolute top-1/2 left-0 w-3 h-3 bg-blue-200 rounded-full"></div>
-            <div className="absolute bottom-1/2 right-0 w-3 h-3 bg-pink-200 rounded-full"></div>
-            <div className="absolute top-0 right-1/3 w-2 h-2 bg-blue-200 rounded-full"></div>
-            <div className="absolute bottom-0 left-1/3 w-2 h-2 bg-pink-200 rounded-full"></div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="relative flex flex-col items-center justify-center w-full h-full cursor-pointer z-10">
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-20 h-20 bg-blue-200 rounded-full flex items-center justify-center">
-                      <Upload className="w-10 h-10 text-blue-600" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-semibold text-gray-700 mb-1">Tải video lên</p>
-                      <p className="text-sm text-gray-500">hoặc quay video mới</p>
-                    </div>
-                  </div>
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuItem className="cursor-pointer">
-                  <Upload className="mr-2 h-4 w-4" />
-                  <span>Tải video lên</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
-                  <Video className="mr-2 h-4 w-4" />
-                  <span>Quay video mới</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </Card>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50 relative overflow-hidden">
+      {/* Enhanced Background decorative elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Floating circles */}
+        <div className="absolute top-20 left-20 w-32 h-32 bg-blue-200/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-cyan-200/30 rounded-full blur-lg animate-bounce"></div>
+        <div className="absolute bottom-40 left-16 w-40 h-40 bg-indigo-200/20 rounded-full blur-2xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-28 h-28 bg-blue-300/25 rounded-full blur-xl animate-bounce"></div>
 
-          {/* Sentence Builder Inputs */}
-          <div className="flex flex-wrap gap-3 items-center justify-center w-full min-h-[60px]">
-            {sentenceWords.length === 0 ? (
-              // Show only plus button when no words exist
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleAddWordSlot}
-                className="rounded-full w-12 h-12 border-blue-400 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors bg-white shadow-md hover:shadow-lg"
-              >
-                <Plus className="w-6 h-6" />
-              </Button>
-            ) : (
-              // Show word chips and plus button when words exist
-              <>
-                {sentenceWords.map((word, index) => {
-                  const isDragging = draggedIndex === index
-                  const isDragOver = dragOverIndex === index
+        {/* Sparkle stars */}
+        <div className="absolute top-32 left-1/4 w-6 h-6 text-blue-400 animate-pulse">✨</div>
+        <div className="absolute top-48 right-1/4 w-5 h-5 text-cyan-400 animate-bounce">⭐</div>
+        <div className="absolute bottom-48 left-1/3 w-4 h-4 text-indigo-400 animate-pulse">💫</div>
+        <div className="absolute bottom-36 right-1/3 w-6 h-6 text-blue-400 animate-bounce">✨</div>
+      </div>
 
-                  return (
-                    <div
-                      key={index}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, index)}
-                      onDragEnd={handleDragEnd}
-                      className={`transition-all duration-200 cursor-move ${
-                        isDragging ? "opacity-50 scale-95 bg-blue-100/50" : "hover:bg-blue-50/30"
-                      } ${isDragOver ? "bg-blue-100/70 border-t-2 border-blue-400" : ""}`}
+      <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+      <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
+        {/* Main content area */}
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6">
+          {/* Left Section: Video Upload & Sentence Builder */}
+          <div className="flex flex-col w-full lg:w-2/3 gap-6 items-center">
+            {/* Video Upload/Record Area */}
+            <Card className="relative w-full max-w-[600px] h-[400px] rounded-2xl shadow-xl overflow-hidden">
+              {/* Gradient background for the border */}
+              <div
+                className="absolute inset-0 rounded-2xl"
+                style={{ background: "linear-gradient(to bottom right, #ADD8E6, #FFC0CB)" }}
+              ></div>
+
+              {/* Inner content area with light grey background */}
+              <div className="absolute inset-[2px] bg-gray-100 rounded-2xl flex items-center justify-center">
+                {/* Stars - positioned relative to the Card, but visually on the inner grey area */}
+                <div className="absolute top-2 left-2 text-yellow-400 text-2xl">⭐</div>
+                <div className="absolute top-2 right-2 text-yellow-400 text-2xl">⭐</div>
+                <div className="absolute bottom-2 left-2 text-yellow-400 text-2xl">⭐</div>
+                <div className="absolute bottom-2 right-2 text-yellow-400 text-2xl">⭐</div>
+
+                {/* DropdownMenuTrigger and its content */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="relative flex flex-col items-center justify-center w-full h-full cursor-pointer z-10">
+                      {/* Original content for upload/record */}
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <div className="w-20 h-20 bg-blue-200 rounded-full flex items-center justify-center">
+                          <Upload className="w-10 h-10 text-blue-600" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-semibold text-gray-700 mb-1">Tải video lên</p>
+                          <p className="text-sm text-gray-500">hoặc quay video mới</p>
+                        </div>
+                      </div>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Upload className="mr-2 h-4 w-4" />
+                      <span>Tải video lên</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Video className="mr-2 h-4 w-4" />
+                      <span>Quay video mới</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </Card>
+
+            {/* Sentence Builder Inputs */}
+            <div className="w-full p-6 rounded-xl border-0 shadow-lg bg-transparent backdrop-blur-sm">
+              <div className="flex flex-wrap gap-3 items-center justify-center w-full min-h-[60px]">
+                {sentenceWords.length === 0 ? (
+                  // Show only plus button when no words exist
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleAddWordSlot}
+                    className="rounded-full w-12 h-12 border-blue-400 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors bg-white shadow-md hover:shadow-lg"
+                  >
+                    <Plus className="w-6 h-6" />
+                  </Button>
+                ) : (
+                  // Show word chips and plus button when words exist
+                  <>
+                    {sentenceWords.map((word, index) => {
+                      const isDragging = draggedIndex === index
+                      const isDragOver = dragOverIndex === index
+
+                      return (
+                        <div
+                          key={index}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, index)}
+                          onDragEnd={handleDragEnd}
+                          className={`transition-all duration-200 cursor-move ${
+                            isDragging ? "opacity-50 scale-95 bg-blue-100/50" : "hover:bg-blue-50/30"
+                          } ${isDragOver ? "bg-blue-100/70 border-t-2 border-blue-400" : ""}`}
+                        >
+                          <WordInputChip
+                            word={word}
+                            onWordChange={(value) => handleWordChange(index, value)}
+                            onRemove={() => handleRemoveWordSlot(index)}
+                            mockWords={mockWords.map((item) => item.word)}
+                            isDragging={isDragging}
+                          />
+                        </div>
+                      )
+                    })}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleAddWordSlot}
+                      className="rounded-full w-10 h-10 border-blue-400 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors bg-transparent"
                     >
-                      <WordInputChip
-                        word={word}
-                        onWordChange={(value) => handleWordChange(index, value)}
-                        onRemove={() => handleRemoveWordSlot(index)}
-                        mockWords={mockWords.map((item) => item.word)}
-                        isDragging={isDragging}
-                      />
-                    </div>
-                  )
-                })}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleAddWordSlot}
-                  className="rounded-full w-10 h-10 border-blue-400 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors bg-transparent"
-                >
-                  <Plus className="w-5 h-5" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Right Section: Global Word Search */}
-        <div className="flex flex-col w-full lg:w-2/5 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search"
-                value={globalSearchTerm}
-                onChange={(e) => setGlobalSearchTerm(e.target.value)}
-                className="pl-10 rounded-xl border-blue-200 focus-visible:ring-blue-300"
-              />
+                      <Plus className="w-5 h-5" />
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-            {/* Combined Topic/Sub-topic Filter */}
-            <Select onValueChange={setSelectedFilter} value={selectedFilter}>
-              <SelectTrigger className="w-[180px] rounded-xl border-blue-200 focus:ring-blue-300">
-                <SelectValue placeholder="Topic" />
-              </SelectTrigger>
-              <SelectContent>
-                {mockTopics.map((topic) => (
-                  <React.Fragment key={topic.id}>
-                    <SelectItem value={topic.id} className="font-semibold">
-                      {topic.name}
-                    </SelectItem>
-                    {topic.subtopics.map((sub) => (
-                      <SelectItem key={sub} value={sub} className="pl-8 text-sm">
-                        &nbsp;&nbsp;- {sub}
+          </div>
+
+          {/* Right Section: Global Word Search */}
+          <div className="flex flex-col w-full lg:w-1/3 gap-4">
+            <Card className="p-4 rounded-xl border-blue-200">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search"
+                    value={globalSearchTerm}
+                    onChange={(e) => setGlobalSearchTerm(e.target.value)}
+                    className="pl-10 rounded-xl border-blue-200 focus-visible:ring-blue-300"
+                  />
+                </div>
+                {/* Topic Filter */}
+                <Select onValueChange={setSelectedFilter} value={selectedFilter}>
+                  <SelectTrigger className="w-[180px] rounded-xl border-blue-200 focus:ring-blue-300">
+                    <SelectValue placeholder="Topic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockTopics.map((topic) => (
+                      <SelectItem key={topic.id} value={topic.id} className="font-semibold">
+                        {topic.name}
                       </SelectItem>
                     ))}
-                  </React.Fragment>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Search Results - Display as a list */}
-          <Card className="flex-1 p-4 rounded-xl border-blue-200 overflow-y-auto max-h-[calc(100vh-180px)]">
-            <div className="flex flex-col">
-              {filteredGlobalWords.length > 0 ? (
-                filteredGlobalWords.map((word, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors text-blue-700 text-sm"
-                    onClick={() => handleAddWordFromGlobalSearch(word)}
-                  >
-                    <span>{word}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">Không tìm thấy từ nào</p>
-              )}
-            </div>
-          </Card>
+              {/* Search Results - Display as a list */}
+              <div className="flex flex-col overflow-y-auto max-h-[calc(100vh-180px)]">
+                {filteredGlobalWords.length > 0 ? (
+                  filteredGlobalWords.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors text-blue-700 text-sm"
+                      onClick={() => handleAddWordFromGlobalSearch(item.word, item.topicId)}
+                    >
+                      <span>{item.word}</span>
+                      <span className="text-gray-600 text-sm">
+                        {mockTopics.find((t) => t.id === item.topicId)?.name}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Không tìm thấy từ nào</p>
+                )}
+              </div>
+            </Card>
+          </div>
         </div>
       </div>
+      <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </div>
   )
 }

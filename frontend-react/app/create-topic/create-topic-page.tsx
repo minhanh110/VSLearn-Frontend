@@ -6,25 +6,47 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
-import { Plus, ArrowLeft, BookOpen, FileText } from "lucide-react"
-import { TopicService } from "@/app/services/topic.service";
+import { Plus, ArrowLeft, BookOpen, FileText, Minus } from "lucide-react"
+import { TopicService } from "@/app/services/topic.service"
+import { ApprovalNotice } from "@/components/approval-notice"
+import { VocabService } from "@/app/services/vocab.service"
+import AsyncSelect from "react-select/async"
+
+interface Vocab {
+  id: string
+  vocab: string
+  meaning: string
+  vocabId?: string
+}
+
+interface Subtopic {
+  subTopicName: string
+  sortOrder: number
+  vocabs: Vocab[]
+}
+
+interface FormData {
+  topicName: string
+  sortOrder: number
+  isFree: boolean
+  subtopics: Subtopic[]
+}
 
 export function CreateTopicPageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState<"subtopics" | "tests">("subtopics")
+  const [activeTab, setActiveTab] = useState<"subtopics" | "create-sentence">("subtopics")
 
-  // Form state
-  const [formData, setFormData] = useState({
+  // Form state with proper typing
+  const [formData, setFormData] = useState<FormData>({
     topicName: "",
-    isFree: true,
-    status: "active",
     sortOrder: 0,
-    subtopics: [] as string[],
+    isFree: true,
+    subtopics: [],
   })
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: keyof FormData, value: string | number | boolean) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -32,35 +54,106 @@ export function CreateTopicPageComponent() {
   }
 
   const handleAddSubtopic = () => {
-    // Handle adding subtopic
-    console.log("Add subtopic")
+    setFormData((prev) => ({
+      ...prev,
+      subtopics: [...prev.subtopics, { subTopicName: "", sortOrder: 0, vocabs: [] }],
+    }))
+  }
+
+  const handleRemoveSubtopic = (idx: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      subtopics: prev.subtopics.filter((_, i) => i !== idx),
+    }))
+  }
+
+  const handleSubtopicChange = (idx: number, field: keyof Subtopic, value: any) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics]
+      subtopics[idx] = { ...subtopics[idx], [field]: value }
+      return { ...prev, subtopics }
+    })
+  }
+
+  const handleAddVocab = (subIdx: number) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics]
+      subtopics[subIdx].vocabs = [
+        ...(subtopics[subIdx].vocabs || []),
+        { id: crypto.randomUUID(), vocab: "", meaning: "", vocabId: undefined },
+      ]
+      return { ...prev, subtopics }
+    })
+  }
+
+  const handleRemoveVocab = (subIdx: number, vocabIdToRemove: string) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics]
+      subtopics[subIdx].vocabs = subtopics[subIdx].vocabs.filter((vocab) => vocab.id !== vocabIdToRemove)
+      return { ...prev, subtopics }
+    })
+  }
+
+  const handleVocabChange = (subIdx: number, vocabIdx: number, field: keyof Vocab, value: any) => {
+    setFormData((prev) => {
+      const subtopics = [...prev.subtopics]
+      const vocabs = [...(subtopics[subIdx].vocabs || [])]
+      vocabs[vocabIdx] = { ...vocabs[vocabIdx], [field]: value }
+      subtopics[subIdx].vocabs = vocabs
+      return { ...prev, subtopics }
+    })
+  }
+
+  const handleSortOrderChange = (subIdx: number, increment: boolean) => {
+    const currentValue = formData.subtopics[subIdx].sortOrder
+    const newValue = increment ? currentValue + 1 : Math.max(0, currentValue - 1)
+    handleSubtopicChange(subIdx, "sortOrder", newValue)
+  }
+
+  const loadVocabOptions = async (inputValue: string) => {
+    if (!inputValue || inputValue.trim().length < 1) return []
+
+    try {
+      const res = await VocabService.getVocabList({
+        status: "active",
+        search: inputValue,
+        size: 20,
+      })
+      const list = res.data.vocabList || res.data || []
+
+      return list
+        .filter((v: any) => v.meaning && v.meaning.toLowerCase().includes(inputValue.toLowerCase()))
+        .map((v: any) => ({
+          value: v.id,
+          label: v.meaning, // Show meaning as label
+          vocab: v.vocab,
+          meaning: v.meaning,
+          id: v.id,
+        }))
+    } catch (error) {
+      console.error("Error loading vocab options:", error)
+      return []
+    }
   }
 
   const handleSubmit = async () => {
-    // Validate required fields
     if (!formData.topicName.trim()) {
       alert("Vui lòng nhập tên chủ đề!")
       return
     }
 
-    setIsSubmitting(true)
+    // Validate subtopics
+    const hasEmptySubtopics = formData.subtopics.some((sub) => !sub.subTopicName.trim())
+    if (hasEmptySubtopics) {
+      alert("Vui lòng nhập tên cho tất cả chủ đề con!")
+      return
+    }
 
+    setIsSubmitting(true)
     try {
-      await TopicService.createTopic({
-        topicName: formData.topicName,
-        isFree: formData.isFree,
-        status: formData.status,
-        sortOrder: formData.sortOrder,
-        subtopics: formData.subtopics,
-      });
-      alert("Thêm chủ đề thành công!")
-      setFormData({
-        topicName: "",
-        isFree: true,
-        status: "active",
-        sortOrder: 0,
-        subtopics: [],
-      })
+      await TopicService.createTopic(formData)
+      alert("Thêm chủ đề thành công! Chủ đề đã được gửi để duyệt và sẽ hiển thị sau khi được phê duyệt.")
+      setFormData({ topicName: "", isFree: true, sortOrder: 0, subtopics: [] }) // Reset sentences
       router.push("/list-topics")
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
@@ -114,6 +207,9 @@ export function CreateTopicPageComponent() {
                 <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto mt-3"></div>
               </div>
 
+              {/* Approval Notice */}
+              <ApprovalNotice type="create" contentType="topic" />
+
               {/* Topic Name Input */}
               <div className="mb-8">
                 <div className="group">
@@ -145,17 +241,17 @@ export function CreateTopicPageComponent() {
                         : "bg-white/60 text-gray-600 hover:bg-white/80"
                     }`}
                   >
-                    CHỦ ĐỀ PHỤ
+                    CHỦ ĐỀ CON
                   </Button>
                   <Button
-                    onClick={() => setActiveTab("tests")}
+                    onClick={() => setActiveTab("create-sentence")}
                     className={`px-6 py-3 rounded-2xl font-bold transition-all duration-300 ${
-                      activeTab === "tests"
+                      activeTab === "create-sentence"
                         ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
                         : "bg-white/60 text-gray-600 hover:bg-white/80"
                     }`}
                   >
-                    BÀI KIỂM TRA
+                    TẠO CÂU
                   </Button>
                 </div>
               </div>
@@ -164,23 +260,170 @@ export function CreateTopicPageComponent() {
               <div className="mb-8">
                 {activeTab === "subtopics" && (
                   <div className="relative">
-                    <div className="min-h-64 p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
-                      <Button
-                        onClick={handleAddSubtopic}
-                        className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 overflow-hidden"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <Plus className="w-5 h-5 relative z-10" />
-                        <span className="relative z-10">THÊM CHỦ ĐỀ PHỤ</span>
-                      </Button>
+                    <div className="max-h-[500px] p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm overflow-y-auto">
+                      <div className="space-y-6">
+                        {formData.subtopics.map((sub, subIdx) => (
+                          <div
+                            key={subIdx}
+                            className="bg-white rounded-2xl p-6 shadow-md border border-blue-100 hover:shadow-lg transition-shadow duration-200"
+                          >
+                            {/* Subtopic Header */}
+                            <div className="grid grid-cols-12 gap-4 mb-6 items-center">
+                              <div className="col-span-7">
+                                <label className="text-sm font-bold text-gray-700 mb-2 block">
+                                  Tên chủ đề con <span className="text-red-500">*</span>
+                                </label>
+                                <Input
+                                  type="text"
+                                  value={sub.subTopicName}
+                                  onChange={(e) => handleSubtopicChange(subIdx, "subTopicName", e.target.value)}
+                                  placeholder="Nhập tên chủ đề con..."
+                                  className="border-blue-200 rounded-xl h-12 focus:border-blue-400 focus:ring-2 focus:ring-blue-200/50"
+                                />
+                              </div>
+                              <div className="col-span-3">
+                                <label className="text-sm font-bold text-gray-700 mb-2 block">Thứ tự hiển thị</label>
+                                <div className="flex items-center border border-blue-200 rounded-xl h-12 overflow-hidden bg-white">
+                                  <Input
+                                    type="number"
+                                    value={sub.sortOrder}
+                                    onChange={(e) => handleSubtopicChange(subIdx, "sortOrder", Number(e.target.value))}
+                                    className="flex-1 h-full text-center border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    min={0}
+                                  />
+                                  <div className="flex flex-col h-full border-l border-blue-200">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleSortOrderChange(subIdx, true)}
+                                      className="h-6 w-8 p-0 text-blue-600 hover:bg-blue-50 rounded-none"
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleSortOrderChange(subIdx, false)}
+                                      className="h-6 w-8 p-0 text-red-600 hover:bg-red-50 rounded-none"
+                                    >
+                                      <Minus className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="col-span-2 flex justify-end">
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => handleRemoveSubtopic(subIdx)}
+                                  size="sm"
+                                  className="px-4 py-2 rounded-xl"
+                                >
+                                  Xóa
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Vocab Section */}
+                            <div className="border-t border-blue-100 pt-4">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-semibold text-blue-700">Từ vựng</h4>
+                                <span className="text-sm text-gray-500">{sub.vocabs?.length || 0} từ vựng</span>
+                              </div>
+
+                              <div className="space-y-3">
+                                {sub.vocabs?.map((vocab, vocabIdx) => (
+                                  <div
+                                    key={vocab.id}
+                                    className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors duration-200"
+                                  >
+                                    <div className="flex-1">
+                                      <AsyncSelect
+                                        cacheOptions
+                                        defaultOptions={false}
+                                        loadOptions={loadVocabOptions}
+                                        onChange={(option) => {
+                                          if (option) {
+                                            handleVocabChange(subIdx, vocabIdx, "vocab", option.vocab)
+                                            handleVocabChange(subIdx, vocabIdx, "meaning", option.meaning)
+                                            handleVocabChange(subIdx, vocabIdx, "vocabId", option.id)
+                                          } else {
+                                            handleVocabChange(subIdx, vocabIdx, "vocab", "")
+                                            handleVocabChange(subIdx, vocabIdx, "meaning", "")
+                                            handleVocabChange(subIdx, vocabIdx, "vocabId", undefined)
+                                          }
+                                        }}
+                                        isClearable
+                                        placeholder="Tìm kiếm từ vựng đã được duyệt..."
+                                        value={
+                                          vocab.vocabId && vocab.meaning
+                                            ? {
+                                                value: vocab.vocabId,
+                                                label: vocab.meaning,
+                                              }
+                                            : null
+                                        }
+                                        styles={{
+                                          menu: (base) => ({ ...base, zIndex: 9999 }),
+                                          control: (base) => ({ ...base, minHeight: "40px" }),
+                                        }}
+                                        noOptionsMessage={() => "Không tìm thấy từ vựng"}
+                                      />
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => handleRemoveVocab(subIdx, vocab.id)}
+                                      size="sm"
+                                      className="text-red-600 hover:bg-red-50 border-red-200 px-3 py-2 rounded-md flex-shrink-0"
+                                    >
+                                      Xóa
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <Button
+                                variant="outline"
+                                onClick={() => handleAddVocab(subIdx)}
+                                className="mt-4 text-blue-600 hover:bg-blue-50 border-blue-200 px-4 py-2 rounded-xl w-full sm:w-auto"
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Thêm từ vựng
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add Subtopic Button */}
+                      <div className="flex justify-center mt-8">
+                        <Button
+                          onClick={handleAddSubtopic}
+                          className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 overflow-hidden"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <Plus className="w-5 h-5 relative z-10" />
+                          <span className="relative z-10">THÊM CHỦ ĐỀ CON</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {activeTab === "tests" && (
+                {activeTab === "create-sentence" && (
                   <div className="relative">
-                    <div className="min-h-64 p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center">
-                      <p className="text-gray-500 font-medium">Chức năng bài kiểm tra sẽ được phát triển sau</p>
+                    <div className="max-h-[500px] p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm overflow-y-auto flex flex-col items-center justify-center">
+                      <div className="text-center">
+                        <Button
+                          onClick={() => router.push("/create-sentences")}
+                          className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 overflow-hidden"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <Plus className="w-5 h-5 relative z-10" />
+                          <span className="relative z-10">THÊM CÂU</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -200,7 +443,7 @@ export function CreateTopicPageComponent() {
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !formData.topicName.trim()}
                   className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 disabled:opacity-50 disabled:transform-none overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -212,7 +455,7 @@ export function CreateTopicPageComponent() {
                   ) : (
                     <>
                       <Plus className="w-5 h-5 relative z-10" />
-                      <span className="relative z-10">CHỈNH SỬA</span>
+                      <span className="relative z-10">THÊM CHỦ ĐỀ</span>
                     </>
                   )}
                 </Button>

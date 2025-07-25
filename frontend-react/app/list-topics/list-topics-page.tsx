@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, Edit, Trash2, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { TopicService } from "@/app/services/topic.service";
+import { TopicService } from "@/app/services/topic.service"
 
 interface TopicItem {
   id: number
@@ -28,7 +28,7 @@ export function ListTopicsPageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState("")
+  const [selectedStatus, setSelectedStatus] = useState("all") // Mặc định là tất cả trạng thái
   const [currentPage, setCurrentPage] = useState(1)
   const [topics, setTopics] = useState<TopicItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,27 +37,28 @@ export function ListTopicsPageComponent() {
   useEffect(() => {
     const fetchTopics = async () => {
       try {
-        setLoading(true);
+        setLoading(true)
         const response = await TopicService.getTopicList({
           page: currentPage - 1, // Backend uses 0-based indexing
           search: searchTerm,
-          status: selectedStatus,
-        });
-        setTopics(response.data.topicList || response.data);
+          ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
+        })
+        setTopics(response.data.topicList || response.data)
       } catch (error: any) {
-        console.error("Error fetching topics:", error);
+        console.error("Error fetching topics:", error)
         // Không set fallback data, chỉ hiển thị error
-        alert("Không thể tải danh sách chủ đề. Vui lòng thử lại!");
-        setTopics([]);
+        alert("Không thể tải danh sách chủ đề. Vui lòng thử lại!")
+        setTopics([])
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchTopics();
-  }, [currentPage, searchTerm, selectedStatus]);
+    fetchTopics()
+  }, [currentPage, searchTerm, selectedStatus])
 
   const statusOptions = [
+    { value: "all", label: "Tất cả trạng thái" },
     { value: "active", label: "Hoạt động" },
     { value: "pending", label: "Đang kiểm duyệt" },
     { value: "rejected", label: "Bị từ chối" },
@@ -100,13 +101,13 @@ export function ListTopicsPageComponent() {
   const handleDeleteTopic = async (id: number) => {
     if (confirm("Bạn có chắc chắn muốn xóa chủ đề này?")) {
       try {
-        await TopicService.deleteTopic(id.toString());
-        alert("Xóa chủ đề thành công!");
+        await TopicService.deleteTopic(id.toString())
+        alert("Xóa chủ đề thành công!")
         // Refresh the list
-        const updatedTopics = topics.filter(topic => topic.id !== id);
-        setTopics(updatedTopics);
+        const updatedTopics = topics.filter((topic) => topic.id !== id)
+        setTopics(updatedTopics)
       } catch (error: any) {
-        alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!");
+        alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
       }
     }
   }
@@ -201,11 +202,10 @@ export function ListTopicsPageComponent() {
           {/* Topics Table */}
           <div className="relative overflow-x-auto mb-8">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden min-w-[800px]">
+            <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden min-w-[700px]">
               {/* Table Header */}
               <div className="bg-gradient-to-r from-blue-100/80 to-cyan-100/80 px-4 sm:px-8 py-4 sm:py-6">
-                <div className="grid grid-cols-6 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
-                  <div>ID CHỦ ĐỀ</div>
+                <div className="grid grid-cols-5 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
                   <div>TÊN CHỦ ĐỀ</div>
                   <div>NGÀY TẠO</div>
                   <div>CHỦ ĐỀ PHỤ</div>
@@ -223,50 +223,49 @@ export function ListTopicsPageComponent() {
                   </div>
                 ) : (
                   topics.map((topic, index) => (
-                  <div key={index} className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group">
-                    <div className="grid grid-cols-6 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
-                      <div className="font-bold text-gray-900 truncate">{topic.id}</div>
-                      <div className="text-gray-700 font-medium truncate">{topic.topicName}</div>
-                      <div className="text-gray-700 font-medium">{topic.createdAt}</div>
-                      <div className="text-gray-700 font-medium">{topic.sortOrder}</div>
-                      <div>
-                        <span
-                          className={`px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl text-xs font-bold border-2 shadow-sm ${getStatusColor(
-                            topic.status,
-                          )}`}
-                        >
-                          {getStatusText(topic.status)}
-                        </span>
-                      </div>
-                      <div className="flex gap-1 sm:gap-3">
-                        <Button
-                          onClick={() => handleViewTopic(topic.id)}
-                          className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                          size="sm"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                        </Button>
-                        <Button
-                          onClick={() => handleEditTopic(topic.id)}
-                          className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                          size="sm"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Edit className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                        </Button>
-                        <Button
-                          onClick={() => handleDeleteTopic(topic.id)}
-                          className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                          size="sm"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                        </Button>
+                    <div key={index} className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group">
+                      <div className="grid grid-cols-5 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
+                        <div className="text-gray-700 font-medium truncate">{topic.topicName}</div>
+                        <div className="text-gray-700 font-medium">{topic.createdAt}</div>
+                        <div className="text-gray-700 font-medium">{topic.subtopicCount ?? 0}</div>
+                        <div>
+                          <span
+                            className={`px-2 sm:px-4 py-1 sm:py-2 rounded-xl sm:rounded-2xl text-xs font-bold border-2 shadow-sm ${getStatusColor(
+                              topic.status,
+                            )}`}
+                          >
+                            {getStatusText(topic.status)}
+                          </span>
+                        </div>
+                        <div className="flex gap-1 sm:gap-3">
+                          <Button
+                            onClick={() => handleViewTopic(topic.id)}
+                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                            size="sm"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                            <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                          </Button>
+                          <Button
+                            onClick={() => handleEditTopic(topic.id)}
+                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                            size="sm"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                            <Edit className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteTopic(topic.id)}
+                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                            size="sm"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))
                 )}
               </div>
             </div>

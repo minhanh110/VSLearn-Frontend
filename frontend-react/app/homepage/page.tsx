@@ -1,6 +1,5 @@
-
-import HomepagePage from "./homepage-page"
+import HomePage from "./homepage-page"
 
 export default function Page() {
-  return <HomepagePage/>
-}
+  return <HomePage />
+} 
