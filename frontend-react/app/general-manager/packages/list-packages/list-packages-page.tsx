@@ -6,21 +6,10 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Plus, Edit, Trash2, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
-// Import the new modal component at the top
 import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal"
+import { packagesApi, Package } from "@/lib/api/packages"
 
-interface Package {
-  id: string
-  title: string
-  description: string
-  price: string
-  duration: string
-  features: string[]
-  isPopular: boolean
-  status: "active" | "inactive" | "draft"
-  createdAt: string
-  updatedAt: string
-}
+
 
 const ListPackagesPageComponent = () => {
   const router = useRouter()
@@ -35,57 +24,76 @@ const ListPackagesPageComponent = () => {
     isLoading: false,
   })
 
-  // Mock data - replace with actual API calls
+  // Fetch packages from API
   useEffect(() => {
-    const mockPackages: Package[] = [
-      {
-        id: "1week",
-        title: "GÓI 1 TUẦN",
-        description: "Gói học ngắn hạn cho người mới bắt đầu",
-        price: "50.000",
-        duration: "7",
-        features: ["Truy cập cơ bản", "Hỗ trợ email"],
-        isPopular: false,
-        status: "active",
-        createdAt: "2024-01-15",
-        updatedAt: "2024-01-20",
-      },
-      {
-        id: "1month",
-        title: "GÓI 1 THÁNG",
-        description: "Gói học cơ bản cho người mới bắt đầu khám phá ngôn ngữ ký hiệu",
-        price: "100.000",
-        duration: "30",
-        features: ["Truy cập tất cả bài học cơ bản", "Từ điển ngôn ngữ ký hiệu", "Thực hành với camera", "Hỗ trợ 24/7"],
-        isPopular: false,
-        status: "active",
-        createdAt: "2024-01-15",
-        updatedAt: "2024-01-20",
-      },
-      {
-        id: "3months",
-        title: "GÓI 3 THÁNG",
-        description: "Gói học được khuyến nghị cho việc học tập hiệu quả và tiến bộ nhanh chóng",
-        price: "250.000",
-        duration: "90",
-        features: [
-          "Tất cả tính năng gói 1 tháng",
-          "Bài học nâng cao",
-          "Kiểm tra tiến độ",
-          "Chứng chỉ hoàn thành",
-          "Ưu tiên hỗ trợ",
-        ],
-        isPopular: true,
-        status: "active",
-        createdAt: "2024-01-10",
-        updatedAt: "2024-01-25",
-      },
-    ]
+    const fetchPackages = async () => {
+      try {
+        setLoading(true)
+        
+        // Test connection first
+        try {
+          const testResponse = await packagesApi.testConnection()
+          console.log('Test connection:', testResponse)
+        } catch (testError) {
+          console.error('Test connection failed:', testError)
+        }
+        
+        const response = await packagesApi.getPackages()
+        console.log('Packages API response:', response)
+        if (response.success) {
+          // Transform backend data to frontend format
+          const transformedPackages: Package[] = response.data.content.map((item: any) => ({
+            id: item.id.toString(),
+            title: item.pricingType, // Sử dụng pricingType thay vì packageName
+            description: item.description || '',
+            price: item.price.toLocaleString('vi-VN'),
+            duration: item.durationDays.toString(),
+            features: [], // Backend doesn't have features field yet
+            isPopular: false, // Backend doesn't have isPopular field yet
+            status: 'active', // Tạm thời set active vì không có isActive field
+            createdAt: new Date(item.createdAt).toLocaleDateString('vi-VN'),
+            updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('vi-VN') : '-'
+          }))
+          setPackages(transformedPackages)
+        } else {
+          console.error('Failed to fetch packages:', response.message || 'Unknown error')
+          // Fallback to mock data for testing
+          const mockPackages: Package[] = [
+            {
+              id: "1",
+              title: "GÓI 1 TUẦN",
+              description: "Gói học ngắn hạn cho người mới bắt đầu",
+              price: "50.000",
+              duration: "7",
+              features: ["Truy cập cơ bản", "Hỗ trợ email"],
+              isPopular: false,
+              status: "active",
+              createdAt: "2024-01-15",
+              updatedAt: "2024-01-20",
+            },
+            {
+              id: "2",
+              title: "GÓI 1 THÁNG",
+              description: "Gói học cơ bản cho người mới bắt đầu",
+              price: "100.000",
+              duration: "30",
+              features: ["Truy cập tất cả bài học", "Từ điển", "Thực hành"],
+              isPopular: false,
+              status: "active",
+              createdAt: "2024-01-15",
+              updatedAt: "2024-01-20",
+            },
+          ]
+          setPackages(mockPackages)
+        }
+      } catch (error) {
+        console.error('Error fetching packages:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    setTimeout(() => {
-      setPackages(mockPackages)
-      setLoading(false)
-    }, 1000)
+    fetchPackages()
   }, [])
 
   const handleCreatePackage = () => {
@@ -114,22 +122,24 @@ const ListPackagesPageComponent = () => {
     setDeleteModal((prev) => ({ ...prev, isLoading: true }))
 
     try {
-      // API call to delete package
-      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate API call
-
-      alert("Xóa gói học thành công!")
-      const updatedPackages = packages.filter((pkg) => pkg.id !== deleteModal.packageId)
-      setPackages(updatedPackages)
-
+      const response = await packagesApi.deletePackage(deleteModal.packageId)
+      if (response.success) {
+        alert("Xóa gói học thành công!")
+        const updatedPackages = packages.filter((pkg) => pkg.id !== deleteModal.packageId)
+        setPackages(updatedPackages)
+      } else {
+        alert("Có lỗi xảy ra: " + response.message)
+      }
+    } catch (error: any) {
+      console.error('Error deleting package:', error)
+      alert("Có lỗi xảy ra. Vui lòng thử lại!")
+    } finally {
       setDeleteModal({
         isOpen: false,
         packageId: "",
         packageTitle: "",
         isLoading: false,
       })
-    } catch (error: any) {
-      alert("Có lỗi xảy ra. Vui lòng thử lại!")
-      setDeleteModal((prev) => ({ ...prev, isLoading: false }))
     }
   }
 

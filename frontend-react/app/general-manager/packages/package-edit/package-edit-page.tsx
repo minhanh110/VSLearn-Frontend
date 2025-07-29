@@ -8,17 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, X } from "lucide-react"
+import { packagesApi, Package } from "@/lib/api/packages"
 
-interface Package {
-  id: string
-  title: string
-  description: string
-  price: string
-  duration: string
-  features: string[]
-  isPopular: boolean
-  status: "active" | "inactive" | "draft"
-}
+
 
 const PackageEditPageComponent = () => {
   const router = useRouter()
@@ -41,28 +33,31 @@ const PackageEditPageComponent = () => {
   useEffect(() => {
     if (!packageId) return
 
-    // Mock data - replace with actual API call
-    const mockPackage: Package = {
-      id: packageId,
-      title: "GÓI 1 THÁNG",
-      description: "Gói học cơ bản cho người mới bắt đầu khám phá ngôn ngữ ký hiệu",
-      price: "100.000",
-      duration: "30",
-      features: ["Truy cập tất cả bài học cơ bản", "Từ điển ngôn ngữ ký hiệu", "Thực hành với camera", "Hỗ trợ 24/7"],
-      isPopular: false,
-      status: "active",
+    const fetchPackage = async () => {
+      try {
+        setLoading(true)
+        const response = await packagesApi.getPackageById(packageId)
+        console.log('Package edit API response:', response)
+        if (response.success) {
+          const packageData = response.data
+          setFormData({
+            title: packageData.pricingType, // Sử dụng pricingType thay vì packageName
+            description: packageData.description || '',
+            price: packageData.price.toLocaleString('vi-VN'),
+            duration: packageData.durationDays.toString(),
+          })
+          setFeatures([]) // Backend doesn't have features field yet
+        } else {
+          console.error('Failed to fetch package:', response.message)
+        }
+      } catch (error) {
+        console.error('Error fetching package:', error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setTimeout(() => {
-      setFormData({
-        title: mockPackage.title,
-        description: mockPackage.description,
-        price: mockPackage.price,
-        duration: mockPackage.duration,
-      })
-      setFeatures(mockPackage.features)
-      setLoading(false)
-    }, 1000)
+    fetchPackage()
   }, [packageId])
 
   const handleInputChange = (field: string, value: any) => {
@@ -106,19 +101,21 @@ const PackageEditPageComponent = () => {
 
     setIsSubmitting(true)
     try {
-      // API call to update package
       const packageData = {
         ...formData,
         features: validFeatures,
       }
       console.log("Updating package:", packageData)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      alert("Cập nhật gói học thành công!")
-      router.push("/general-manager/packages/list-packages")
+      const response = await packagesApi.updatePackage(packageId!, packageData)
+      if (response.success) {
+        alert("Cập nhật gói học thành công!")
+        router.push("/general-manager/packages/list-packages")
+      } else {
+        alert("Có lỗi xảy ra: " + response.message)
+      }
     } catch (error: any) {
+      console.error('Error updating package:', error)
       alert("Có lỗi xảy ra. Vui lòng thử lại!")
     } finally {
       setIsSubmitting(false)
