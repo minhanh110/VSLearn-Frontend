@@ -7,19 +7,9 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Edit, Trash2, Check } from "lucide-react"
 import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal"
+import { packagesApi, Package } from "@/lib/api/packages"
 
-interface Package {
-  id: string
-  title: string
-  description: string
-  price: string
-  duration: string
-  features: string[]
-  isPopular: boolean
-  status: "active" | "inactive" | "draft"
-  createdAt: string
-  updatedAt: string
-}
+
 
 const PackageDetailPageComponent = () => {
   const router = useRouter()
@@ -36,30 +26,37 @@ const PackageDetailPageComponent = () => {
   useEffect(() => {
     if (!packageId) return
 
-    // Mock data - replace with actual API call
-    const mockPackage: Package = {
-      id: packageId,
-      title: "GÓI 1 THÁNG",
-      description: "Gói học cơ bản cho người mới bắt đầu khám phá ngôn ngữ ký hiệu",
-      price: "100.000",
-      duration: "30",
-      features: [
-        "Truy cập tất cả bài học cơ bản",
-        "Từ điển ngôn ngữ ký hiệu",
-        "Thực hành với camera",
-        "Hỗ trợ 24/7",
-        "Tài liệu học tập",
-      ],
-      isPopular: false,
-      status: "active",
-      createdAt: "2024-01-15",
-      updatedAt: "2024-01-20",
+    const fetchPackage = async () => {
+      try {
+        setLoading(true)
+        const response = await packagesApi.getPackageById(packageId)
+        console.log('Package detail API response:', response)
+        if (response.success) {
+          const packageData = response.data
+          const transformedPackage: Package = {
+            id: packageData.id.toString(),
+            title: packageData.pricingType, // Sử dụng pricingType thay vì packageName
+            description: packageData.description || '',
+            price: packageData.price.toLocaleString('vi-VN'),
+            duration: packageData.durationDays.toString(),
+            features: [], // Backend doesn't have features field yet
+            isPopular: false, // Backend doesn't have isPopular field yet
+            status: 'active', // Tạm thời set active vì không có isActive field
+            createdAt: new Date(packageData.createdAt).toLocaleDateString('vi-VN'),
+            updatedAt: packageData.updatedAt ? new Date(packageData.updatedAt).toLocaleDateString('vi-VN') : '-'
+          }
+          setPackageData(transformedPackage)
+        } else {
+          console.error('Failed to fetch package:', response.message)
+        }
+      } catch (error) {
+        console.error('Error fetching package:', error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setTimeout(() => {
-      setPackageData(mockPackage)
-      setLoading(false)
-    }, 1000)
+    fetchPackage()
   }, [packageId])
 
   const handleGoBack = () => {
@@ -81,14 +78,21 @@ const PackageDetailPageComponent = () => {
     setDeleteModal((prev) => ({ ...prev, isLoading: true }))
 
     try {
-      // API call to delete package
-      await new Promise((resolve) => setTimeout(resolve, 2000)) // Simulate API call
-
-      alert("Xóa gói học thành công!")
-      router.push("/general-manager/packages/list-packages")
+      const response = await packagesApi.deletePackage(packageId!)
+      if (response.success) {
+        alert("Xóa gói học thành công!")
+        router.push("/general-manager/packages/list-packages")
+      } else {
+        alert("Có lỗi xảy ra: " + response.message)
+      }
     } catch (error: any) {
+      console.error('Error deleting package:', error)
       alert("Có lỗi xảy ra. Vui lòng thử lại!")
-      setDeleteModal((prev) => ({ ...prev, isLoading: false }))
+    } finally {
+      setDeleteModal({
+        isOpen: false,
+        isLoading: false,
+      })
     }
   }
 
