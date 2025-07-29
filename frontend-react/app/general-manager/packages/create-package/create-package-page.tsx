@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, X } from "lucide-react"
+import { packagesApi } from "@/lib/api/packages"
 
 export default function CreatePackagePageComponent() {
   const router = useRouter()
@@ -64,19 +65,22 @@ export default function CreatePackagePageComponent() {
 
     setIsSubmitting(true)
     try {
-      // API call to create package
       const packageData = {
         ...formData,
         features: validFeatures,
       }
       console.log("Creating package:", packageData)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      alert("Tạo gói học thành công!")
-      router.push("/general-manager/packages/list-packages")
+      const response = await packagesApi.createPackage(packageData)
+      console.log('Create package API response:', response)
+      if (response.success) {
+        alert("Tạo gói học thành công!")
+        router.push("/general-manager/packages/list-packages")
+      } else {
+        alert("Có lỗi xảy ra: " + response.message)
+      }
     } catch (error: any) {
+      console.error('Error creating package:', error)
       alert("Có lỗi xảy ra. Vui lòng thử lại!")
     } finally {
       setIsSubmitting(false)
