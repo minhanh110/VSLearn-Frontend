@@ -5,7 +5,21 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Check, X, Clock } from "lucide-react"
+import { Check, X, Clock, RefreshCw } from "lucide-react"
+import api from "@/lib/axios"
+
+interface VietQRResponse {
+  qrCodeUrl: string
+  qrCodeImage: string
+  transactionCode: string
+  amount: number
+  bankId: string
+  accountNo: string
+  accountName: string
+  description: string
+  status: string
+  message: string
+}
 
 export function PaymentPage() {
   const router = useRouter()
@@ -14,12 +28,16 @@ export function PaymentPage() {
   const [timeLeft, setTimeLeft] = useState(15 * 60) // 15 minutes in seconds
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showFailureModal, setShowFailureModal] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [vietQRData, setVietQRData] = useState<VietQRResponse | null>(null)
+  const [checkingPayment, setCheckingPayment] = useState(false)
+  const [mockQRPattern, setMockQRPattern] = useState<boolean[]>([])
 
   // Mock package data - in real app, get from searchParams or API
   const packageData = {
     title: "Gói Premium 1 Năm",
     subtitle: "Truy cập không giới hạn tất cả khóa học",
-    price: "299,000",
+    price: 299000,
     duration: "12 tháng",
     features: [
       "Truy cập không giới hạn",
@@ -45,6 +63,17 @@ export function PaymentPage() {
     return () => clearInterval(timer)
   }, [])
 
+  // Tạo VietQR khi component mount
+  useEffect(() => {
+    createVietQR()
+  }, [])
+
+  // Tạo mock QR pattern khi component mount
+  useEffect(() => {
+    const pattern = Array.from({ length: 64 }, () => Math.random() > 0.5)
+    setMockQRPattern(pattern)
+  }, [])
+
   // Format time display
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -52,19 +81,72 @@ export function PaymentPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Simulate successful payment
-  const simulateSuccessPayment = () => {
-    setTimeout(() => {
-      setShowSuccessModal(true)
-    }, 2000)
+  // Tạo VietQR code
+  const createVietQR = async () => {
+    setLoading(true)
+    try {
+      // Test connection trước
+      try {
+        const testResponse = await api.get('/payment/test')
+        console.log('Test connection:', testResponse.data)
+      } catch (testError) {
+        console.error('Test connection failed:', testError)
+      }
+
+      const response = await api.post('/payment/vietqr/create', {
+        bankId: 'MB', // Vietcombank
+        accountNo: '0356682909', // Số tài khoản thực
+        accountName: 'PHAM MINH QUOC', // Tên chủ tài khoản
+        amount: packageData.price,
+        description: `VSLearn - ${packageData.title}`,
+        packageName: packageData.title,
+        packageDuration: packageData.duration,
+        userId: 1 // Lấy từ auth
+      })
+
+      console.log('VietQR Response:', response.data) // Debug log
+
+      if (response.data.success) {
+        setVietQRData(response.data.data)
+        console.log('QR Code URL:', response.data.data.qrCodeImage) // Debug log
+      } else {
+        console.error('Lỗi tạo QR code:', response.data.message)
+      }
+    } catch (error) {
+      console.error('Lỗi tạo QR code:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Simulate failed payment
-  const simulateFailurePayment = () => {
-    setTimeout(() => {
-      setShowFailureModal(true)
-    }, 2000)
+  // Kiểm tra trạng thái thanh toán
+  const checkPaymentStatus = async () => {
+    if (!vietQRData?.transactionCode) return
+
+    setCheckingPayment(true)
+    try {
+      const response = await api.get(`/payment/status/${vietQRData.transactionCode}`)
+      
+      if (response.data.success && response.data.isPaid) {
+        setShowSuccessModal(true)
+      }
+    } catch (error) {
+      console.error('Lỗi kiểm tra thanh toán:', error)
+    } finally {
+      setCheckingPayment(false)
+    }
   }
+
+  // Auto check payment status every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (vietQRData?.transactionCode) {
+        checkPaymentStatus()
+      }
+    }, 10000) // Check every 10 seconds
+
+    return () => clearInterval(interval)
+  }, [vietQRData])
 
   const handleStartLearning = () => {
     setShowSuccessModal(false)
@@ -73,12 +155,11 @@ export function PaymentPage() {
 
   const handleTryAgain = () => {
     setShowFailureModal(false)
-    simulateSuccessPayment()
+    createVietQR()
   }
 
   const handleSupport = () => {
     setShowFailureModal(false)
-    // In real app, open support chat or redirect to support page
     alert("Chuyển đến trang hỗ trợ...")
   }
 
@@ -134,23 +215,64 @@ export function PaymentPage() {
               <div className="text-center mb-8">
                 <h1 className="text-2xl font-bold text-blue-800 mb-2">{packageData.title}</h1>
                 <p className="text-blue-600 mb-4">{packageData.subtitle}</p>
-                <div className="text-4xl font-bold text-blue-700 mb-2">₫{packageData.price}</div>
+                <div className="text-4xl font-bold text-blue-700 mb-2">₫{packageData.price.toLocaleString()}</div>
                 <p className="text-blue-500">Quét mã QR để thanh toán</p>
               </div>
 
               {/* QR Code */}
               <div className="flex justify-center mb-8">
                 <div className="bg-white p-6 rounded-2xl border-2 border-blue-200 shadow-lg">
-                  <div className="w-48 h-48 bg-blue-50 rounded-lg flex items-center justify-center">
-                    {/* Mock QR Code */}
-                    <div className="grid grid-cols-8 gap-1">
-                      {Array.from({ length: 64 }).map((_, i) => (
-                        <div key={i} className={`w-2 h-2 ${Math.random() > 0.5 ? "bg-blue-800" : "bg-white"}`} />
-                      ))}
+                  {loading ? (
+                    <div className="w-48 h-48 bg-blue-50 rounded-lg flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                     </div>
-                  </div>
+                  ) : vietQRData?.qrCodeImage ? (
+                    <div className="w-48 h-48 flex items-center justify-center">
+                      <img 
+                        src={vietQRData.qrCodeImage} 
+                        alt="VietQR Code"
+                        className="w-full h-full object-contain rounded-lg"
+                        onError={(e) => {
+                          console.error('Lỗi tải QR code:', e);
+                          console.log('QR Code URL:', vietQRData.qrCodeImage);
+                          // Fallback to mock QR code
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('.mock-qr-fallback');
+                          if (fallback) {
+                            fallback.classList.remove('hidden');
+                          }
+                        }}
+                      />
+                      {/* Fallback mock QR code */}
+                      <div className="mock-qr-fallback hidden w-48 h-48 bg-blue-50 rounded-lg flex items-center justify-center">
+                        <div className="grid grid-cols-8 gap-1">
+                          {mockQRPattern.map((isBlack, i) => (
+                            <div key={i} className={`w-2 h-2 ${isBlack ? "bg-blue-800" : "bg-white"}`} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-48 h-48 bg-blue-50 rounded-lg flex items-center justify-center">
+                      <div className="grid grid-cols-8 gap-1">
+                        {mockQRPattern.map((isBlack, i) => (
+                          <div key={i} className={`w-2 h-2 ${isBlack ? "bg-blue-800" : "bg-white"}`} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Transaction Info */}
+              {vietQRData && (
+                <div className="text-center mb-6">
+                  <p className="text-sm text-blue-600 mb-2">Mã giao dịch: {vietQRData.transactionCode}</p>
+                  <p className="text-sm text-blue-600 mb-2">Ngân hàng: {vietQRData.bankId}</p>
+                  <p className="text-sm text-blue-600 mb-2">Tài khoản: {vietQRData.accountNo}</p>
+                  <p className="text-sm text-blue-600 mb-2">Nội dung: {vietQRData.description}</p>
+                </div>
+              )}
 
               {/* Timer */}
               <div className="text-center mb-8">
@@ -159,6 +281,27 @@ export function PaymentPage() {
                   <span className="text-blue-700 font-medium">Thời gian còn lại:</span>
                   <span className="text-blue-800 font-bold text-lg">{formatTime(timeLeft)}</span>
                 </div>
+              </div>
+
+              {/* Check Payment Button */}
+              <div className="text-center mb-8">
+                <Button
+                  onClick={checkPaymentStatus}
+                  disabled={checkingPayment || !vietQRData}
+                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg flex items-center gap-2 mx-auto"
+                >
+                  {checkingPayment ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Đang kiểm tra...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Kiểm tra thanh toán
+                    </>
+                  )}
+                </Button>
               </div>
 
               {/* Payment Instructions */}
@@ -197,27 +340,8 @@ export function PaymentPage() {
                     4
                   </div>
                   <div>
-                    <p className="text-blue-700">Đợi xác nhận và bắt đầu học ngay!</p>
+                    <p className="text-blue-700">Nhấn "Kiểm tra thanh toán" để xác nhận</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Demo Buttons */}
-              <div className="mt-8 text-center space-y-3">
-                <p className="text-blue-600 font-medium mb-4">Demo thanh toán:</p>
-                <div className="flex gap-4 justify-center">
-                  <Button
-                    onClick={simulateSuccessPayment}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg"
-                  >
-                    Thanh toán thành công
-                  </Button>
-                  <Button
-                    onClick={simulateFailurePayment}
-                    className="bg-blue-400 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg"
-                  >
-                    Thanh toán thất bại
-                  </Button>
                 </div>
               </div>
             </div>
