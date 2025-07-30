@@ -6,7 +6,6 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts"
 import { Users, ShoppingCart, TrendingUp, Calendar } from "lucide-react"
-import Image from "next/image"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Function to get weeks for a specific month and year
@@ -431,7 +430,6 @@ export function RevenueDashboardComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [selectedYear, setSelectedYear] = useState("2025")
   const [selectedMonth, setSelectedMonth] = useState("all")
-  const [selectedWeek, setSelectedWeek] = useState("all")
 
   // Get available months for selected year
   const availableMonths = useMemo(() => {
@@ -453,17 +451,6 @@ export function RevenueDashboardComponent() {
     return months
   }, [selectedYear])
 
-  // Get available weeks for selected month and year
-  const availableWeeks = useMemo(() => {
-    if (selectedMonth === "all" || selectedYear === "all") return []
-
-    const year = Number.parseInt(selectedYear)
-    const month = Number.parseInt(selectedMonth)
-    const weeks = getWeeksForMonth(year, month)
-
-    return [{ value: "all", label: "Tất cả" }, ...weeks]
-  }, [selectedMonth, selectedYear])
-
   // Get current revenue data based on filters
   const currentRevenueData = useMemo(() => {
     if (selectedYear === "all") {
@@ -481,7 +468,7 @@ export function RevenueDashboardComponent() {
     if (!monthData) return []
 
     return monthData.all
-  }, [selectedYear, selectedMonth, selectedWeek])
+  }, [selectedYear, selectedMonth])
 
   // Get current package sales data based on filters
   const currentPackageData = useMemo(() => {
@@ -499,12 +486,8 @@ export function RevenueDashboardComponent() {
     const monthData = yearData[selectedMonth]
     if (!monthData) return []
 
-    if (selectedWeek === "all") {
-      return monthData.all
-    }
-
-    return monthData[selectedWeek] || []
-  }, [selectedYear, selectedMonth, selectedWeek])
+    return monthData.all
+  }, [selectedYear, selectedMonth])
 
   // Calculate percentages for pie chart
   const pieChartData = useMemo(() => {
@@ -538,16 +521,12 @@ export function RevenueDashboardComponent() {
     if (selectedMonth !== "all") {
       const monthLabel = availableMonths.find((m) => m.value === selectedMonth)?.label
       description += ` - ${monthLabel}`
-      if (selectedWeek !== "all") {
-        const weekLabel = availableWeeks.find((w) => w.value === selectedWeek)?.label
-        description += ` - ${weekLabel}`
-      }
     }
     return description
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 relative overflow-hidden">
+    <div className="min-h-screen bg-blue-50 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-20 w-6 h-6 text-blue-300 animate-pulse">⭐</div>
@@ -582,7 +561,6 @@ export function RevenueDashboardComponent() {
                     onValueChange={(value) => {
                       setSelectedYear(value)
                       setSelectedMonth("all")
-                      setSelectedWeek("all")
                     }}
                   >
                     <SelectTrigger className="w-28 border-blue-200 focus:border-blue-400">
@@ -604,7 +582,6 @@ export function RevenueDashboardComponent() {
                       value={selectedMonth}
                       onValueChange={(value) => {
                         setSelectedMonth(value)
-                        setSelectedWeek("all") // Reset week when month changes
                       }}
                     >
                       <SelectTrigger className="w-32 border-blue-200 focus:border-blue-400">
@@ -614,25 +591,6 @@ export function RevenueDashboardComponent() {
                         {availableMonths.map((month) => (
                           <SelectItem key={month.value} value={month.value}>
                             {month.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Week Filter - Only show when month is selected and not "all" */}
-                {selectedYear !== "all" && selectedMonth !== "all" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-700">Tuần:</span>
-                    <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                      <SelectTrigger className="w-44 border-blue-200 focus:border-blue-400">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableWeeks.map((week) => (
-                          <SelectItem key={week.value} value={week.value}>
-                            {week.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -655,7 +613,7 @@ export function RevenueDashboardComponent() {
                       <p className="text-3xl font-bold text-blue-700">{statsData.totalUsers.toLocaleString()}</p>
                       <p className="text-xs text-gray-500 mt-1">người dùng</p>
                     </div>
-                    <div className="bg-gradient-to-br from-blue-100 to-cyan-100 p-3 rounded-2xl">
+                    <div className="bg-blue-100 p-3 rounded-2xl">
                       <Users className="w-8 h-8 text-blue-600" />
                     </div>
                   </div>
@@ -670,7 +628,7 @@ export function RevenueDashboardComponent() {
                       <p className="text-3xl font-bold text-green-700">{statsData.packageBuyers.toLocaleString()}</p>
                       <p className="text-xs text-gray-500 mt-1">khách hàng</p>
                     </div>
-                    <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-3 rounded-2xl">
+                    <div className="bg-green-100 p-3 rounded-2xl">
                       <ShoppingCart className="w-8 h-8 text-green-600" />
                     </div>
                   </div>
