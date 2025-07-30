@@ -8,6 +8,46 @@ import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, 
 import { Users, ShoppingCart, TrendingUp, Calendar } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+// Function to generate random colors
+const generateRandomColor = () => {
+  const colors = [
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#8B5CF6",
+    "#06B6D4",
+    "#84CC16",
+    "#F97316",
+    "#EC4899",
+    "#6366F1",
+    "#14B8A6",
+    "#F59E0B",
+    "#DC2626",
+    "#7C3AED",
+    "#059669",
+    "#D97706",
+    "#B91C1C",
+    "#7C2D12",
+    "#365314",
+    "#1E40AF",
+    "#BE185D",
+    "#9333EA",
+    "#C2410C",
+    "#166534",
+    "#1E3A8A",
+  ]
+  return colors[Math.floor(Math.random() * colors.length)]
+}
+
+// Function to assign random colors to packages
+const assignRandomColors = (packages: any[]) => {
+  return packages.map((pkg) => ({
+    ...pkg,
+    color: generateRandomColor(),
+  }))
+}
+
 // Function to get weeks for a specific month and year
 const getWeeksForMonth = (year: number, month: number) => {
   const firstDay = new Date(year, month - 1, 1)
@@ -181,246 +221,246 @@ const revenueData = {
   },
 }
 
-// Mock package sales data
+// Mock package sales data (without predefined colors)
 const packageSalesData = {
   all: [
-    { name: "Gói 1 Tháng", value: 5200, color: "#3B82F6" },
-    { name: "Gói 3 Tháng", value: 12800, color: "#10B981" },
-    { name: "Gói 6 Tháng", value: 7300, color: "#F59E0B" },
-    { name: "Gói 12 Tháng", value: 3750, color: "#EF4444" },
-    { name: "Gói Premium", value: 2050, color: "#8B5CF6" },
+    { name: "Gói 1 Tháng", value: 5200 },
+    { name: "Gói 3 Tháng", value: 12800 },
+    { name: "Gói 6 Tháng", value: 7300 },
+    { name: "Gói 12 Tháng", value: 3750 },
+    { name: "Gói Premium", value: 2050 },
   ],
   2024: {
     all: [
-      { name: "Gói 1 Tháng", value: 1200, color: "#3B82F6" },
-      { name: "Gói 3 Tháng", value: 2800, color: "#10B981" },
-      { name: "Gói 6 Tháng", value: 1500, color: "#F59E0B" },
-      { name: "Gói 12 Tháng", value: 800, color: "#EF4444" },
-      { name: "Gói Premium", value: 450, color: "#8B5CF6" },
+      { name: "Gói 1 Tháng", value: 1200 },
+      { name: "Gói 3 Tháng", value: 2800 },
+      { name: "Gói 6 Tháng", value: 1500 },
+      { name: "Gói 12 Tháng", value: 800 },
+      { name: "Gói Premium", value: 450 },
     ],
     1: {
       all: [
-        { name: "Gói 1 Tháng", value: 120, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 180, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 95, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 45, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 120 },
+        { name: "Gói 3 Tháng", value: 180 },
+        { name: "Gói 6 Tháng", value: 95 },
+        { name: "Gói 12 Tháng", value: 45 },
       ],
       "1-7": [
-        { name: "Gói 1 Tháng", value: 25, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 35, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 18, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 8, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 25 },
+        { name: "Gói 3 Tháng", value: 35 },
+        { name: "Gói 6 Tháng", value: 18 },
+        { name: "Gói 12 Tháng", value: 8 },
       ],
       "8-14": [
-        { name: "Gói 1 Tháng", value: 30, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 42, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 22, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 12, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 30 },
+        { name: "Gói 3 Tháng", value: 42 },
+        { name: "Gói 6 Tháng", value: 22 },
+        { name: "Gói 12 Tháng", value: 12 },
       ],
       "15-21": [
-        { name: "Gói 1 Tháng", value: 28, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 38, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 20, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 10, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 28 },
+        { name: "Gói 3 Tháng", value: 38 },
+        { name: "Gói 6 Tháng", value: 20 },
+        { name: "Gói 12 Tháng", value: 10 },
       ],
       "22-28": [
-        { name: "Gói 1 Tháng", value: 25, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 35, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 18, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 8, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 25 },
+        { name: "Gói 3 Tháng", value: 35 },
+        { name: "Gói 6 Tháng", value: 18 },
+        { name: "Gói 12 Tháng", value: 8 },
       ],
       "29-31": [
-        { name: "Gói 1 Tháng", value: 12, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 30, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 17, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 7, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 12 },
+        { name: "Gói 3 Tháng", value: 30 },
+        { name: "Gói 6 Tháng", value: 17 },
+        { name: "Gói 12 Tháng", value: 7 },
       ],
     },
     2: {
       all: [
-        { name: "Gói 1 Tháng", value: 140, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 200, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 110, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 55, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 140 },
+        { name: "Gói 3 Tháng", value: 200 },
+        { name: "Gói 6 Tháng", value: 110 },
+        { name: "Gói 12 Tháng", value: 55 },
       ],
       "1-7": [
-        { name: "Gói 1 Tháng", value: 32, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 45, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 25, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 12, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 32 },
+        { name: "Gói 3 Tháng", value: 45 },
+        { name: "Gói 6 Tháng", value: 25 },
+        { name: "Gói 12 Tháng", value: 12 },
       ],
       "8-14": [
-        { name: "Gói 1 Tháng", value: 38, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 52, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 28, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 15, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 38 },
+        { name: "Gói 3 Tháng", value: 52 },
+        { name: "Gói 6 Tháng", value: 28 },
+        { name: "Gói 12 Tháng", value: 15 },
       ],
       "15-21": [
-        { name: "Gói 1 Tháng", value: 35, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 48, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 26, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 13, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 35 },
+        { name: "Gói 3 Tháng", value: 48 },
+        { name: "Gói 6 Tháng", value: 26 },
+        { name: "Gói 12 Tháng", value: 13 },
       ],
       "22-28": [
-        { name: "Gói 1 Tháng", value: 35, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 55, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 31, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 15, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 35 },
+        { name: "Gói 3 Tháng", value: 55 },
+        { name: "Gói 6 Tháng", value: 31 },
+        { name: "Gói 12 Tháng", value: 15 },
       ],
     },
     3: {
       all: [
-        { name: "Gói 1 Tháng", value: 160, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 240, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 130, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 70, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 160 },
+        { name: "Gói 3 Tháng", value: 240 },
+        { name: "Gói 6 Tháng", value: 130 },
+        { name: "Gói 12 Tháng", value: 70 },
       ],
       "1-7": [
-        { name: "Gói 1 Tháng", value: 38, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 55, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 30, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 15, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 38 },
+        { name: "Gói 3 Tháng", value: 55 },
+        { name: "Gói 6 Tháng", value: 30 },
+        { name: "Gói 12 Tháng", value: 15 },
       ],
       "8-14": [
-        { name: "Gói 1 Tháng", value: 42, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 62, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 35, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 18, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 42 },
+        { name: "Gói 3 Tháng", value: 62 },
+        { name: "Gói 6 Tháng", value: 35 },
+        { name: "Gói 12 Tháng", value: 18 },
       ],
       "15-21": [
-        { name: "Gói 1 Tháng", value: 40, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 58, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 32, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 17, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 40 },
+        { name: "Gói 3 Tháng", value: 58 },
+        { name: "Gói 6 Tháng", value: 32 },
+        { name: "Gói 12 Tháng", value: 17 },
       ],
       "22-28": [
-        { name: "Gói 1 Tháng", value: 30, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 45, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 23, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 12, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 30 },
+        { name: "Gói 3 Tháng", value: 45 },
+        { name: "Gói 6 Tháng", value: 23 },
+        { name: "Gói 12 Tháng", value: 12 },
       ],
       "29-31": [
-        { name: "Gói 1 Tháng", value: 10, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 20, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 10, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 8, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 10 },
+        { name: "Gói 3 Tháng", value: 20 },
+        { name: "Gói 6 Tháng", value: 10 },
+        { name: "Gói 12 Tháng", value: 8 },
       ],
     },
   },
   2025: {
     all: [
-      { name: "Gói 1 Tháng", value: 1400, color: "#3B82F6" },
-      { name: "Gói 3 Tháng", value: 3200, color: "#10B981" },
-      { name: "Gói 6 Tháng", value: 1800, color: "#F59E0B" },
-      { name: "Gói 12 Tháng", value: 950, color: "#EF4444" },
-      { name: "Gói Premium", value: 600, color: "#8B5CF6" },
+      { name: "Gói 1 Tháng", value: 1400 },
+      { name: "Gói 3 Tháng", value: 3200 },
+      { name: "Gói 6 Tháng", value: 1800 },
+      { name: "Gói 12 Tháng", value: 950 },
+      { name: "Gói Premium", value: 600 },
     ],
     1: {
       all: [
-        { name: "Gói 1 Tháng", value: 140, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 220, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 115, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 55, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 140 },
+        { name: "Gói 3 Tháng", value: 220 },
+        { name: "Gói 6 Tháng", value: 115 },
+        { name: "Gói 12 Tháng", value: 55 },
       ],
       "1-7": [
-        { name: "Gói 1 Tháng", value: 30, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 45, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 22, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 10, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 30 },
+        { name: "Gói 3 Tháng", value: 45 },
+        { name: "Gói 6 Tháng", value: 22 },
+        { name: "Gói 12 Tháng", value: 10 },
       ],
       "8-14": [
-        { name: "Gói 1 Tháng", value: 35, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 55, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 28, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 15, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 35 },
+        { name: "Gói 3 Tháng", value: 55 },
+        { name: "Gói 6 Tháng", value: 28 },
+        { name: "Gói 12 Tháng", value: 15 },
       ],
       "15-21": [
-        { name: "Gói 1 Tháng", value: 32, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 50, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 25, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 12, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 32 },
+        { name: "Gói 3 Tháng", value: 50 },
+        { name: "Gói 6 Tháng", value: 25 },
+        { name: "Gói 12 Tháng", value: 12 },
       ],
       "22-28": [
-        { name: "Gói 1 Tháng", value: 33, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 50, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 25, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 10, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 33 },
+        { name: "Gói 3 Tháng", value: 50 },
+        { name: "Gói 6 Tháng", value: 25 },
+        { name: "Gói 12 Tháng", value: 10 },
       ],
       "29-31": [
-        { name: "Gói 1 Tháng", value: 10, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 20, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 15, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 8, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 10 },
+        { name: "Gói 3 Tháng", value: 20 },
+        { name: "Gói 6 Tháng", value: 15 },
+        { name: "Gói 12 Tháng", value: 8 },
       ],
     },
     2: {
       all: [
-        { name: "Gói 1 Tháng", value: 160, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 250, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 135, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 65, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 160 },
+        { name: "Gói 3 Tháng", value: 250 },
+        { name: "Gói 6 Tháng", value: 135 },
+        { name: "Gói 12 Tháng", value: 65 },
       ],
       "1-7": [
-        { name: "Gói 1 Tháng", value: 35, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 52, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 28, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 12, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 35 },
+        { name: "Gói 3 Tháng", value: 52 },
+        { name: "Gói 6 Tháng", value: 28 },
+        { name: "Gói 12 Tháng", value: 12 },
       ],
       "8-14": [
-        { name: "Gói 1 Tháng", value: 42, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 65, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 35, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 18, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 42 },
+        { name: "Gói 3 Tháng", value: 65 },
+        { name: "Gói 6 Tháng", value: 35 },
+        { name: "Gói 12 Tháng", value: 18 },
       ],
       "15-21": [
-        { name: "Gói 1 Tháng", value: 38, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 58, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 32, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 15, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 38 },
+        { name: "Gói 3 Tháng", value: 58 },
+        { name: "Gói 6 Tháng", value: 32 },
+        { name: "Gói 12 Tháng", value: 15 },
       ],
       "22-28": [
-        { name: "Gói 1 Tháng", value: 45, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 75, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 40, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 20, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 45 },
+        { name: "Gói 3 Tháng", value: 75 },
+        { name: "Gói 6 Tháng", value: 40 },
+        { name: "Gói 12 Tháng", value: 20 },
       ],
     },
     3: {
       all: [
-        { name: "Gói 1 Tháng", value: 180, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 280, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 150, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 80, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 180 },
+        { name: "Gói 3 Tháng", value: 280 },
+        { name: "Gói 6 Tháng", value: 150 },
+        { name: "Gói 12 Tháng", value: 80 },
       ],
       "1-7": [
-        { name: "Gói 1 Tháng", value: 42, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 65, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 35, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 18, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 42 },
+        { name: "Gói 3 Tháng", value: 65 },
+        { name: "Gói 6 Tháng", value: 35 },
+        { name: "Gói 12 Tháng", value: 18 },
       ],
       "8-14": [
-        { name: "Gói 1 Tháng", value: 48, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 72, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 38, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 22, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 48 },
+        { name: "Gói 3 Tháng", value: 72 },
+        { name: "Gói 6 Tháng", value: 38 },
+        { name: "Gói 12 Tháng", value: 22 },
       ],
       "15-21": [
-        { name: "Gói 1 Tháng", value: 45, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 68, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 37, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 20, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 45 },
+        { name: "Gói 3 Tháng", value: 68 },
+        { name: "Gói 6 Tháng", value: 37 },
+        { name: "Gói 12 Tháng", value: 20 },
       ],
       "22-28": [
-        { name: "Gói 1 Tháng", value: 35, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 55, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 25, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 12, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 35 },
+        { name: "Gói 3 Tháng", value: 55 },
+        { name: "Gói 6 Tháng", value: 25 },
+        { name: "Gói 12 Tháng", value: 12 },
       ],
       "29-31": [
-        { name: "Gói 1 Tháng", value: 10, color: "#3B82F6" },
-        { name: "Gói 3 Tháng", value: 20, color: "#10B981" },
-        { name: "Gói 6 Tháng", value: 15, color: "#F59E0B" },
-        { name: "Gói 12 Tháng", value: 8, color: "#EF4444" },
+        { name: "Gói 1 Tháng", value: 10 },
+        { name: "Gói 3 Tháng", value: 20 },
+        { name: "Gói 6 Tháng", value: 15 },
+        { name: "Gói 12 Tháng", value: 8 },
       ],
     },
   },
@@ -472,21 +512,25 @@ export function RevenueDashboardComponent() {
 
   // Get current package sales data based on filters
   const currentPackageData = useMemo(() => {
+    let data = []
+
     if (selectedYear === "all") {
-      return packageSalesData.all
+      data = packageSalesData.all
+    } else {
+      const yearData = packageSalesData[selectedYear]
+      if (!yearData) return []
+
+      if (selectedMonth === "all") {
+        data = yearData.all
+      } else {
+        const monthData = yearData[selectedMonth]
+        if (!monthData) return []
+        data = monthData.all
+      }
     }
 
-    const yearData = packageSalesData[selectedYear]
-    if (!yearData) return []
-
-    if (selectedMonth === "all") {
-      return yearData.all
-    }
-
-    const monthData = yearData[selectedMonth]
-    if (!monthData) return []
-
-    return monthData.all
+    // Assign random colors to the data
+    return assignRandomColors(data)
   }, [selectedYear, selectedMonth])
 
   // Calculate percentages for pie chart
@@ -544,7 +588,6 @@ export function RevenueDashboardComponent() {
           {/* Page Title */}
           <div className="text-center mb-8 relative">
             <h1 className="text-3xl md:text-4xl font-bold text-blue-700 mb-2">Quản Lý Doanh Thu</h1>
-            <p className="text-gray-600 text-lg">Theo dõi hiệu quả kinh doanh của các gói học ngôn ngữ ký hiệu</p>
           </div>
 
           {/* Filters */}
