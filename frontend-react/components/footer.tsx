@@ -64,6 +64,7 @@ const roleMenus = {
     { icon: UserCheck, label: "Quản lý người biên soạn", href: "/general-manager/creators" },
     { icon: Shield, label: "Quản lý người kiểm duyệt", href: "/general-manager/approvers" },
     { icon: DollarSign, label: "Quản lý doanh thu", href: "/general-manager/revenue-dashboard" },
+    { icon: DollarSign, label: "Quản lý gói học", href: "/general-manager/packages/list-packages" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
 }
