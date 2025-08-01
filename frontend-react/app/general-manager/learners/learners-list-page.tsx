@@ -131,7 +131,7 @@ const LearnersListPage = () => {
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
                   Quản lý học viên
                 </h1>
-                <p className="text-blue-500 mt-1">Theo dõi và quản lý thông tin học viên ngôn ngữ ký hiệu</p>
+                <p className="text-blue-500 mt-1">Theo dõi và quản lý thông tin học viên</p>
               </div>
             </div>
           </div>
