@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts"
+import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LabelList } from "recharts"
 import { Users, ShoppingCart, TrendingUp, Calendar } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -46,31 +46,6 @@ const assignRandomColors = (packages: any[]) => {
     ...pkg,
     color: generateRandomColor(),
   }))
-}
-
-// Function to get weeks for a specific month and year
-const getWeeksForMonth = (year: number, month: number) => {
-  const firstDay = new Date(year, month - 1, 1)
-  const lastDay = new Date(year, month, 0)
-  const daysInMonth = lastDay.getDate()
-
-  const weeks = []
-  let weekStart = 1
-  let weekNumber = 1
-
-  while (weekStart <= daysInMonth) {
-    const weekEnd = Math.min(weekStart + 6, daysInMonth)
-    weeks.push({
-      value: `${weekStart}-${weekEnd}`,
-      label: `Tuần ${weekNumber} (${weekStart}-${weekEnd})`,
-      start: weekStart,
-      end: weekEnd,
-    })
-    weekStart = weekEnd + 1
-    weekNumber++
-  }
-
-  return weeks
 }
 
 // Mock revenue data structure
@@ -221,246 +196,78 @@ const revenueData = {
   },
 }
 
-// Mock package sales data (without predefined colors)
+// Mock package sales data with revenue per package type
 const packageSalesData = {
   all: [
-    { name: "Gói 1 Tháng", value: 5200 },
-    { name: "Gói 3 Tháng", value: 12800 },
-    { name: "Gói 6 Tháng", value: 7300 },
-    { name: "Gói 12 Tháng", value: 3750 },
-    { name: "Gói Premium", value: 2050 },
+    { name: "Gói 1 Tháng", value: 5200, packageRevenue: 65000000, packagePrice: 12500 },
+    { name: "Gói 3 Tháng", value: 12800, packageRevenue: 448000000, packagePrice: 35000 },
+    { name: "Gói 6 Tháng", value: 7300, packageRevenue: 438000000, packagePrice: 60000 },
+    { name: "Gói 12 Tháng", value: 3750, packageRevenue: 450000000, packagePrice: 120000 },
+    { name: "Gói Premium", value: 2050, packageRevenue: 410000000, packagePrice: 200000 },
   ],
   2024: {
     all: [
-      { name: "Gói 1 Tháng", value: 1200 },
-      { name: "Gói 3 Tháng", value: 2800 },
-      { name: "Gói 6 Tháng", value: 1500 },
-      { name: "Gói 12 Tháng", value: 800 },
-      { name: "Gói Premium", value: 450 },
+      { name: "Gói 1 Tháng", value: 1200, packageRevenue: 15000000, packagePrice: 12500 },
+      { name: "Gói 3 Tháng", value: 2800, packageRevenue: 98000000, packagePrice: 35000 },
+      { name: "Gói 6 Tháng", value: 1500, packageRevenue: 90000000, packagePrice: 60000 },
+      { name: "Gói 12 Tháng", value: 800, packageRevenue: 96000000, packagePrice: 120000 },
+      { name: "Gói Premium", value: 450, packageRevenue: 90000000, packagePrice: 200000 },
     ],
     1: {
       all: [
-        { name: "Gói 1 Tháng", value: 120 },
-        { name: "Gói 3 Tháng", value: 180 },
-        { name: "Gói 6 Tháng", value: 95 },
-        { name: "Gói 12 Tháng", value: 45 },
-      ],
-      "1-7": [
-        { name: "Gói 1 Tháng", value: 25 },
-        { name: "Gói 3 Tháng", value: 35 },
-        { name: "Gói 6 Tháng", value: 18 },
-        { name: "Gói 12 Tháng", value: 8 },
-      ],
-      "8-14": [
-        { name: "Gói 1 Tháng", value: 30 },
-        { name: "Gói 3 Tháng", value: 42 },
-        { name: "Gói 6 Tháng", value: 22 },
-        { name: "Gói 12 Tháng", value: 12 },
-      ],
-      "15-21": [
-        { name: "Gói 1 Tháng", value: 28 },
-        { name: "Gói 3 Tháng", value: 38 },
-        { name: "Gói 6 Tháng", value: 20 },
-        { name: "Gói 12 Tháng", value: 10 },
-      ],
-      "22-28": [
-        { name: "Gói 1 Tháng", value: 25 },
-        { name: "Gói 3 Tháng", value: 35 },
-        { name: "Gói 6 Tháng", value: 18 },
-        { name: "Gói 12 Tháng", value: 8 },
-      ],
-      "29-31": [
-        { name: "Gói 1 Tháng", value: 12 },
-        { name: "Gói 3 Tháng", value: 30 },
-        { name: "Gói 6 Tháng", value: 17 },
-        { name: "Gói 12 Tháng", value: 7 },
+        { name: "Gói 1 Tháng", value: 120, packageRevenue: 1500000, packagePrice: 12500 },
+        { name: "Gói 3 Tháng", value: 180, packageRevenue: 6300000, packagePrice: 35000 },
+        { name: "Gói 6 Tháng", value: 95, packageRevenue: 5700000, packagePrice: 60000 },
+        { name: "Gói 12 Tháng", value: 45, packageRevenue: 5400000, packagePrice: 120000 },
       ],
     },
     2: {
       all: [
-        { name: "Gói 1 Tháng", value: 140 },
-        { name: "Gói 3 Tháng", value: 200 },
-        { name: "Gói 6 Tháng", value: 110 },
-        { name: "Gói 12 Tháng", value: 55 },
-      ],
-      "1-7": [
-        { name: "Gói 1 Tháng", value: 32 },
-        { name: "Gói 3 Tháng", value: 45 },
-        { name: "Gói 6 Tháng", value: 25 },
-        { name: "Gói 12 Tháng", value: 12 },
-      ],
-      "8-14": [
-        { name: "Gói 1 Tháng", value: 38 },
-        { name: "Gói 3 Tháng", value: 52 },
-        { name: "Gói 6 Tháng", value: 28 },
-        { name: "Gói 12 Tháng", value: 15 },
-      ],
-      "15-21": [
-        { name: "Gói 1 Tháng", value: 35 },
-        { name: "Gói 3 Tháng", value: 48 },
-        { name: "Gói 6 Tháng", value: 26 },
-        { name: "Gói 12 Tháng", value: 13 },
-      ],
-      "22-28": [
-        { name: "Gói 1 Tháng", value: 35 },
-        { name: "Gói 3 Tháng", value: 55 },
-        { name: "Gói 6 Tháng", value: 31 },
-        { name: "Gói 12 Tháng", value: 15 },
+        { name: "Gói 1 Tháng", value: 140, packageRevenue: 1750000, packagePrice: 12500 },
+        { name: "Gói 3 Tháng", value: 200, packageRevenue: 7000000, packagePrice: 35000 },
+        { name: "Gói 6 Tháng", value: 110, packageRevenue: 6600000, packagePrice: 60000 },
+        { name: "Gói 12 Tháng", value: 55, packageRevenue: 6600000, packagePrice: 120000 },
       ],
     },
     3: {
       all: [
-        { name: "Gói 1 Tháng", value: 160 },
-        { name: "Gói 3 Tháng", value: 240 },
-        { name: "Gói 6 Tháng", value: 130 },
-        { name: "Gói 12 Tháng", value: 70 },
-      ],
-      "1-7": [
-        { name: "Gói 1 Tháng", value: 38 },
-        { name: "Gói 3 Tháng", value: 55 },
-        { name: "Gói 6 Tháng", value: 30 },
-        { name: "Gói 12 Tháng", value: 15 },
-      ],
-      "8-14": [
-        { name: "Gói 1 Tháng", value: 42 },
-        { name: "Gói 3 Tháng", value: 62 },
-        { name: "Gói 6 Tháng", value: 35 },
-        { name: "Gói 12 Tháng", value: 18 },
-      ],
-      "15-21": [
-        { name: "Gói 1 Tháng", value: 40 },
-        { name: "Gói 3 Tháng", value: 58 },
-        { name: "Gói 6 Tháng", value: 32 },
-        { name: "Gói 12 Tháng", value: 17 },
-      ],
-      "22-28": [
-        { name: "Gói 1 Tháng", value: 30 },
-        { name: "Gói 3 Tháng", value: 45 },
-        { name: "Gói 6 Tháng", value: 23 },
-        { name: "Gói 12 Tháng", value: 12 },
-      ],
-      "29-31": [
-        { name: "Gói 1 Tháng", value: 10 },
-        { name: "Gói 3 Tháng", value: 20 },
-        { name: "Gói 6 Tháng", value: 10 },
-        { name: "Gói 12 Tháng", value: 8 },
+        { name: "Gói 1 Tháng", value: 160, packageRevenue: 2000000, packagePrice: 12500 },
+        { name: "Gói 3 Tháng", value: 240, packageRevenue: 8400000, packagePrice: 35000 },
+        { name: "Gói 6 Tháng", value: 130, packageRevenue: 7800000, packagePrice: 60000 },
+        { name: "Gói 12 Tháng", value: 70, packageRevenue: 8400000, packagePrice: 120000 },
       ],
     },
   },
   2025: {
     all: [
-      { name: "Gói 1 Tháng", value: 1400 },
-      { name: "Gói 3 Tháng", value: 3200 },
-      { name: "Gói 6 Tháng", value: 1800 },
-      { name: "Gói 12 Tháng", value: 950 },
-      { name: "Gói Premium", value: 600 },
+      { name: "Gói 1 Tháng", value: 1400, packageRevenue: 17500000, packagePrice: 12500 },
+      { name: "Gói 3 Tháng", value: 3200, packageRevenue: 112000000, packagePrice: 35000 },
+      { name: "Gói 6 Tháng", value: 1800, packageRevenue: 108000000, packagePrice: 60000 },
+      { name: "Gói 12 Tháng", value: 950, packageRevenue: 114000000, packagePrice: 120000 },
+      { name: "Gói Premium", value: 600, packageRevenue: 120000000, packagePrice: 200000 },
     ],
     1: {
       all: [
-        { name: "Gói 1 Tháng", value: 140 },
-        { name: "Gói 3 Tháng", value: 220 },
-        { name: "Gói 6 Tháng", value: 115 },
-        { name: "Gói 12 Tháng", value: 55 },
-      ],
-      "1-7": [
-        { name: "Gói 1 Tháng", value: 30 },
-        { name: "Gói 3 Tháng", value: 45 },
-        { name: "Gói 6 Tháng", value: 22 },
-        { name: "Gói 12 Tháng", value: 10 },
-      ],
-      "8-14": [
-        { name: "Gói 1 Tháng", value: 35 },
-        { name: "Gói 3 Tháng", value: 55 },
-        { name: "Gói 6 Tháng", value: 28 },
-        { name: "Gói 12 Tháng", value: 15 },
-      ],
-      "15-21": [
-        { name: "Gói 1 Tháng", value: 32 },
-        { name: "Gói 3 Tháng", value: 50 },
-        { name: "Gói 6 Tháng", value: 25 },
-        { name: "Gói 12 Tháng", value: 12 },
-      ],
-      "22-28": [
-        { name: "Gói 1 Tháng", value: 33 },
-        { name: "Gói 3 Tháng", value: 50 },
-        { name: "Gói 6 Tháng", value: 25 },
-        { name: "Gói 12 Tháng", value: 10 },
-      ],
-      "29-31": [
-        { name: "Gói 1 Tháng", value: 10 },
-        { name: "Gói 3 Tháng", value: 20 },
-        { name: "Gói 6 Tháng", value: 15 },
-        { name: "Gói 12 Tháng", value: 8 },
+        { name: "Gói 1 Tháng", value: 140, packageRevenue: 1750000, packagePrice: 12500 },
+        { name: "Gói 3 Tháng", value: 220, packageRevenue: 7700000, packagePrice: 35000 },
+        { name: "Gói 6 Tháng", value: 115, packageRevenue: 6900000, packagePrice: 60000 },
+        { name: "Gói 12 Tháng", value: 55, packageRevenue: 6600000, packagePrice: 120000 },
       ],
     },
     2: {
       all: [
-        { name: "Gói 1 Tháng", value: 160 },
-        { name: "Gói 3 Tháng", value: 250 },
-        { name: "Gói 6 Tháng", value: 135 },
-        { name: "Gói 12 Tháng", value: 65 },
-      ],
-      "1-7": [
-        { name: "Gói 1 Tháng", value: 35 },
-        { name: "Gói 3 Tháng", value: 52 },
-        { name: "Gói 6 Tháng", value: 28 },
-        { name: "Gói 12 Tháng", value: 12 },
-      ],
-      "8-14": [
-        { name: "Gói 1 Tháng", value: 42 },
-        { name: "Gói 3 Tháng", value: 65 },
-        { name: "Gói 6 Tháng", value: 35 },
-        { name: "Gói 12 Tháng", value: 18 },
-      ],
-      "15-21": [
-        { name: "Gói 1 Tháng", value: 38 },
-        { name: "Gói 3 Tháng", value: 58 },
-        { name: "Gói 6 Tháng", value: 32 },
-        { name: "Gói 12 Tháng", value: 15 },
-      ],
-      "22-28": [
-        { name: "Gói 1 Tháng", value: 45 },
-        { name: "Gói 3 Tháng", value: 75 },
-        { name: "Gói 6 Tháng", value: 40 },
-        { name: "Gói 12 Tháng", value: 20 },
+        { name: "Gói 1 Tháng", value: 160, packageRevenue: 2000000, packagePrice: 12500 },
+        { name: "Gói 3 Tháng", value: 250, packageRevenue: 8750000, packagePrice: 35000 },
+        { name: "Gói 6 Tháng", value: 135, packageRevenue: 8100000, packagePrice: 60000 },
+        { name: "Gói 12 Tháng", value: 65, packageRevenue: 7800000, packagePrice: 120000 },
       ],
     },
     3: {
       all: [
-        { name: "Gói 1 Tháng", value: 180 },
-        { name: "Gói 3 Tháng", value: 280 },
-        { name: "Gói 6 Tháng", value: 150 },
-        { name: "Gói 12 Tháng", value: 80 },
-      ],
-      "1-7": [
-        { name: "Gói 1 Tháng", value: 42 },
-        { name: "Gói 3 Tháng", value: 65 },
-        { name: "Gói 6 Tháng", value: 35 },
-        { name: "Gói 12 Tháng", value: 18 },
-      ],
-      "8-14": [
-        { name: "Gói 1 Tháng", value: 48 },
-        { name: "Gói 3 Tháng", value: 72 },
-        { name: "Gói 6 Tháng", value: 38 },
-        { name: "Gói 12 Tháng", value: 22 },
-      ],
-      "15-21": [
-        { name: "Gói 1 Tháng", value: 45 },
-        { name: "Gói 3 Tháng", value: 68 },
-        { name: "Gói 6 Tháng", value: 37 },
-        { name: "Gói 12 Tháng", value: 20 },
-      ],
-      "22-28": [
-        { name: "Gói 1 Tháng", value: 35 },
-        { name: "Gói 3 Tháng", value: 55 },
-        { name: "Gói 6 Tháng", value: 25 },
-        { name: "Gói 12 Tháng", value: 12 },
-      ],
-      "29-31": [
-        { name: "Gói 1 Tháng", value: 10 },
-        { name: "Gói 3 Tháng", value: 20 },
-        { name: "Gói 6 Tháng", value: 15 },
-        { name: "Gói 12 Tháng", value: 8 },
+        { name: "Gói 1 Tháng", value: 180, packageRevenue: 2250000, packagePrice: 12500 },
+        { name: "Gói 3 Tháng", value: 280, packageRevenue: 9800000, packagePrice: 35000 },
+        { name: "Gói 6 Tháng", value: 150, packageRevenue: 9000000, packagePrice: 60000 },
+        { name: "Gói 12 Tháng", value: 80, packageRevenue: 9600000, packagePrice: 120000 },
       ],
     },
   },
@@ -468,8 +275,12 @@ const packageSalesData = {
 
 export function RevenueDashboardComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [selectedYear, setSelectedYear] = useState("2025")
-  const [selectedMonth, setSelectedMonth] = useState("all")
+  
+  // Separate filters for each chart
+  const [pieChartYear, setPieChartYear] = useState("2025")
+  const [pieChartMonth, setPieChartMonth] = useState("all")
+  const [barChartYear, setBarChartYear] = useState("2025")
+  const [barChartMonth, setBarChartMonth] = useState("all")
 
   // Get available months for selected year
   const availableMonths = useMemo(() => {
@@ -489,41 +300,41 @@ export function RevenueDashboardComponent() {
       { value: "12", label: "Tháng 12" },
     ]
     return months
-  }, [selectedYear])
+  }, [])
 
-  // Get current revenue data based on filters
+  // Get current revenue data based on bar chart filters
   const currentRevenueData = useMemo(() => {
-    if (selectedYear === "all") {
+    if (barChartYear === "all") {
       return revenueData.all
     }
 
-    const yearData = revenueData[selectedYear]
+    const yearData = revenueData[barChartYear]
     if (!yearData) return []
 
-    if (selectedMonth === "all") {
+    if (barChartMonth === "all") {
       return yearData.all
     }
 
-    const monthData = yearData[selectedMonth]
+    const monthData = yearData[barChartMonth]
     if (!monthData) return []
 
     return monthData.all
-  }, [selectedYear, selectedMonth])
+  }, [barChartYear, barChartMonth])
 
-  // Get current package sales data based on filters
+  // Get current package sales data based on pie chart filters
   const currentPackageData = useMemo(() => {
     let data = []
 
-    if (selectedYear === "all") {
+    if (pieChartYear === "all") {
       data = packageSalesData.all
     } else {
-      const yearData = packageSalesData[selectedYear]
+      const yearData = packageSalesData[pieChartYear]
       if (!yearData) return []
 
-      if (selectedMonth === "all") {
+      if (pieChartMonth === "all") {
         data = yearData.all
       } else {
-        const monthData = yearData[selectedMonth]
+        const monthData = yearData[pieChartMonth]
         if (!monthData) return []
         data = monthData.all
       }
@@ -531,9 +342,9 @@ export function RevenueDashboardComponent() {
 
     // Assign random colors to the data
     return assignRandomColors(data)
-  }, [selectedYear, selectedMonth])
+  }, [pieChartYear, pieChartMonth])
 
-  // Calculate percentages for pie chart
+  // Calculate percentages for pie chart with enhanced data
   const pieChartData = useMemo(() => {
     const total = currentPackageData.reduce((sum, item) => sum + item.value, 0)
     return currentPackageData.map((item) => ({
@@ -556,18 +367,55 @@ export function RevenueDashboardComponent() {
     }).format(value)
   }
 
-  const getFilterDescription = () => {
-    if (selectedYear === "all") {
+  const getPieChartFilterDescription = () => {
+    if (pieChartYear === "all") {
       return "Tất cả các năm"
     }
 
-    let description = `Năm ${selectedYear}`
-    if (selectedMonth !== "all") {
-      const monthLabel = availableMonths.find((m) => m.value === selectedMonth)?.label
+    let description = `Năm ${pieChartYear}`
+    if (pieChartMonth !== "all") {
+      const monthLabel = availableMonths.find((m) => m.value === pieChartMonth)?.label
       description += ` - ${monthLabel}`
     }
     return description
   }
+
+  const getBarChartFilterDescription = () => {
+    if (barChartYear === "all") {
+      return "Tất cả các năm"
+    }
+
+    let description = `Năm ${barChartYear}`
+    if (barChartMonth !== "all") {
+      const monthLabel = availableMonths.find((m) => m.value === barChartMonth)?.label
+      description += ` - ${monthLabel}`
+    }
+    return description
+  }
+
+  // Custom label renderer for pie chart with lines
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius + 40; // Position further outside the pie
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    if (percent < 0.02) return null; // Don't show labels for very small slices
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="#374151" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        fontSize="12"
+        fontWeight="bold"
+      >
+        {`${(percent * 100).toFixed(1)}%`}
+      </text>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-blue-50 relative overflow-hidden">
@@ -588,60 +436,6 @@ export function RevenueDashboardComponent() {
           {/* Page Title */}
           <div className="text-center mb-8 relative">
             <h1 className="text-3xl md:text-4xl font-bold text-blue-700 mb-2">Quản Lý Doanh Thu</h1>
-          </div>
-
-          {/* Filters */}
-          <div className="flex justify-center mb-8">
-            <div className="bg-white rounded-2xl p-4 shadow-lg border-2 border-blue-200">
-              <div className="flex flex-wrap items-center gap-4">
-                <Calendar className="w-5 h-5 text-blue-600" />
-
-                {/* Year Filter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-blue-700">Năm:</span>
-                  <Select
-                    value={selectedYear}
-                    onValueChange={(value) => {
-                      setSelectedYear(value)
-                      setSelectedMonth("all")
-                    }}
-                  >
-                    <SelectTrigger className="w-28 border-blue-200 focus:border-blue-400">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2025">2025</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Month Filter - Only show when year is not "all" */}
-                {selectedYear !== "all" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-700">Tháng:</span>
-                    <Select
-                      value={selectedMonth}
-                      onValueChange={(value) => {
-                        setSelectedMonth(value)
-                      }}
-                    >
-                      <SelectTrigger className="w-32 border-blue-200 focus:border-blue-400">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableMonths.map((month) => (
-                          <SelectItem key={month.value} value={month.value}>
-                            {month.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Top Row - Stats and Pie Chart */}
@@ -685,22 +479,76 @@ export function RevenueDashboardComponent() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-xl font-bold text-blue-700 flex items-center gap-2">
                     <TrendingUp className="w-6 h-6" />
-                    Phân Bố Gói Học
+                    Phân Bố Gói Học Theo Năm
                   </CardTitle>
-                  <CardDescription className="text-gray-600">{getFilterDescription()}</CardDescription>
+                  <CardDescription className="text-gray-600">
+                    Tỷ lệ phần trăm các gói học được mua - {getPieChartFilterDescription()}
+                  </CardDescription>
+                  
+                  {/* Pie Chart Filters */}
+                  <div className="flex flex-wrap items-center gap-4 mt-4 p-3 bg-blue-50 rounded-lg">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    
+                    {/* Year Filter for Pie Chart */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-blue-700">Năm:</span>
+                      <Select
+                        value={pieChartYear}
+                        onValueChange={(value) => {
+                          setPieChartYear(value)
+                          setPieChartMonth("all")
+                        }}
+                      >
+                        <SelectTrigger className="w-24 h-8 text-sm border-blue-200 focus:border-blue-400">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả</SelectItem>
+                          <SelectItem value="2024">2024</SelectItem>
+                          <SelectItem value="2025">2025</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Month Filter for Pie Chart */}
+                    {pieChartYear !== "all" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-blue-700">Tháng:</span>
+                        <Select
+                          value={pieChartMonth}
+                          onValueChange={(value) => {
+                            setPieChartMonth(value)
+                          }}
+                        >
+                          <SelectTrigger className="w-28 h-8 text-sm border-blue-200 focus:border-blue-400">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableMonths.map((month) => (
+                              <SelectItem key={month.value} value={month.value}>
+                                {month.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {pieChartData.length > 0 ? (
                     <div className="flex flex-col lg:flex-row items-center gap-6">
-                      <div className="flex-1 h-64">
+                      <div className="flex-1 h-80">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
                               data={pieChartData}
                               cx="50%"
                               cy="50%"
-                              innerRadius={60}
-                              outerRadius={100}
+                              labelLine={true}
+                              label={renderCustomizedLabel}
+                              innerRadius={70}
+                              outerRadius={120}
                               paddingAngle={5}
                               dataKey="value"
                             >
@@ -723,19 +571,19 @@ export function RevenueDashboardComponent() {
                         {pieChartData.map((entry, index) => (
                           <div key={index} className="flex items-center gap-3">
                             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-700">{entry.name}</p>
-                              <p className="text-xs text-gray-500">{entry.value} gói</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-700 truncate">{entry.name}</p>
+                              <p className="text-xs text-gray-500">{formatCurrency(entry.packageRevenue || entry.value * (entry.packagePrice || 0))}</p>
                             </div>
-                            <div className="bg-blue-50 px-2 py-1 rounded-lg">
-                              <span className="text-sm font-bold text-blue-700">{entry.percentage}%</span>
+                            <div className="bg-blue-50 px-2 py-1 rounded-lg text-center">
+                              <span className="text-xs text-gray-600">{entry.value} gói</span>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="flex items-center justify-center h-80 text-gray-500">
                       <div className="text-center">
                         <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                         <p className="text-lg font-medium">Không có dữ liệu</p>
@@ -753,11 +601,61 @@ export function RevenueDashboardComponent() {
             <CardHeader className="pb-4">
               <CardTitle className="text-xl font-bold text-blue-700 flex items-center gap-2">
                 <TrendingUp className="w-6 h-6" />
-                Doanh Thu - {getFilterDescription()}
+                Doanh Thu - {getBarChartFilterDescription()}
               </CardTitle>
               <CardDescription className="text-gray-600">
                 Biểu đồ doanh thu từ việc bán các gói học ngôn ngữ ký hiệu
               </CardDescription>
+              
+              {/* Bar Chart Filters */}
+              <div className="flex flex-wrap items-center gap-4 mt-4 p-3 bg-green-50 rounded-lg">
+                <Calendar className="w-4 h-4 text-green-600" />
+                
+                {/* Year Filter for Bar Chart */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-green-700">Năm:</span>
+                  <Select
+                    value={barChartYear}
+                    onValueChange={(value) => {
+                      setBarChartYear(value)
+                      setBarChartMonth("all")
+                    }}
+                  >
+                    <SelectTrigger className="w-24 h-8 text-sm border-green-200 focus:border-green-400">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="2024">2024</SelectItem>
+                      <SelectItem value="2025">2025</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Month Filter for Bar Chart */}
+                {barChartYear !== "all" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-green-700">Tháng:</span>
+                    <Select
+                      value={barChartMonth}
+                      onValueChange={(value) => {
+                        setBarChartMonth(value)
+                      }}
+                    >
+                      <SelectTrigger className="w-28 h-8 text-sm border-green-200 focus:border-green-400">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableMonths.map((month) => (
+                          <SelectItem key={month.value} value={month.value}>
+                            {month.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="h-80">
