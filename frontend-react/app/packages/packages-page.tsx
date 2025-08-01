@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation"
 export function PackagesPageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [selectedPackage, setSelectedPackage] = useState<any>(null)
 
   const packages = [
     {
@@ -25,6 +27,8 @@ export function PackagesPageComponent() {
       borderColor: "border-gray-200",
       textColor: "text-gray-700",
       buttonStyle: "bg-gray-100 hover:bg-gray-200 text-gray-700",
+      lessons: 15,
+      exercises: 25,
     },
     {
       id: "3months",
@@ -44,6 +48,8 @@ export function PackagesPageComponent() {
       borderColor: "border-blue-500",
       textColor: "text-white",
       buttonStyle: "bg-white hover:bg-gray-100 text-blue-500",
+      lessons: 45,
+      exercises: 80,
     },
     {
       id: "6months",
@@ -63,14 +69,30 @@ export function PackagesPageComponent() {
       borderColor: "border-gray-200",
       textColor: "text-gray-700",
       buttonStyle: "bg-gray-100 hover:bg-gray-200 text-gray-700",
+      lessons: 90,
+      exercises: 150,
     },
   ]
 
-  const handlePurchase = (packageId: string) => {
-    // Handle package purchase logic here
-    console.log(`Purchasing package: ${packageId}`)
-    // You can integrate with payment gateway here
-    alert("Chức năng thanh toán sẽ được tích hợp sớm!")
+  const handlePurchaseClick = (pkg: any) => {
+    setSelectedPackage(pkg)
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmPurchase = () => {
+    setShowConfirmModal(false)
+    // Redirect to payment page
+    router.push("/payment")
+  }
+
+  const handleCancelPurchase = () => {
+    setShowConfirmModal(false)
+    setSelectedPackage(null)
+  }
+
+  const handleMaybeLater = () => {
+    setShowConfirmModal(false)
+    setSelectedPackage(null)
   }
 
   return (
@@ -155,7 +177,7 @@ export function PackagesPageComponent() {
 
                 {/* Purchase Button */}
                 <Button
-                  onClick={() => handlePurchase(pkg.id)}
+                  onClick={() => handlePurchaseClick(pkg)}
                   className={`w-full py-3 rounded-xl font-bold transition-all duration-200 ${pkg.buttonStyle}`}
                 >
                   MUA NGAY
@@ -165,6 +187,50 @@ export function PackagesPageComponent() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal - Simple design like submit popup */}
+      {showConfirmModal && selectedPackage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xs sm:max-w-md mx-4 text-center shadow-xl border-4 border-blue-200">
+            {/* Mascot */}
+            <div className="flex justify-center mb-4">
+              <Image
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/test-nopbai-Zs8JdTqWx02xS7owLjRjo7VBCfEiVs.png"
+                alt="Whale with question mark"
+                width={120}
+                height={120}
+                className="object-contain animate-bounce"
+              />
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl sm:text-2xl font-bold text-blue-800 mb-6">BẠN CÓ MUỐN MUA GÓI HỌC?</h3>
+
+            {/* Package Info */}
+            <div className="mb-6 p-4 bg-blue-50 rounded-2xl">
+              <h4 className="font-bold text-blue-700 mb-2">{selectedPackage.title}</h4>
+              <p className="text-blue-600 text-lg font-bold">{selectedPackage.price}</p>
+              <p className="text-blue-500 text-sm">{selectedPackage.duration}</p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={handleCancelPurchase}
+                className="flex-1 bg-gradient-to-r from-blue-300 to-cyan-300 hover:from-blue-400 hover:to-cyan-400 text-white font-bold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                QUAY VỀ
+              </Button>
+              <Button
+                onClick={handleConfirmPurchase}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200"
+              >
+                MUA NGAY
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
