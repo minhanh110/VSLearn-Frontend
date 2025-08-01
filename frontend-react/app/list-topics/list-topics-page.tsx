@@ -242,6 +242,7 @@ export function ListTopicsPageComponent() {
                             onClick={() => handleViewTopic(topic.id)}
                             className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
                             size="sm"
+                            title="Xem chi tiết chủ đề"
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                             <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
@@ -250,6 +251,7 @@ export function ListTopicsPageComponent() {
                             onClick={() => handleEditTopic(topic.id)}
                             className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
                             size="sm"
+                            title="Chỉnh sửa chủ đề"
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                             <Edit className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
@@ -258,6 +260,7 @@ export function ListTopicsPageComponent() {
                             onClick={() => handleDeleteTopic(topic.id)}
                             className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
                             size="sm"
+                            title="Xóa chủ đề"
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                             <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
