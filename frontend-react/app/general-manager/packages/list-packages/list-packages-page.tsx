@@ -4,19 +4,32 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Plus, Edit, Trash2, Eye } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Plus, Edit, Trash2, Eye, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal"
-import { packagesApi, Package } from "@/lib/api/packages"
-
-
+import { packagesApi } from "@/lib/api/packages"
+import Image from "next/image"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const ListPackagesPageComponent = () => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [packages, setPackages] = useState<Package[]>([])
+  const [packages, setPackages] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  // Add state for the modal after the existing state declarations
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     packageId: "",
@@ -29,44 +42,33 @@ const ListPackagesPageComponent = () => {
     const fetchPackages = async () => {
       try {
         setLoading(true)
-        
-        // Test connection first
-        try {
-          const testResponse = await packagesApi.testConnection()
-          console.log('Test connection:', testResponse)
-        } catch (testError) {
-          console.error('Test connection failed:', testError)
-        }
-        
+
         const response = await packagesApi.getPackages()
-        console.log('Packages API response:', response)
+        console.log("Packages API response:", response)
         if (response.success) {
-          // Transform backend data to frontend format
-          const transformedPackages: Package[] = response.data.content.map((item: any) => ({
+          const transformedPackages = response.data.content.map((item: any) => ({
             id: item.id.toString(),
-            title: item.pricingType, // Sử dụng pricingType thay vì packageName
-            description: item.description || '',
-            price: item.price.toLocaleString('vi-VN'),
+            title: item.pricingType,
+            description: item.description || "",
+            price: item.price.toLocaleString("vi-VN"),
             duration: item.durationDays.toString(),
-            features: [], // Backend doesn't have features field yet
-            isPopular: false, // Backend doesn't have isPopular field yet
-            status: 'active', // Tạm thời set active vì không có isActive field
-            createdAt: new Date(item.createdAt).toLocaleDateString('vi-VN'),
-            updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('vi-VN') : '-'
+            discount: item.discount || 0,
+            status: item.isActive ? "active" : "inactive",
+            createdAt: new Date(item.createdAt).toLocaleDateString("vi-VN"),
+            updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("vi-VN") : "-",
           }))
           setPackages(transformedPackages)
         } else {
-          console.error('Failed to fetch packages:', response.message || 'Unknown error')
-          // Fallback to mock data for testing
-          const mockPackages: Package[] = [
+          console.error("Failed to fetch packages:", response.message || "Unknown error")
+          // Fallback to mock data
+          const mockPackages = [
             {
               id: "1",
               title: "GÓI 1 TUẦN",
               description: "Gói học ngắn hạn cho người mới bắt đầu",
               price: "50.000",
               duration: "7",
-              features: ["Truy cập cơ bản", "Hỗ trợ email"],
-              isPopular: false,
+              discount: 10,
               status: "active",
               createdAt: "2024-01-15",
               updatedAt: "2024-01-20",
@@ -77,9 +79,8 @@ const ListPackagesPageComponent = () => {
               description: "Gói học cơ bản cho người mới bắt đầu",
               price: "100.000",
               duration: "30",
-              features: ["Truy cập tất cả bài học", "Từ điển", "Thực hành"],
-              isPopular: false,
-              status: "active",
+              discount: 15,
+              status: "inactive",
               createdAt: "2024-01-15",
               updatedAt: "2024-01-20",
             },
@@ -87,7 +88,7 @@ const ListPackagesPageComponent = () => {
           setPackages(mockPackages)
         }
       } catch (error) {
-        console.error('Error fetching packages:', error)
+        console.error("Error fetching packages:", error)
       } finally {
         setLoading(false)
       }
@@ -95,6 +96,14 @@ const ListPackagesPageComponent = () => {
 
     fetchPackages()
   }, [])
+
+  const filteredPackages = packages.filter((pkg) => {
+    const matchesSearch =
+      pkg.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pkg.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === "all" || pkg.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   const handleCreatePackage = () => {
     router.push("/general-manager/packages/create-package")
@@ -108,7 +117,6 @@ const ListPackagesPageComponent = () => {
     router.push(`/general-manager/packages/package-edit?id=${id}`)
   }
 
-  // Replace the handleDeletePackage function with this new implementation
   const handleDeletePackage = (id: string, title: string) => {
     setDeleteModal({
       isOpen: true,
@@ -131,7 +139,7 @@ const ListPackagesPageComponent = () => {
         alert("Có lỗi xảy ra: " + response.message)
       }
     } catch (error: any) {
-      console.error('Error deleting package:', error)
+      console.error("Error deleting package:", error)
       alert("Có lỗi xảy ra. Vui lòng thử lại!")
     } finally {
       setDeleteModal({
@@ -155,108 +163,244 @@ const ListPackagesPageComponent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 relative overflow-hidden">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-20 left-10 w-32 h-32 bg-blue-200/30 rounded-full blur-xl"></div>
+      <div className="absolute bottom-20 right-10 w-40 h-40 bg-cyan-200/30 rounded-full blur-xl"></div>
+      <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-blue-300/20 rounded-full blur-lg"></div>
+
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
-      {/* Main Content */}
-      <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
-        <div className="max-w-4xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-800">DANH SÁCH GÓI HỌC</h1>
-                <Button
-                  onClick={handleCreatePackage}
-                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200"
-                >
-                  <Plus className="w-4 h-4" />
-                  THÊM GÓI HỌC
-                </Button>
+      <main className="pt-20 pb-20 lg:pb-4 px-4 relative z-10">
+        <div className="container mx-auto max-w-7xl">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Image
+                  src="/images/whale-character.png"
+                  alt="Whale mascot"
+                  width={60}
+                  height={60}
+                  className="animate-bounce"
+                />
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                    Quản lý gói học
+                  </h1>
+                  <p className="text-blue-600 mt-1">Theo dõi và quản lý các gói học trong hệ thống</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Packages List */}
-          <div className="space-y-4">
-            {loading ? (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-8 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Đang tải...</p>
-              </div>
-            ) : packages.length === 0 ? (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-8 text-center">
-                <p className="text-gray-600">Chưa có gói học nào.</p>
-              </div>
-            ) : (
-              packages.map((pkg) => (
-                <div
-                  key={pkg.id}
-                  className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 hover:shadow-xl transition-all duration-300"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-bold text-gray-800">{pkg.title}</h3>
-                        {pkg.isPopular && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-lg text-xs font-bold">
-                            PHỔ BIẾN
-                          </span>
-                        )}
+            {/* Loading and Error States */}
+            {loading && (
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardContent className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-2">Đang tải dữ liệu...</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Search, Filters and Add Button */}
+            {!loading && (
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+                    <div className="flex flex-col sm:flex-row gap-4 flex-1">
+                      <div className="relative flex-1 min-w-0">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                          placeholder="Tìm kiếm theo tên gói hoặc mô tả..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 border-blue-200 focus:border-blue-400 w-full"
+                        />
                       </div>
-                      <p className="text-gray-600 text-sm mb-2">{pkg.description}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span>Giá: {pkg.price} VND</span>
-                        <span>Thời gian: {pkg.duration} ngày</span>
-                      </div>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[180px]"
+                      >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="active">Đang hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                      </select>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => handleViewPackage(pkg.id)}
-                        className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all duration-200"
-                        size="sm"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                      onClick={handleCreatePackage}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Thêm gói học
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Packages Table */}
+            {!loading && (
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
+                  <CardTitle className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                    {/* Package Icon */}
+                    Danh sách gói học ({filteredPackages.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-blue-50/50">
+                        <tr>
+                          <th className="text-left py-4 px-6 font-semibold text-gray-700">Tên gói</th>
+                          <th className="text-left py-4 px-6 font-semibold text-gray-700">Giá gốc / Giá sau giảm</th>
+                          <th className="text-left py-4 px-6 font-semibold text-gray-700">Giảm giá</th>
+                          <th className="text-left py-4 px-6 font-semibold text-gray-700">Thời hạn</th>
+                          <th className="text-left py-4 px-6 font-semibold text-gray-700">Trạng thái</th>
+                          <th className="text-center py-4 px-6 font-semibold text-gray-700">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPackages.map((pkg, index) => (
+                          <tr
+                            key={pkg.id}
+                            className={`border-b border-blue-50 hover:bg-blue-25 transition-colors ${index % 2 === 0 ? "bg-white" : "bg-blue-25/30"}`}
+                          >
+                            <td className="py-4 px-6">
+                              <div>
+                                <div className="font-semibold text-gray-900">{pkg.title}</div>
+                                <div className="text-sm text-gray-500 truncate max-w-xs">{pkg.description}</div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div>
+                                <div className="font-medium text-gray-900">{pkg.price} VND</div>
+                                {pkg.discount > 0 && (
+                                  <div className="text-sm text-green-600 font-medium">
+                                    {Math.round(
+                                      Number(pkg.price.replace(/\./g, "")) * (1 - pkg.discount / 100),
+                                    ).toLocaleString("vi-VN")}{" "}
+                                    VND
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200">
+                                {pkg.discount}%
+                              </Badge>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="text-gray-700">{pkg.duration} ngày</div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <Badge
+                                variant={pkg.status === "active" ? "default" : "secondary"}
+                                className={`${
+                                  pkg.status === "active"
+                                    ? "bg-green-100 text-green-700 border-green-200"
+                                    : "bg-gray-100 text-gray-600 border-gray-200"
+                                } font-medium`}
+                              >
+                                {pkg.status === "active" ? "Hoạt động" : "Không hoạt động"}
+                              </Badge>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-blue-600 hover:bg-blue-100 p-2"
+                                  title="Xem chi tiết"
+                                  onClick={() => handleViewPackage(pkg.id)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-green-600 hover:bg-green-100 p-2"
+                                  title="Chỉnh sửa"
+                                  onClick={() => handleEditPackage(pkg.id)}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-red-600 hover:bg-red-100 p-2"
+                                      title="Xóa"
+                                      onClick={() => handleDeletePackage(pkg.id, pkg.title)}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="sm:max-w-[425px] p-6 rounded-xl shadow-2xl border-2 border-blue-100">
+                                    <AlertDialogHeader className="text-center space-y-4">
+                                      <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-red-100">
+                                        <Trash2 className="w-8 h-8 text-red-600" />
+                                      </div>
+                                      <AlertDialogTitle className="text-2xl font-bold text-gray-800">
+                                        Xác nhận xóa gói học
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription className="text-base text-gray-600">
+                                        Bạn có chắc chắn muốn xóa gói học
+                                        <span className="font-semibold text-blue-600"> {pkg.title}</span> không?
+                                      </AlertDialogDescription>
+                                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                                        ⚠️ Hành động này không thể hoàn tác.
+                                      </div>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-6">
+                                      <AlertDialogCancel className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg">
+                                        Hủy bỏ
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={confirmDelete}
+                                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg"
+                                      >
+                                        Xóa gói học
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="flex items-center justify-between px-6 py-4 bg-blue-50/30 border-t border-blue-100">
+                    <div className="text-sm text-gray-600">
+                      Hiển thị {filteredPackages.length} trên tổng số {packages.length} gói học
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-transparent">
+                        Trước
                       </Button>
-                      <Button
-                        onClick={() => handleEditPackage(pkg.id)}
-                        className="p-2 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg transition-all duration-200"
-                        size="sm"
-                        title="Chỉnh sửa"
-                      >
-                        <Edit className="w-4 h-4" />
+                      <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-blue-100">
+                        1
                       </Button>
-                      <Button
-                        onClick={() => handleDeletePackage(pkg.id, pkg.title)}
-                        className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all duration-200"
-                        size="sm"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                      <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-transparent">
+                        Sau
                       </Button>
                     </div>
                   </div>
-                </div>
-              ))
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Footer */}
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
-      {/* Add the modal component before the closing </div> of the main container */}
-      <DeleteConfirmationModal
-        isOpen={deleteModal.isOpen}
-        onClose={closeDeleteModal}
-        onConfirm={confirmDelete}
-        title="XÁC NHẬN XÓA GÓI HỌC"
-        message="Bạn có chắc chắn muốn xóa gói học này không? Hành động này không thể hoàn tác."
-        itemName={deleteModal.packageTitle}
-        isLoading={deleteModal.isLoading}
-      />
     </div>
   )
 }
