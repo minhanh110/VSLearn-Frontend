@@ -1,20 +1,25 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { ArrowLeft, Save, Package, DollarSign, Calendar, Percent } from "lucide-react"
+import Image from "next/image"
 import { packagesApi } from "@/lib/api/packages"
 
 export default function CreatePackagePageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [features, setFeatures] = useState<string[]>([""])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -22,57 +27,71 @@ export default function CreatePackagePageComponent() {
     description: "",
     price: "",
     duration: "",
+    discount: "",
+    status: "active",
   })
+
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.title.trim()) {
+      newErrors.title = "Tên gói học là bắt buộc"
+    }
+
+    if (!formData.price.trim()) {
+      newErrors.price = "Giá là bắt buộc"
+    } else if (isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
+      newErrors.price = "Giá phải là số dương"
+    }
+
+    if (!formData.duration.trim()) {
+      newErrors.duration = "Thời hạn là bắt buộc"
+    } else if (isNaN(Number(formData.duration)) || Number(formData.duration) <= 0) {
+      newErrors.duration = "Thời hạn phải là số dương"
+    }
+
+    if (
+      formData.discount &&
+      (isNaN(Number(formData.discount)) || Number(formData.discount) < 0 || Number(formData.discount) > 100)
+    ) {
+      newErrors.discount = "Giảm giá phải là số từ 0 đến 100"
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }))
-  }
-
-  const handleFeatureChange = (index: number, value: string) => {
-    const newFeatures = [...features]
-    newFeatures[index] = value
-    setFeatures(newFeatures)
-  }
-
-  const addFeature = () => {
-    setFeatures([...features, ""])
-  }
-
-  const removeFeature = (index: number) => {
-    if (features.length > 1) {
-      setFeatures(features.filter((_, i) => i !== index))
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
     }
   }
 
   const handleCancel = () => {
-    router.back()
+    router.push("/general-manager/packages/list-packages")
   }
 
-  const handleSubmit = async () => {
-    if (!formData.title.trim() || !formData.price.trim() || !formData.duration.trim()) {
-      alert("Vui lòng điền đầy đủ thông tin bắt buộc!")
-      return
-    }
-
-    const validFeatures = features.filter((f) => f.trim() !== "")
-    if (validFeatures.length === 0) {
-      alert("Vui lòng thêm ít nhất một tính năng!")
-      return
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validateForm()) return
 
     setIsSubmitting(true)
     try {
       const packageData = {
         ...formData,
-        features: validFeatures,
+        discount: formData.discount ? Number(formData.discount) : 0,
       }
       console.log("Creating package:", packageData)
 
       const response = await packagesApi.createPackage(packageData)
-      console.log('Create package API response:', response)
+      console.log("Create package API response:", response)
       if (response.success) {
         alert("Tạo gói học thành công!")
         router.push("/general-manager/packages/list-packages")
@@ -80,7 +99,7 @@ export default function CreatePackagePageComponent() {
         alert("Có lỗi xảy ra: " + response.message)
       }
     } catch (error: any) {
-      console.error('Error creating package:', error)
+      console.error("Error creating package:", error)
       alert("Có lỗi xảy ra. Vui lòng thử lại!")
     } finally {
       setIsSubmitting(false)
@@ -88,128 +107,200 @@ export default function CreatePackagePageComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 relative overflow-hidden">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-20 left-10 w-32 h-32 bg-blue-200/30 rounded-full blur-xl"></div>
+      <div className="absolute bottom-20 right-10 w-40 h-40 bg-cyan-200/30 rounded-full blur-xl"></div>
+      <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-blue-300/20 rounded-full blur-lg"></div>
+
       <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
 
-      {/* Main Content */}
-      <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
-        <div className="max-w-4xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6">
-              <h1 className="text-2xl font-bold text-gray-800 text-center">THÊM GÓI HỌC</h1>
-            </div>
-          </div>
-
-          {/* Form */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-8">
-            <div className="space-y-6">
-              {/* Package Title */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">TÊN GÓI HỌC:</label>
-                <Input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  placeholder="Nhập tên gói học..."
-                  className="w-full h-12 px-4 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+      <main className="pt-20 pb-20 lg:pb-4 px-4 relative z-10">
+        <div className="container mx-auto max-w-4xl">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancel}
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Quay lại danh sách
+              </Button>
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/images/whale-character.png"
+                  alt="Whale"
+                  width={40}
+                  height={40}
+                  className="animate-bounce"
                 />
-              </div>
-
-              {/* Price */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">GIÁ (VND):</label>
-                <Input
-                  type="text"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange("price", e.target.value)}
-                  placeholder="Nhập giá gói học..."
-                  className="w-full h-12 px-4 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-                />
-              </div>
-
-              {/* Duration */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">KHOẢNG THỜI GIAN (NGÀY):</label>
-                <Input
-                  type="number"
-                  value={formData.duration}
-                  onChange={(e) => handleInputChange("duration", e.target.value)}
-                  placeholder="Nhập số ngày..."
-                  className="w-full h-12 px-4 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">MÔ TẢ:</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
-                  placeholder="Nhập mô tả gói học..."
-                  className="w-full min-h-[120px] px-4 py-3 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 resize-none"
-                />
-              </div>
-
-              {/* Features */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">TÍNH NĂNG:</label>
-                <div className="space-y-3">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        type="text"
-                        value={feature}
-                        onChange={(e) => handleFeatureChange(index, e.target.value)}
-                        placeholder={`Tính năng ${index + 1}...`}
-                        className="flex-1 h-12 px-4 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
-                      />
-                      {features.length > 1 && (
-                        <Button
-                          onClick={() => removeFeature(index)}
-                          className="p-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all duration-200"
-                          size="sm"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                    Tạo gói học mới
+                  </h1>
+                  <p className="text-blue-600">Thêm gói học mới vào hệ thống</p>
                 </div>
+              </div>
+            </div>
+
+            {/* Main Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Basic Information */}
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-semibold text-blue-900">Thông tin gói học</h2>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title" className="text-gray-700 font-medium">
+                      Tên gói học *
+                    </Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => handleInputChange("title", e.target.value)}
+                      placeholder="Nhập tên gói học"
+                      className={`border-blue-200 focus:border-blue-400 ${errors.title ? "border-red-300" : ""}`}
+                    />
+                    {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="price" className="text-gray-700 font-medium">
+                        Giá (VND) *
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="price"
+                          type="number"
+                          value={formData.price}
+                          onChange={(e) => handleInputChange("price", e.target.value)}
+                          placeholder="Nhập giá gói học"
+                          className={`pl-10 border-blue-200 focus:border-blue-400 ${errors.price ? "border-red-300" : ""}`}
+                        />
+                      </div>
+                      {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="discount" className="text-gray-700 font-medium">
+                        Giảm giá (%)
+                      </Label>
+                      <div className="relative">
+                        <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="discount"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.discount}
+                          onChange={(e) => handleInputChange("discount", e.target.value)}
+                          placeholder="Nhập % giảm giá"
+                          className={`pl-10 border-blue-200 focus:border-blue-400 ${errors.discount ? "border-red-300" : ""}`}
+                        />
+                      </div>
+                      {errors.discount && <p className="text-red-500 text-sm">{errors.discount}</p>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="duration" className="text-gray-700 font-medium">
+                      Thời hạn (ngày) *
+                    </Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="duration"
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => handleInputChange("duration", e.target.value)}
+                        placeholder="Nhập số ngày"
+                        className={`pl-10 border-blue-200 focus:border-blue-400 ${errors.duration ? "border-red-300" : ""}`}
+                      />
+                    </div>
+                    {errors.duration && <p className="text-red-500 text-sm">{errors.duration}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description" className="text-gray-700 font-medium">
+                      Mô tả
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => handleInputChange("description", e.target.value)}
+                      placeholder="Nhập mô tả gói học"
+                      className="border-blue-200 focus:border-blue-400 min-h-[100px]"
+                      rows={4}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Status */}
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
+                  <h2 className="text-lg font-semibold text-blue-900">Trạng thái</h2>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="status" className="text-gray-700 font-medium">
+                      Trạng thái hoạt động
+                    </Label>
+                    <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                      <SelectTrigger className="border-blue-200 focus:border-blue-400">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                            Đang hoạt động
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="inactive">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            Không hoạt động
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-4">
                 <Button
-                  onClick={addFeature}
-                  className="mt-3 flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-600 font-medium py-2 px-4 rounded-lg transition-all duration-200"
-                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="border-gray-300 text-gray-600 hover:bg-gray-50 bg-transparent"
                 >
-                  <Plus className="w-4 h-4" />
-                  Thêm tính năng
+                  Hủy bỏ
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-lg"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSubmitting ? "Đang tạo..." : "Tạo gói học"}
                 </Button>
               </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-4 mt-8">
-              <Button
-                onClick={handleCancel}
-                disabled={isSubmitting}
-                className="px-8 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
-              >
-                HỦY BỎ
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
-              >
-                {isSubmitting ? "ĐANG THÊM..." : "THÊM"}
-              </Button>
-            </div>
+            </form>
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Footer */}
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </div>
   )
