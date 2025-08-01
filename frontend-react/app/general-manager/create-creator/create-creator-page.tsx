@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Save, Mail, Phone, User, MapPin, Calendar, Palette } from "lucide-react"
+import { ArrowLeft, Save, Mail, Phone, User, MapPin, Calendar } from "lucide-react"
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import axios from "axios"
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -23,18 +23,12 @@ const CreateCreatorPage = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
-    userName: "",
     name: "",
     email: "",
     phone: "",
-    specialization: "",
     bio: "",
     address: "",
     dateOfBirth: "",
-    experience: "",
-    education: "",
-    portfolio: "",
-    contentTypes: "",
     status: "active",
   })
 
@@ -59,12 +53,13 @@ const CreateCreatorPage = () => {
       newErrors.phone = "Số điện thoại không hợp lệ"
     }
 
-    if (!formData.specialization.trim()) {
-      newErrors.specialization = "Chuyên môn là bắt buộc"
-    }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
+  }
+
+  const generateUsername = (email: string) => {
+    // Lấy phần trước @ của email làm username
+    return email.split('@')[0];
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,8 +68,12 @@ const CreateCreatorPage = () => {
       try {
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
         const token = localStorage.getItem('token')
+        
+        // Generate username từ email
+        const userName = generateUsername(formData.email);
+        
         const res = await axios.post(`${API_BASE_URL}/api/v1/admin/users/create`, {
-          userName: formData.userName,
+          userName: userName,
           firstName: formData.name.split(' ').slice(0, -1).join(' ') || formData.name,
           lastName: formData.name.split(' ').slice(-1).join(' '),
           userEmail: formData.email,
@@ -86,7 +85,7 @@ const CreateCreatorPage = () => {
         if (res.data && res.data.status === 200) {
           setShowSuccess(true);
         } else {
-          alert(res.data.message || "Tạo người tạo nội dung thất bại");
+          alert(res.data.message || "Tạo người biên soạn thất bại");
         }
       } catch (err: any) {
         alert(err.response?.data?.message || err.message || "Có lỗi xảy ra")
@@ -103,9 +102,6 @@ const CreateCreatorPage = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       const users = res.data?.content || res.data?.data || [];
-      if (field === 'userName') {
-        return users.some((u: any) => u.userName === value);
-      }
       if (field === 'userEmail' || field === 'email') {
         return users.some((u: any) => u.userEmail === value);
       }
@@ -120,20 +116,19 @@ const CreateCreatorPage = () => {
 
   const debounceRef = useRef<any>({});
 
-
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
     }
 
-    // Kiểm tra trùng userName, email, phone
-    if (["userName", "email", "phone"].includes(field)) {
+    // Kiểm tra trùng email, phone
+    if (["email", "phone"].includes(field)) {
       if (debounceRef.current[field]) clearTimeout(debounceRef.current[field]);
       debounceRef.current[field] = setTimeout(async () => {
         const isDup = await checkDuplicate(field, value);
         if (isDup) {
-          setErrors((prev) => ({ ...prev, [field]: `${field === 'userName' ? 'Tên đăng nhập' : field === 'email' ? 'Email' : 'Số điện thoại'} đã tồn tại` }));
+          setErrors((prev) => ({ ...prev, [field]: `${field === 'email' ? 'Email' : 'Số điện thoại'} đã tồn tại` }));
         }
       }, 500);
     }
@@ -172,9 +167,9 @@ const CreateCreatorPage = () => {
                 />
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                    Tạo người tạo nội dung mới
+                    Tạo người biên soạn mới
                   </h1>
-                  <p className="text-sm sm:text-base text-blue-600">Thêm người tạo nội dung mới vào hệ thống</p>
+                  <p className="text-sm sm:text-base text-blue-600">Thêm người biên soạn mới vào hệ thống</p>
                 </div>
               </div>
             </div>
@@ -191,19 +186,6 @@ const CreateCreatorPage = () => {
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="userName" className="text-gray-700 font-medium">
-                        Tên đăng nhập *
-                      </Label>
-                      <Input
-                        id="userName"
-                        value={formData.userName}
-                        onChange={(e) => handleInputChange("userName", e.target.value)}
-                        placeholder="Nhập tên đăng nhập"
-                        className={`border-blue-200 focus:border-blue-400 ${errors.userName ? "border-red-300" : ""}`}
-                      />
-                      {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
-                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="name" className="text-gray-700 font-medium">
                         Họ và tên *
@@ -233,6 +215,11 @@ const CreateCreatorPage = () => {
                         />
                       </div>
                       {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+                      {formData.email && (
+                        <p className="text-blue-600 text-sm">
+                          Tên đăng nhập sẽ là: <strong>{generateUsername(formData.email)}</strong>
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -285,99 +272,6 @@ const CreateCreatorPage = () => {
                         rows={2}
                       />
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Professional Information */}
-              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-base sm:text-lg font-semibold text-blue-900">Thông tin chuyên môn</h2>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="specialization" className="text-gray-700 font-medium">
-                        Chuyên môn *
-                      </Label>
-                      <Select
-                        value={formData.specialization}
-                        onValueChange={(value) => handleInputChange("specialization", value)}
-                      >
-                        <SelectTrigger
-                          className={`border-blue-200 focus:border-blue-400 ${errors.specialization ? "border-red-300" : ""}`}
-                        >
-                          <SelectValue placeholder="Chọn chuyên môn" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="english">Tiếng Anh giao tiếp</SelectItem>
-                          <SelectItem value="business-english">Tiếng Anh thương mại</SelectItem>
-                          <SelectItem value="academic-english">Tiếng Anh học thuật</SelectItem>
-                          <SelectItem value="sign-language">Ngôn ngữ ký hiệu</SelectItem>
-                          <SelectItem value="vocabulary">Từ vựng chuyên ngành</SelectItem>
-                          <SelectItem value="grammar">Ngữ pháp</SelectItem>
-                          <SelectItem value="other">Khác</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.specialization && <p className="text-red-500 text-sm">{errors.specialization}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="experience" className="text-gray-700 font-medium">
-                        Kinh nghiệm (năm)
-                      </Label>
-                      <Input
-                        id="experience"
-                        type="number"
-                        value={formData.experience}
-                        onChange={(e) => handleInputChange("experience", e.target.value)}
-                        placeholder="Nhập số năm kinh nghiệm"
-                        className="border-blue-200 focus:border-blue-400"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="education" className="text-gray-700 font-medium">
-                      Trình độ học vấn
-                    </Label>
-                    <Input
-                      id="education"
-                      value={formData.education}
-                      onChange={(e) => handleInputChange("education", e.target.value)}
-                      placeholder="Ví dụ: Thạc sĩ Ngôn ngữ Anh, Đại học ABC"
-                      className="border-blue-200 focus:border-blue-400"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="contentTypes" className="text-gray-700 font-medium">
-                      Loại nội dung tạo
-                    </Label>
-                    <Textarea
-                      id="contentTypes"
-                      value={formData.contentTypes}
-                      onChange={(e) => handleInputChange("contentTypes", e.target.value)}
-                      placeholder="Ví dụ: Video giảng dạy, flashcard, bài tập tương tác, quiz..."
-                      className="border-blue-200 focus:border-blue-400 min-h-[60px] sm:min-h-[80px]"
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="portfolio" className="text-gray-700 font-medium">
-                      Portfolio/Tác phẩm mẫu
-                    </Label>
-                    <Input
-                      id="portfolio"
-                      value={formData.portfolio}
-                      onChange={(e) => handleInputChange("portfolio", e.target.value)}
-                      placeholder="Link đến portfolio hoặc tác phẩm mẫu"
-                      className="border-blue-200 focus:border-blue-400"
-                    />
                   </div>
 
                   <div className="space-y-2">
@@ -451,12 +345,13 @@ const CreateCreatorPage = () => {
           </div>
         </div>
       </main>
+
       {/* Dialog thông báo thành công */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
             <div className="text-green-600 text-2xl mb-2">✔</div>
-            <div className="font-semibold mb-2">Tạo người tạo nội dung thành công!</div>
+            <div className="font-semibold mb-2">Tạo người biên soạn thành công!</div>
             <div className="mb-4 text-gray-700">Mật khẩu mặc định: <b>123456</b></div>
             <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={() => router.push("/general-manager/creators")}>OK</button>
           </div>

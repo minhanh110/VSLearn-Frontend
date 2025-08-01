@@ -5,12 +5,23 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Edit, Mail, Phone, Calendar, BookOpen, Activity, MapPin, User, Package } from "lucide-react"
+import { ArrowLeft, Lock, Mail, Phone, Calendar, BookOpen, Activity, MapPin, User, Package, Unlock } from "lucide-react"
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import axios from "axios"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface LearnersDetailPageProps {
   learnerId: string
@@ -18,6 +29,7 @@ interface LearnersDetailPageProps {
 interface Learner {
   id: number
   name: string
+  username: string
   email: string
   phone: string
   status: string
@@ -36,30 +48,33 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
   const [learner, setLearner] = useState<Learner | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showToggleStatusModal, setShowToggleStatusModal] = useState(false) // New state
+  const [selectedLearner, setSelectedLearner] = useState<Learner | null>(null) // New state
 
   useEffect(() => {
     const fetchLearnerDetails = async () => {
       try {
         setLoading(true)
-        const token = localStorage.getItem('token')
-        
+        const token = localStorage.getItem("token")
+
         if (!token) {
           setError("Vui lòng đăng nhập để truy cập trang này")
           setLoading(false)
           return
         }
 
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
         const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${learnerId}`, {
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         })
-        
+
         const userData = response.data
         const learnerData: Learner = {
           id: userData.id,
           name: userData.name,
+          username: userData.username || userData.email.split("@")[0],
           email: userData.email,
           phone: userData.phone || "N/A",
           status: userData.status,
@@ -71,7 +86,7 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
           address: userData.address || "N/A",
           birthDate: userData.birthDate || "N/A",
         }
-        
+
         setLearner(learnerData)
       } catch (err: any) {
         console.error("Error fetching learner details:", err)
@@ -91,6 +106,38 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
       fetchLearnerDetails()
     }
   }, [learnerId])
+
+  const handleToggleAccountStatus = async (learnerToUpdate: Learner) => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        setError("Vui lòng đăng nhập để truy cập trang này")
+        return
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const newStatus = learnerToUpdate.status === "active" ? "inactive" : "active"
+
+      await axios.patch(
+        `${API_BASE_URL}/api/v1/admin/users/${learnerToUpdate.id}/status`,
+        { status: newStatus },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+
+      // Update local state for the single learner
+      setLearner((prev) => (prev ? { ...prev, status: newStatus } : null))
+
+      setShowToggleStatusModal(false)
+      setSelectedLearner(null)
+    } catch (err: any) {
+      console.error("Error updating learner status:", err)
+      alert("Có lỗi xảy ra khi cập nhật trạng thái tài khoản")
+    }
+  }
 
   // Loading and Error States
   if (loading) {
@@ -118,10 +165,7 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
               <p className="font-bold">Lỗi</p>
               <p>{error}</p>
             </div>
-            <Button 
-              onClick={() => router.push("/general-manager/learners")}
-              className="mt-4"
-            >
+            <Button onClick={() => router.push("/general-manager/learners")} className="mt-4">
               Quay lại danh sách
             </Button>
           </div>
@@ -138,10 +182,7 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
         <main className="pt-20 pb-20 px-4">
           <div className="max-w-7xl mx-auto text-center">
             <p className="text-blue-600">Không tìm thấy thông tin học viên</p>
-            <Button 
-              onClick={() => router.push("/general-manager/learners")}
-              className="mt-4"
-            >
+            <Button onClick={() => router.push("/general-manager/learners")} className="mt-4">
               Quay lại danh sách
             </Button>
           </div>
@@ -267,12 +308,76 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900 mb-1">{learner.name}</h2>
-                      <p className="text-blue-500 mb-2 font-medium">ID: {learner.id}</p>
+                      <p className="text-blue-500 mb-2 font-medium">Username: {learner.username}</p>
                     </div>
-                    <Button className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg mt-4 md:mt-0">
-                      <Edit className="w-4 h-4 mr-2" />
-                      Chỉnh sửa thông tin
-                    </Button>
+                    <AlertDialog open={showToggleStatusModal} onOpenChange={setShowToggleStatusModal}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className={`shadow-lg mt-4 md:mt-0 ${
+                            learner.status === "active"
+                              ? "bg-red-500 hover:bg-red-600 text-white"
+                              : "bg-green-500 hover:bg-green-600 text-white"
+                          }`}
+                          onClick={() => setSelectedLearner(learner)}
+                        >
+                          <Lock className="w-4 h-4 mr-2" />
+                          {learner.status === "active" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="sm:max-w-[425px] p-6 rounded-xl shadow-2xl border-2 border-blue-100">
+                        <AlertDialogHeader className="text-center space-y-4">
+                          <div
+                            className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
+                              selectedLearner?.status === "active" ? "bg-red-100" : "bg-green-100"
+                            }`}
+                          >
+                            {selectedLearner?.status === "active" ? (
+                              <Lock className="w-8 h-8 text-red-600" />
+                            ) : (
+                              <Unlock className="w-8 h-8 text-green-600" />
+                            )}
+                          </div>
+                          <AlertDialogTitle className="text-2xl font-bold text-gray-800">
+                            {selectedLearner?.status === "active"
+                              ? "Xác nhận khóa tài khoản"
+                              : "Xác nhận mở khóa tài khoản"}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-base text-gray-600">
+                            Bạn có chắc chắn muốn {selectedLearner?.status === "active" ? "khóa" : "mở khóa"} tài khoản
+                            của
+                            <span className="font-semibold text-blue-600"> {selectedLearner?.name}</span> không?
+                          </AlertDialogDescription>
+                          {selectedLearner?.status === "active" && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                              ⚠️ Học viên sẽ không thể đăng nhập và sử dụng hệ thống.
+                            </div>
+                          )}
+                          {selectedLearner?.status === "inactive" && (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                              ✅ Học viên sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
+                            </div>
+                          )}
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-6">
+                          <AlertDialogCancel
+                            onClick={() => setShowToggleStatusModal(false)}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg"
+                          >
+                            Hủy bỏ
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => selectedLearner && handleToggleAccountStatus(selectedLearner)}
+                            className={`flex-1 font-semibold rounded-lg ${
+                              selectedLearner?.status === "active"
+                                ? "bg-red-500 hover:bg-red-600 text-white"
+                                : "bg-green-500 hover:bg-green-600 text-white"
+                            }`}
+                          >
+                            {selectedLearner?.status === "active" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
