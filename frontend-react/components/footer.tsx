@@ -4,16 +4,21 @@ import {
   Home,
   BookOpen,
   Camera,
-  DollarSign,
+  CreditCard,
   Settings,
   X,
-  GraduationCap,
+  FolderPlus,
   FileText,
-  XCircle,
-  Edit,
+  CheckCircle,
+  Edit3,
   Users,
   BarChart3,
   Shield,
+  Clock,
+  DollarSign,
+  UserCheck,
+  LogIn,
+  Package,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -30,33 +35,35 @@ const roleMenus = {
   guest: [
     { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
     { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
-    { icon: DollarSign, label: "Đăng nhập", href: "/login" },
+    { icon: LogIn, label: "Đăng nhập", href: "/login" },
   ],
   learner: [
     { icon: Home, label: "Học theo chủ đề", href: "/homepage" },
     { icon: BookOpen, label: "Từ điển", href: "/dictionary" },
-    { icon: Camera, label: "Thực hành Camera", href: "/practice" },
-    { icon: DollarSign, label: "Các gói học", href: "/packages" },
+    { icon: Camera, label: "Thực hành với Camera", href: "/practice" },
+    { icon: Package, label: "Các gói học", href: "/packages" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "content-creator": [
-    { icon: GraduationCap, label: "Chủ đề", href: "/list-topics" },
-    { icon: FileText, label: "Từ vựng", href: "/list-vocab" },
-    { icon: XCircle, label: "Chủ đề bị từ chối", href: "/list-rejected-topic" },
-    { icon: Edit, label: "Từ vựng bị từ chối", href: "/list-rejected-vocab" },
+    { icon: FolderPlus, label: "Chủ đề đã tạo", href: "/list-topics" },
+    { icon: FileText, label: "Từ vựng đã tạo", href: "/list-vocab" },
+    { icon: CheckCircle, label: "Chủ đề đang hoạt động", href: "/list-approved-topic" },
+    { icon: Edit3, label: "từ vựng đang hoạt động", href: "/list-approved-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "content-approver": [
-    { icon: GraduationCap, label: "Duyệt chủ đề", href: "/content-approver/topics" },
-    { icon: FileText, label: "Duyệt từ vựng", href: "/content-approver/vocabularies" },
-    { icon: Shield, label: "Lịch sử duyệt", href: "/content-approver/history" },
-    { icon: Users, label: "Quản lý người tạo", href: "/content-approver/creators" },
+    { icon: Clock, label: "Chủ đề chờ duyệt", href: "/content-approver/topics" },
+    { icon: Clock, label: "Từ vựng chờ duyệt", href: "/content-approver/vocabularies" },
+    { icon: Shield, label: "Duyệt lộ trình học", href: "/content-approver/history" },
+    { icon: CheckCircle, label: "Chủ đề đang hoạt động", href: "/list-approved-topic" },
+    { icon: Edit3, label: "từ vựng đang hoạt động", href: "/list-approved-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
   "general-manager": [
-    { icon: Users, label: "Quản lý Learners", href: "/general-manager/learners" },
-    { icon: Users, label: "Quản lý Creators", href: "/general-manager/creators" },
-    { icon: Users, label: "Quản lý Approvers", href: "/general-manager/approvers" },
+    { icon: Users, label: "Quản lý học viên", href: "/general-manager/learners" },
+    { icon: UserCheck, label: "Quản lý người biên soạn", href: "/general-manager/creators" },
+    { icon: Shield, label: "Quản lý người kiểm duyệt", href: "/general-manager/approvers" },
+    { icon: DollarSign, label: "Quản lý doanh thu", href: "/general-manager/revenue-dashboard" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
 }
@@ -64,7 +71,7 @@ const roleMenus = {
 // Get all unique menu items when roleId is null
 const getAllMenuItems = () => {
   const allItems = Object.values(roleMenus).flat()
-  const uniqueItems = allItems.filter((item, index, self) => index === self.findIndex((t) => t.href === item.href))
+  const uniqueItems = allItems.filter((item, index, self) => index === self.findIndex((t) => t.href === t.href))
   return uniqueItems
 }
 
