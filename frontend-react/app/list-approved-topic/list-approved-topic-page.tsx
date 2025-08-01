@@ -6,7 +6,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, Search, Edit3, EyeOff, CheckCircle, AlertTriangle } from "lucide-react"
+import { Eye, Search, Edit3, EyeOff, CheckCircle, AlertTriangle, Settings, Save, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface ApprovedTopicItem {
@@ -44,6 +44,12 @@ export function ListApprovedTopicComponent() {
   const [showHideConfirmModal, setShowHideConfirmModal] = useState(false)
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null)
   const [selectedCreator, setSelectedCreator] = useState("")
+  
+  // New states for curriculum management
+  const [isEditingCurriculum, setIsEditingCurriculum] = useState(false)
+  const [draggedItemId, setDraggedItemId] = useState<number | null>(null)
+  const [dragOverItemId, setDragOverItemId] = useState<number | null>(null)
+  const [tempTopics, setTempTopics] = useState<ApprovedTopicItem[]>([])
 
   // Mock user role - in real app this would come from auth context
   const [userRole] = useState<UserRole>("content_approver") // Change to "content_creator" to test
@@ -127,16 +133,20 @@ export function ListApprovedTopicComponent() {
         // Simulate API call
         await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        // Filter topics based on search term
-        const filteredTopics = mockApprovedTopics.filter((topic) =>
-          topic.topicName.toLowerCase().includes(searchTerm.toLowerCase()),
-        )
+        // Filter topics based on search term and sort by sortOrder
+        const filteredTopics = mockApprovedTopics
+          .filter((topic) =>
+            topic.topicName.toLowerCase().includes(searchTerm.toLowerCase()),
+          )
+          .sort((a, b) => a.sortOrder - b.sortOrder)
 
         setTopics(filteredTopics)
+        setTempTopics(filteredTopics)
       } catch (error: any) {
         console.error("Error fetching approved topics:", error)
         alert("Không thể tải danh sách chủ đề đã phê duyệt. Vui lòng thử lại!")
         setTopics([])
+        setTempTopics([])
       } finally {
         setLoading(false)
       }
@@ -158,18 +168,19 @@ export function ListApprovedTopicComponent() {
     if (!selectedCreator || !selectedTopicId) return
 
     // Update topic status to needs_edit
-    setTopics(
-      topics.map((topic) =>
-        topic.id === selectedTopicId
-          ? {
-              ...topic,
-              status: "needs_edit",
-              editRequestedBy: Number.parseInt(selectedCreator),
-              editRequestedAt: new Date().toISOString().split("T")[0],
-            }
-          : topic,
-      ),
+    const updatedTopics = topics.map((topic) =>
+      topic.id === selectedTopicId
+        ? {
+            ...topic,
+            status: "needs_edit" as const,
+            editRequestedBy: Number.parseInt(selectedCreator),
+            editRequestedAt: new Date().toISOString().split("T")[0],
+          }
+        : topic,
     )
+    
+    setTopics(updatedTopics)
+    setTempTopics(updatedTopics)
 
     // Here you would make API call to send edit request
     console.log(`Requesting edit for topic ${selectedTopicId} from creator ${selectedCreator}`)
@@ -188,14 +199,103 @@ export function ListApprovedTopicComponent() {
   const handleConfirmToggleVisibility = () => {
     if (!selectedTopicId) return
 
-    setTopics(topics.map((topic) => (topic.id === selectedTopicId ? { ...topic, isHidden: !topic.isHidden } : topic)))
+    if (isEditingCurriculum) {
+      setTempTopics(tempTopics.map(topic => 
+        topic.id === selectedTopicId ? { ...topic, isHidden: !topic.isHidden } : topic
+      ))
+    } else {
+      const updatedTopics = topics.map((topic) => (topic.id === selectedTopicId ? { ...topic, isHidden: !topic.isHidden } : topic))
+      setTopics(updatedTopics)
+    }
 
-    const topic = topics.find((t) => t.id === selectedTopicId)
+    const topic = (isEditingCurriculum ? tempTopics : topics).find((t) => t.id === selectedTopicId)
     const action = topic?.isHidden ? "hiển thị" : "ẩn"
     alert(`Đã ${action} chủ đề thành công!`)
 
     setShowHideConfirmModal(false)
     setSelectedTopicId(null)
+  }
+
+  // Curriculum editing functions
+  const handleStartEditingCurriculum = () => {
+    setIsEditingCurriculum(true)
+    setTempTopics([...topics])
+  }
+
+  const handleCancelEditingCurriculum = () => {
+    setIsEditingCurriculum(false)
+    setTempTopics([...topics])
+    setDraggedItemId(null)
+    setDragOverItemId(null)
+  }
+
+  const handleSaveCurriculumChanges = () => {
+    // Update sort orders based on new positions
+    const updatedTopics = tempTopics.map((topic, index) => ({
+      ...topic,
+      sortOrder: index + 1
+    }))
+    
+    setTopics(updatedTopics)
+    setIsEditingCurriculum(false)
+    setDraggedItemId(null)
+    setDragOverItemId(null)
+    
+    // Here you would make API call to save the new order
+    console.log("Saving curriculum changes:", updatedTopics.map(t => ({ id: t.id, sortOrder: t.sortOrder })))
+    alert("Đã lưu thay đổi lộ trình học thành công!")
+  }
+
+  const handleToggleVisibilityInEdit = (id: number) => {
+    setSelectedTopicId(id)
+    setShowHideConfirmModal(true)
+  }
+
+  // Drag and drop functions with updated logic
+  const handleDragStart = (e: React.DragEvent, id: number) => {
+    if (!isEditingCurriculum) return
+    setDraggedItemId(id)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleDragOver = (e: React.DragEvent, id: number) => {
+    if (!isEditingCurriculum || !draggedItemId) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOverItemId(id)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverItemId(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, dropId: number) => {
+    if (!isEditingCurriculum || !draggedItemId) return
+    e.preventDefault()
+    
+    if (draggedItemId === dropId) {
+      setDraggedItemId(null)
+      setDragOverItemId(null)
+      return
+    }
+
+    const draggedIndex = tempTopics.findIndex(topic => topic.id === draggedItemId)
+    const dropIndex = tempTopics.findIndex(topic => topic.id === dropId)
+    
+    if (draggedIndex === -1 || dropIndex === -1) return
+
+    const newTopics = [...tempTopics]
+    const draggedItem = newTopics[draggedIndex]
+    
+    // Remove dragged item
+    newTopics.splice(draggedIndex, 1)
+    
+    // Insert at new position
+    newTopics.splice(dropIndex, 0, draggedItem)
+    
+    setTempTopics(newTopics)
+    setDraggedItemId(null)
+    setDragOverItemId(null)
   }
 
   const getStatusInfo = (topic: ApprovedTopicItem) => {
@@ -221,10 +321,11 @@ export function ListApprovedTopicComponent() {
     }
   }
 
-  const totalPages = Math.ceil(topics.length / 10)
+  const displayTopics = isEditingCurriculum ? tempTopics : topics
+  const totalPages = Math.ceil(displayTopics.length / 10)
   const startIndex = (currentPage - 1) * 10
   const endIndex = startIndex + 10
-  const currentTopics = topics.slice(startIndex, endIndex)
+  const currentTopics = displayTopics.slice(startIndex, endIndex)
 
   const selectedTopicForHide = topics.find((t) => t.id === selectedTopicId)
 
@@ -262,7 +363,7 @@ export function ListApprovedTopicComponent() {
             <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mx-auto"></div>
           </div>
 
-          {/* Search Section */}
+          {/* Search Section and Curriculum Management */}
           <div className="relative mb-8">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl"></div>
             <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
@@ -278,8 +379,45 @@ export function ListApprovedTopicComponent() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-12 h-14 border-2 border-blue-200/60 rounded-2xl bg-white/90 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md"
+                      disabled={isEditingCurriculum}
                     />
                   </div>
+                </div>
+
+                {/* Curriculum Management Buttons */}
+                <div className="flex gap-3">
+                  {!isEditingCurriculum ? (
+                    <Button
+                      onClick={handleStartEditingCurriculum}
+                      className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Settings className="w-5 h-5" />
+                        <span className="font-bold">Thay đổi lộ trình học</span>
+                      </div>
+                    </Button>
+                  ) : (
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleCancelEditingCurriculum}
+                        className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        <div className="flex items-center gap-2">
+                          <X className="w-5 h-5" />
+                          <span className="font-bold">Hủy</span>
+                        </div>
+                      </Button>
+                      <Button
+                        onClick={handleSaveCurriculumChanges}
+                        className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Save className="w-5 h-5" />
+                          <span className="font-bold">Nộp thay đổi</span>
+                        </div>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -291,7 +429,10 @@ export function ListApprovedTopicComponent() {
             <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden min-w-[700px]">
               {/* Table Header */}
               <div className="bg-gradient-to-r from-blue-100/80 to-cyan-100/80 px-4 sm:px-8 py-4 sm:py-6">
-                <div className="grid grid-cols-5 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
+                <div className={`grid gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm ${
+                  isEditingCurriculum ? 'grid-cols-6' : 'grid-cols-5'
+                }`}>
+                  {isEditingCurriculum && <div className="text-center">THỨ TỰ</div>}
                   <div className="text-left">TÊN CHỦ ĐỀ</div>
                   <div className="text-center">NGÀY TẠO</div>
                   <div className="text-center">CHỦ ĐỀ PHỤ</div>
@@ -314,12 +455,38 @@ export function ListApprovedTopicComponent() {
                 ) : (
                   currentTopics.map((topic, index) => {
                     const statusInfo = getStatusInfo(topic)
+                    const isDragging = draggedItemId === topic.id
+                    const isDragOver = dragOverItemId === topic.id
+                    const actualIndex = startIndex + index // Get the actual index in the full list
+                    
                     return (
                       <div
                         key={topic.id}
-                        className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group"
+                        draggable={isEditingCurriculum}
+                        onDragStart={(e) => handleDragStart(e, topic.id)}
+                        onDragOver={(e) => handleDragOver(e, topic.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, topic.id)}
+                        className={`px-4 sm:px-8 py-4 sm:py-6 transition-colors group ${
+                          isDragging 
+                            ? 'opacity-50 bg-blue-100/50' 
+                            : isDragOver 
+                            ? 'bg-blue-200/30 border-t-2 border-blue-400' 
+                            : 'hover:bg-blue-50/30'
+                        } ${isEditingCurriculum ? 'cursor-move' : 'cursor-default'}`}
                       >
-                        <div className="grid grid-cols-5 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
+                        <div className={`grid gap-2 sm:gap-4 items-center text-xs sm:text-sm ${
+                          isEditingCurriculum ? 'grid-cols-6' : 'grid-cols-5'
+                        }`}>
+                          {/* Order Number - Only show in editing mode */}
+                          {isEditingCurriculum && (
+                            <div className="text-center">
+                              <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-700 rounded-full font-bold text-sm">
+                                {actualIndex + 1}
+                              </span>
+                            </div>
+                          )}
+
                           {/* Topic Name */}
                           <div className="text-left">
                             <div className="text-gray-700 font-medium truncate">{topic.topicName}</div>
@@ -346,44 +513,45 @@ export function ListApprovedTopicComponent() {
 
                           {/* Actions */}
                           <div className="flex gap-1 sm:gap-3 justify-center">
-                            {/* View Button - Available for all roles */}
-                            <Button
-                              onClick={() => handleViewTopic(topic.id)}
-                              className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                              size="sm"
-                              title="Xem chi tiết chủ đề"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                              <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                            </Button>
-
-                            {/* Request Edit Button - Only for content approver and only if not already needs edit */}
-                            {userRole === "content_approver" && topic.status !== "needs_edit" && (
+                            {/* View Button - Available for all roles when not editing */}
+                            {!isEditingCurriculum && (
                               <Button
-                                onClick={() => handleRequestEdit(topic.id)}
-                                className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-orange-100 to-orange-200 hover:from-orange-200 hover:to-orange-300 text-orange-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                                onClick={() => handleViewTopic(topic.id)}
+                                className="p-2 sm:p-3 bg-blue-200 hover:bg-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105"
                                 size="sm"
-                                title="Yêu cầu chỉnh sửa chủ đề"
+                                title="Xem chi tiết chủ đề"
                               >
-                                <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                                <Edit3 className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                               </Button>
                             )}
 
-                            {/* Hide/Unhide Button - Available for both roles */}
-                            <Button
-                              onClick={() => handleShowHideConfirm(topic.id)}
-                              className={`group/btn relative p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden ${
-                                topic.isHidden
-                                  ? "bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600"
-                                  : "bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-600"
-                              }`}
-                              size="sm"
-                              title={topic.isHidden ? "Hiển thị chủ đề" : "Ẩn chủ đề"}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                              <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                            </Button>
+                            {/* Request Edit Button - Only for content approver and only if not already needs edit and not editing */}
+                            {userRole === "content_approver" && topic.status !== "needs_edit" && !isEditingCurriculum && (
+                              <Button
+                                onClick={() => handleRequestEdit(topic.id)}
+                                className="p-2 sm:p-3 bg-orange-200 hover:bg-orange-300 text-orange-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105"
+                                size="sm"
+                                title="Yêu cầu chỉnh sửa chủ đề"
+                              >
+                                <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </Button>
+                            )}
+
+                            {/* Hide/Unhide Button - Only visible in editing mode */}
+                            {isEditingCurriculum && (
+                              <Button
+                                onClick={() => handleToggleVisibilityInEdit(topic.id)}
+                                className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 ${
+                                  topic.isHidden
+                                    ? "bg-green-200 hover:bg-green-300 text-green-600"
+                                    : "bg-gray-200 hover:bg-gray-300 text-gray-600"
+                                }`}
+                                size="sm"
+                                title={topic.isHidden ? "Hiển thị chủ đề" : "Ẩn chủ đề"}
+                              >
+                                <EyeOff className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -395,7 +563,7 @@ export function ListApprovedTopicComponent() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalPages > 1 && !isEditingCurriculum && (
             <div className="flex justify-center items-center gap-3">
               <Button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -442,7 +610,7 @@ export function ListApprovedTopicComponent() {
                       onClick={() => setCurrentPage(i)}
                       className={`w-12 h-12 rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-200 ${
                         i === currentPage
-                          ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+                          ? "bg-blue-500 text-white"
                           : "bg-white/80 hover:bg-white text-gray-600 hover:text-gray-800"
                       }`}
                     >
@@ -480,6 +648,31 @@ export function ListApprovedTopicComponent() {
               >
                 →
               </Button>
+            </div>
+          )}
+
+          {/* Editing Instructions */}
+          {isEditingCurriculum && (
+            <div className="relative mb-8">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 rounded-3xl blur-xl"></div>
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <Settings className="w-6 h-6 text-blue-600" />
+                    <h3 className="text-lg font-bold text-blue-700">CHẾ ĐỘ CHỈNH SỬA LỘ TRÌNH HỌC</h3>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-600">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-700 rounded-full font-bold text-xs">1</span>
+                      <span>Kéo thả để sắp xếp thứ tự</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <EyeOff className="w-4 h-4 text-gray-400" />
+                      <span>Bấm để ẩn/bỏ ẩn chủ đề</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -532,7 +725,7 @@ export function ListApprovedTopicComponent() {
       )}
 
       {/* Hide/Unhide Confirmation Modal */}
-      {showHideConfirmModal && selectedTopicForHide && (
+      {showHideConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowHideConfirmModal(false)} />
           <div className="relative bg-white rounded-3xl shadow-xl border border-white/50 p-8 max-w-md w-full mx-4">
@@ -540,9 +733,17 @@ export function ListApprovedTopicComponent() {
               <AlertTriangle className="w-12 h-12 text-orange-600 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-orange-700 mb-2">XÁC NHẬN THAY ĐỔI</h3>
               <p className="text-gray-600">
-                Bạn có chắc chắn muốn{" "}
-                <span className="font-bold text-orange-600">{selectedTopicForHide.isHidden ? "hiển thị" : "ẩn"}</span>{" "}
-                chủ đề <span className="font-bold text-blue-600">"{selectedTopicForHide.topicName}"</span>?
+                {(() => {
+                  const topic = (isEditingCurriculum ? tempTopics : topics).find((t) => t.id === selectedTopicId)
+                  if (!topic) return "Bạn có chắc chắn muốn thực hiện thay đổi này?"
+                  return (
+                    <>
+                      Bạn có chắc chắn muốn{" "}
+                      <span className="font-bold text-orange-600">{topic.isHidden ? "hiển thị" : "ẩn"}</span>{" "}
+                      chủ đề <span className="font-bold text-blue-600">"{topic.topicName}"</span>?
+                    </>
+                  )
+                })()}
               </p>
             </div>
 
