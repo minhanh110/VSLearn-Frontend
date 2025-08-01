@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, Video, Plus, X, Search } from "lucide-react"
+import { Upload, Video, Plus, X, Search, AlertCircle, CheckCircle } from "lucide-react"
 
 // Mock data for demonstration
 const mockWords = [
@@ -93,6 +93,8 @@ export default function CreateSentencesPageContent(): ReactElement {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false) // Add this line
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showWarningModal, setShowWarningModal] = useState(false)
 
   const handleAddWordSlot = () => {
     setSentenceWords([...sentenceWords, ""])
@@ -173,6 +175,28 @@ export default function CreateSentencesPageContent(): ReactElement {
     // Filter only by major topic ID
     return matchesSearchTerm && item.topicId === selectedFilter
   })
+
+  // Check if sentence has valid words (not empty strings)
+  const hasValidWords = sentenceWords.some((word) => word.trim() !== "")
+  const completeSentence = sentenceWords.filter((word) => word.trim() !== "").join(" ")
+
+  const handleCreateSentence = () => {
+    if (!hasValidWords) {
+      setShowWarningModal(true)
+    } else {
+      setShowConfirmModal(true)
+    }
+  }
+
+  const confirmCreateSentence = () => {
+    // Here you would typically send the sentence to your API
+    console.log("Creating sentence:", completeSentence)
+    alert(`Câu đã được tạo thành công: "${completeSentence}"`)
+    setShowConfirmModal(false)
+
+    // Optionally clear the sentence after creation
+    // setSentenceWords([])
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50 relative overflow-hidden">
@@ -298,6 +322,16 @@ export default function CreateSentencesPageContent(): ReactElement {
                 )}
               </div>
             </div>
+
+            {/* Create Sentence Button - Always visible with simple styling */}
+            <div className="w-full flex justify-center mt-4">
+              <Button
+                onClick={handleCreateSentence}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                Tạo câu
+              </Button>
+            </div>
           </div>
 
           {/* Right Section: Global Word Search */}
@@ -352,6 +386,63 @@ export default function CreateSentencesPageContent(): ReactElement {
           </div>
         </div>
       </div>
+
+      {/* Warning Modal - No words selected */}
+      {showWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300 scale-100">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-3">Chưa chọn từ vựng</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Bạn chưa chọn từ vựng để hoàn thành câu. Vui lòng thêm ít nhất một từ vào câu trước khi tạo.
+              </p>
+              <Button
+                onClick={() => setShowWarningModal(false)}
+                className="bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-2 rounded-lg transition-colors duration-200"
+              >
+                Đã hiểu
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all duration-300 scale-100">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-blue-500" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-3">Xác nhận tạo câu</h3>
+              <p className="text-gray-600 mb-2">Bạn có chắc chắn muốn tạo câu với các từ đã chọn không?</p>
+              <div className="bg-blue-50 rounded-lg p-3 mb-6">
+                <p className="text-blue-800 font-medium">"{completeSentence}"</p>
+              </div>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="px-6 py-2 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors duration-200"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={confirmCreateSentence}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
+                >
+                  Xác nhận
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </div>
   )
