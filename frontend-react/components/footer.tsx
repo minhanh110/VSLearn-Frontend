@@ -54,7 +54,7 @@ const roleMenus = {
   "content-approver": [
     { icon: Clock, label: "Chủ đề chờ duyệt", href: "/content-approver/topics" },
     { icon: Clock, label: "Từ vựng chờ duyệt", href: "/content-approver/vocabularies" },
-    { icon: Shield, label: "Duyệt lộ trình học", href: "/content-approver/history" },
+    { icon: Shield, label: "Duyệt lộ trình học", href: "content-approver/curriculum-approval" },
     { icon: CheckCircle, label: "Chủ đề đang hoạt động", href: "/list-approved-topic" },
     { icon: Edit3, label: "từ vựng đang hoạt động", href: "/list-approved-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
