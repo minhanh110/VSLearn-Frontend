@@ -27,7 +27,7 @@ interface Learner {
   id: number
   name: string
   email: string
-  phone: string
+  phone: string | null
   status: string
   joinDate: string
   topicsCompleted: number
@@ -100,11 +100,20 @@ const LearnersListPage = () => {
       if (!token) return
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      const newStatus = learner.status === "active" ? "inactive" : "active"
+      const newStatus = learner.status === "active" ? false : true
 
-      await axios.patch(
-        `${API_BASE_URL}/api/v1/admin/users/${learner.id}/status`,
-        { status: newStatus },
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/admin/users/${learner.id}`,
+        {
+          firstName: learner.name.split(' ')[0] || learner.name,
+          lastName: learner.name.split(' ').slice(1).join(' ') || learner.name,
+          userName: learner.name.toLowerCase().replace(/\s+/g, ''),
+          userEmail: learner.email,
+          phoneNumber: learner.phone && learner.phone !== "N/A" && learner.phone !== null ? learner.phone : null,
+          userRole: "LEARNER",
+          userAvatar: "",
+          isActive: newStatus
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -112,8 +121,12 @@ const LearnersListPage = () => {
         },
       )
 
-      // Update local state
-      setLearners((prev) => prev.map((l) => (l.id === learner.id ? { ...l, status: newStatus } : l)))
+      // Update local state based on server response
+      if (response.data && response.data.status === 200) {
+        const serverStatus = newStatus ? "active" : "inactive"
+        setLearners((prev) => prev.map((l) => (l.id === learner.id ? { ...l, status: serverStatus } : l)))
+        alert("Cập nhật trạng thái tài khoản thành công!")
+      }
 
       setSelectedLearner(null)
     } catch (err: any) {
@@ -254,7 +267,7 @@ const LearnersListPage = () => {
                           <td className="py-4 px-6">
                             <div className="space-y-1">
                               <div className="text-gray-700 font-medium">{learner.email}</div>
-                              <div className="text-sm text-gray-500">{learner.phone}</div>
+                              <div className="text-sm text-gray-500">{learner.phone || "N/A"}</div>
                               <div className="text-xs text-gray-400">Tham gia: {learner.joinDate}</div>
                             </div>
                           </td>
