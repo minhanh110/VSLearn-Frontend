@@ -61,6 +61,37 @@ interface Creator {
   approvedVocabCount: number
 }
 
+interface Topic {
+  id: number
+  name: string
+  vocabulary: number
+  status: string
+  createdDate: string
+  approver: string | null
+}
+
+interface Vocabulary {
+  id: number
+  vocab: string
+  meaning: string
+  topic: string
+  status: string
+  createdDate: string
+  approver: string | null
+}
+
+interface CreatorStats {
+  totalTopics: number
+  approvedTopics: number
+  pendingTopics: number
+  rejectedTopics: number
+  totalVocabularies: number
+  approvedVocabularies: number
+  pendingVocabularies: number
+  rejectedVocabularies: number
+  lastActivity: string | null
+}
+
 const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -69,67 +100,181 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
   const [error, setError] = useState<string | null>(null)
   const [showToggleStatusModal, setShowToggleStatusModal] = useState(false)
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null)
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [vocabularies, setVocabularies] = useState<Vocabulary[]>([])
+  const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null)
 
   useEffect(() => {
-    const fetchCreatorDetails = async () => {
-      try {
-        setLoading(true)
-        const token = localStorage.getItem("token")
+    fetchCreatorDetails()
+  }, [creatorId])
 
-        if (!token) {
-          setError("Vui lòng đăng nhập để truy cập trang này")
-          setLoading(false)
+  const fetchCreatorDetails = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem("token")
+
+      if (!token) {
+        setError("Vui lòng đăng nhập để truy cập trang này")
+        setLoading(false)
+        return
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      console.log("Fetching creator details for ID:", creatorId)
+      
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${creatorId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      console.log("API Response:", response.data)
+
+      if (response.data) {
+        if (response.data.error) {
+          setError("Không thể tải thông tin người biên soạn: " + response.data.error)
           return
         }
-
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-        const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${creatorId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
+        
         const userData = response.data
         const creatorData: Creator = {
           id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone || "N/A",
-          status: userData.status,
-          joinDate: userData.joinDate,
+          name: userData.name || `${userData.firstName} ${userData.lastName}`,
+          email: userData.email || userData.userEmail || "",
+          phone: userData.phone || userData.phoneNumber || "N/A",
+          status: userData.status || "active",
+          joinDate: userData.joinDate || "N/A",
           lastLogin: userData.lastLogin || "N/A",
           topicsCreated: userData.topicsCreated || 0,
           vocabularyCreated: userData.vocabularyCreated || 0,
           pendingApproval: userData.pendingApproval || 0,
           approvedContent: userData.approvedContent || 0,
           rejectedContent: userData.rejectedContent || 0,
-          avatar: userData.avatar || "/images/whale-character.png",
+          avatar: userData.avatar || userData.userAvatar || "/images/whale-character.png",
           bio: userData.bio || "N/A",
           specialization: userData.specialization || "N/A",
-          // Mocking new approved counts for demonstration
-          approvedTopicsCount: 15, // Example value
-          approvedVocabCount: 120, // Example value
+          approvedTopicsCount: userData.approvedTopicsCount || 0,
+          approvedVocabCount: userData.approvedVocabCount || 0,
         }
 
         setCreator(creatorData)
-      } catch (err: any) {
-        console.error("Error fetching creator details:", err)
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
-        } else if (err.response?.status === 404) {
-          setError("Không tìm thấy thông tin người biên soạn")
-        } else {
-          setError("Không thể tải thông tin người biên soạn: " + (err.response?.data?.message || err.message))
-        }
-      } finally {
-        setLoading(false)
+        
+        // Fetch additional data
+        await Promise.all([
+          fetchCreatorTopics(),
+          fetchCreatorVocabularies(),
+          fetchCreatorStats()
+        ])
+      } else {
+        setError("Không thể tải thông tin người biên soạn")
       }
+    } catch (err: any) {
+      console.error("Error fetching creator details:", err)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+      } else if (err.response?.status === 404) {
+        setError("Không tìm thấy thông tin người biên soạn")
+      } else {
+        setError("Không thể tải thông tin người biên soạn: " + (err.response?.data?.message || err.message))
+      }
+      
+      // Set a fallback creator object with basic info
+      const fallbackCreator: Creator = {
+        id: parseInt(creatorId),
+        name: `Người biên soạn #${creatorId}`,
+        email: "N/A",
+        phone: "N/A",
+        status: "unknown",
+        joinDate: "N/A",
+        lastLogin: "N/A",
+        topicsCreated: 0,
+        vocabularyCreated: 0,
+        pendingApproval: 0,
+        approvedContent: 0,
+        rejectedContent: 0,
+        avatar: "/images/whale-character.png",
+        bio: "N/A",
+        specialization: "N/A",
+        approvedTopicsCount: 0,
+        approvedVocabCount: 0,
+      }
+      setCreator(fallbackCreator)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (creatorId) {
-      fetchCreatorDetails()
+  const fetchCreatorTopics = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${creatorId}/topics`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching topics:", response.data.error)
+          return
+        }
+        setTopics(response.data.topics || [])
+      }
+    } catch (err: any) {
+      console.error("Error fetching creator topics:", err)
     }
-  }, [creatorId])
+  }
+
+  const fetchCreatorVocabularies = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${creatorId}/vocabularies`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching vocabularies:", response.data.error)
+          return
+        }
+        setVocabularies(response.data.vocabularies || [])
+      }
+    } catch (err: any) {
+      console.error("Error fetching creator vocabularies:", err)
+    }
+  }
+
+  const fetchCreatorStats = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${creatorId}/creator-stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching creator stats:", response.data.error)
+          return
+        }
+        setCreatorStats(response.data)
+      }
+    } catch (err: any) {
+      console.error("Error fetching creator stats:", err)
+    }
+  }
 
   const handleToggleAccountStatus = async (creator: Creator) => {
     try {
@@ -140,11 +285,20 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
       }
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      const newStatus = creator.status === "active" ? "inactive" : "active"
+      const newStatus = creator.status === "active" ? false : true
       
-      await axios.patch(
-        `${API_BASE_URL}/api/v1/admin/users/${creator.id}/status`,
-        { status: newStatus },
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/admin/users/${creator.id}`,
+        {
+          firstName: creator.name.split(' ')[0] || creator.name,
+          lastName: creator.name.split(' ').slice(1).join(' ') || creator.name,
+          userName: creator.name.toLowerCase().replace(/\s+/g, ''),
+          userEmail: creator.email,
+          phoneNumber: creator.phone && creator.phone !== "N/A" ? creator.phone : null,
+          userRole: "CONTENT_CREATOR",
+          userAvatar: creator.avatar || "",
+          isActive: newStatus
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -152,10 +306,14 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
         }
       )
 
-      // Update local state
-      setCreator(prev => prev ? { ...prev, status: newStatus } : null)
-      setShowToggleStatusModal(false)
-      setSelectedCreator(null)
+      // Update local state based on server response
+      if (response.data && response.data.status === 200) {
+        const serverStatus = newStatus ? "active" : "inactive"
+        setCreator(prev => prev ? { ...prev, status: serverStatus } : null)
+        setShowToggleStatusModal(false)
+        setSelectedCreator(null)
+        alert("Cập nhật trạng thái tài khoản thành công!")
+      }
     } catch (err: any) {
       console.error("Error updating creator status:", err)
       setError("Không thể cập nhật trạng thái tài khoản: " + (err.response?.data?.message || err.message))
@@ -178,7 +336,7 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
     )
   }
 
-  if (error) {
+  if (error && !creator) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
         <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
@@ -188,9 +346,14 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
               <p className="font-bold">Lỗi</p>
               <p>{error}</p>
             </div>
-            <Button onClick={() => router.push("/general-manager/creators")} className="mt-4">
-              Quay lại danh sách
-            </Button>
+            <div className="flex gap-2 justify-center mt-4">
+              <Button onClick={() => fetchCreatorDetails()} className="bg-blue-600 hover:bg-blue-700">
+                Thử lại
+              </Button>
+              <Button onClick={() => router.push("/general-manager/creators")} variant="outline">
+                Quay lại danh sách
+              </Button>
+            </div>
           </div>
         </main>
         <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
@@ -215,97 +378,21 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
     )
   }
 
-  const topicsCreated = [
-    {
-      name: "Giao tiếp hàng ngày",
-      vocabulary: 45,
-      status: "approved",
-      createdDate: "2024-01-15",
-      approver: "Nguyễn Văn A",
-    },
-    { 
-      name: "Tiếng Anh công sở", 
-      vocabulary: 60, 
-      status: "pending", 
-      createdDate: "2024-01-18", 
-      approver: null 
-    },
-    {
-      name: "Du lịch và khách sạn",
-      vocabulary: 38,
-      status: "editing",
-      createdDate: "2024-01-12",
-      approver: null,
-    },
-    {
-      name: "Ẩm thực và nhà hàng",
-      vocabulary: 42,
-      status: "rejected",
-      createdDate: "2024-01-10",
-      approver: "Lê Văn C",
-    },
-    {
-      name: "Kinh doanh và thương mại",
-      vocabulary: 55,
-      status: "draft",
-      createdDate: "2024-01-08",
-      approver: null,
-    },
-    {
-      name: "Y tế và sức khỏe",
-      vocabulary: 48,
-      status: "need_revision",
-      createdDate: "2024-01-05",
-      approver: "Phạm Thị D",
-    },
-  ]
+  // Use topics from API instead of hardcoded data
 
-  const vocabulariesCreated = [
-    {
-      vocab: "Xin chào",
-      meaning: "Hello",
-      topic: "Chào hỏi",
-      status: "approved",
-      createdDate: "2024-01-01",
-      approver: "Nguyễn Văn A",
-    },
-    {
-      vocab: "Tạm biệt",
-      meaning: "Goodbye",
-      topic: "Chào hỏi",
-      status: "pending",
-      createdDate: "2024-01-05",
-      approver: null,
-    },
-    {
-      vocab: "Cảm ơn",
-      meaning: "Thank you",
-      topic: "Chào hỏi",
-      status: "approved",
-      createdDate: "2024-01-10",
-      approver: "Trần Thị B",
-    },
-    {
-      vocab: "Xin lỗi",
-      meaning: "Sorry",
-      topic: "Giao tiếp",
-      status: "rejected",
-      createdDate: "2024-01-12",
-      approver: "Lê Văn C",
-    },
-  ]
+  // Use vocabularies from API instead of hardcoded data
 
   const stats = [
     {
       label: "Chủ đề đã được duyệt",
-      value: creator.approvedTopicsCount,
+      value: creatorStats?.approvedTopics || creator.approvedTopicsCount || 0,
       icon: BookOpen,
       color: "text-green-600",
       bg: "bg-green-100",
     },
     {
       label: "Từ vựng đã được duyệt",
-      value: creator.approvedVocabCount,
+      value: creatorStats?.approvedVocabularies || creator.approvedVocabCount || 0,
       icon: FileText,
       color: "text-blue-600",
       bg: "bg-blue-100",
@@ -381,6 +468,16 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
       <main className="pt-20 pb-20 lg:pb-4 px-4 relative z-10">
         <div className="container mx-auto max-w-7xl">
           <div className="space-y-6">
+            {/* Error Alert */}
+            {error && (
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+                <div className="flex items-center gap-2">
+                  <span className="text-yellow-600">⚠️</span>
+                  <span className="text-sm">{error}</span>
+                </div>
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <Button
@@ -491,12 +588,12 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
                             </AlertDialogDescription>
                             {selectedCreator?.status === "active" && (
                               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                                ⚠️ Người biên soạn sẽ không thể đăng nhập và sử dụng hệ thống.
+                                âš ï¸ Người biên soạn sẽ không thể đăng nhập và sử dụng hệ thống.
                               </div>
                             )}
                             {selectedCreator?.status === "inactive" && (
                               <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                                ✅ Người biên soạn sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
+                                âœ… Người biên soạn sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
                               </div>
                             )}
                           </AlertDialogHeader>
@@ -605,30 +702,37 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
                       <BookOpen className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-blue-900">Danh sách chủ đề đã tạo</h3>
                     </div>
-                    {topicsCreated.map((topic, index) => (
-                      <div
-                        key={index}
-                        className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-900">{topic.name}</h4>
-                          {getTopicStatusBadge(topic.status)}
+                    {topics.length > 0 ? (
+                      topics.map((topic, index) => (
+                        <div
+                          key={topic.id || index}
+                          className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">{topic.name}</h4>
+                            {getTopicStatusBadge(topic.status)}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-purple-600" />
+                              <span className="text-gray-700">{topic.vocabulary} từ vựng</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-blue-600" />
+                              <span className="text-gray-700">{topic.createdDate}</span>
+                            </div>
+                            <div>
+                              {getApproverInfo(topic.status, topic.approver)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-purple-600" />
-                            <span className="text-gray-700">{topic.vocabulary} từ vựng</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-blue-600" />
-                            <span className="text-gray-700">{topic.createdDate}</span>
-                          </div>
-                          <div>
-                            {getApproverInfo(topic.status, topic.approver)}
-                          </div>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Chưa có chủ đề nào</p>
                       </div>
-                    ))}
+                    )}
                   </TabsContent>
 
                   <TabsContent value="vocab-created" className="space-y-4">
@@ -636,32 +740,39 @@ const CreatorsDetailPage = ({ creatorId }: CreatorsDetailPageProps) => {
                       <FileText className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-blue-900">Danh sách từ vựng đã tạo</h3>
                     </div>
-                    {vocabulariesCreated.map((vocab, index) => (
-                      <div
-                        key={index}
-                        className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-900">
-                            {vocab.vocab} - {vocab.meaning}
-                          </h4>
-                          {getVocabStatusBadge(vocab.status)}
+                    {vocabularies.length > 0 ? (
+                      vocabularies.map((vocab, index) => (
+                        <div
+                          key={vocab.id || index}
+                          className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">
+                              {vocab.vocab} - {vocab.meaning}
+                            </h4>
+                            {getVocabStatusBadge(vocab.status)}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                            <div className="flex items-center gap-2">
+                              <BookOpen className="w-4 h-4 text-purple-600" />
+                              <span className="text-gray-700">Chủ đề: {vocab.topic}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-blue-600" />
+                              <span className="text-gray-700">{vocab.createdDate}</span>
+                            </div>
+                            <div>
+                              {getApproverInfo(vocab.status, vocab.approver)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-purple-600" />
-                            <span className="text-gray-700">Chủ đề: {vocab.topic}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-blue-600" />
-                            <span className="text-gray-700">{vocab.createdDate}</span>
-                          </div>
-                          <div>
-                            {getApproverInfo(vocab.status, vocab.approver)}
-                          </div>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Chưa có từ vựng nào</p>
                       </div>
-                    ))}
+                    )}
                   </TabsContent>
                 </CardContent>
               </Tabs>
