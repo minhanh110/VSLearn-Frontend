@@ -53,6 +53,35 @@ interface Approver {
   specialization: string
 }
 
+interface ApprovedTopic {
+  id: number
+  name: string
+  vocabulary: number
+  creator: string
+  status: string
+  approvalDate: string
+}
+
+interface ApprovedVocabulary {
+  id: number
+  vocab: string
+  meaning: string
+  topic: string
+  creator: string
+  status: string
+  approvalDate: string
+}
+
+interface ApproverStats {
+  totalTopics: number
+  approvedTopics: number
+  rejectedTopics: number
+  totalVocabularies: number
+  approvedVocabularies: number
+  rejectedVocabularies: number
+  lastActivity: string | null
+}
+
 const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -61,61 +90,171 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
   const [error, setError] = useState<string | null>(null)
   const [showToggleStatusModal, setShowToggleStatusModal] = useState(false)
   const [selectedApprover, setSelectedApprover] = useState<Approver | null>(null)
+  const [approvedTopics, setApprovedTopics] = useState<ApprovedTopic[]>([])
+  const [approvedVocabularies, setApprovedVocabularies] = useState<ApprovedVocabulary[]>([])
+  const [approverStats, setApproverStats] = useState<ApproverStats | null>(null)
 
   useEffect(() => {
-    const fetchApproverDetails = async () => {
-      try {
-        setLoading(true)
-        const token = localStorage.getItem("token")
+    fetchApproverDetails()
+  }, [approverId])
 
-        if (!token) {
-          setError("Vui lòng đăng nhập để truy cập trang này")
-          setLoading(false)
+  const fetchApproverDetails = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem("token")
+
+      if (!token) {
+        setError("Vui lòng đăng nhập để truy cập trang này")
+        setLoading(false)
+        return
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      console.log("Fetching approver details for ID:", approverId)
+      
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${approverId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      console.log("API Response:", response.data)
+
+      if (response.data) {
+        if (response.data.error) {
+          setError("Không thể tải thông tin người kiểm duyệt: " + response.data.error)
           return
         }
-
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-        const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${approverId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
+        
         const userData = response.data
         const approverData: Approver = {
           id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone || "N/A",
-          status: userData.status,
-          joinDate: userData.joinDate,
+          name: userData.name || `${userData.firstName} ${userData.lastName}`,
+          email: userData.email || userData.userEmail || "",
+          phone: userData.phone || userData.phoneNumber || "N/A",
+          status: userData.status || "active",
+          joinDate: userData.joinDate || "N/A",
           lastLogin: userData.lastLogin || "N/A",
           topicsApproved: userData.topicsApproved || 0,
           vocabularyApproved: userData.vocabularyApproved || 0,
-          avatar: userData.avatar || "/images/whale-character.png",
+          avatar: userData.avatar || userData.userAvatar || "/images/whale-character.png",
           bio: userData.bio || "N/A",
           specialization: userData.specialization || "N/A",
         }
 
         setApprover(approverData)
-      } catch (err: any) {
-        console.error("Error fetching approver details:", err)
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
-        } else if (err.response?.status === 404) {
-          setError("Không tìm thấy thông tin người kiểm duyệt ")
-        } else {
-          setError("Không thể tải thông tin người kiểm duyệt : " + (err.response?.data?.message || err.message))
-        }
-      } finally {
-        setLoading(false)
+        
+        // Fetch additional data
+        await Promise.all([
+          fetchApproverTopics(),
+          fetchApproverVocabularies(),
+          fetchApproverStats()
+        ])
+      } else {
+        setError("Không thể tải thông tin người kiểm duyệt")
       }
+    } catch (err: any) {
+      console.error("Error fetching approver details:", err)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+      } else if (err.response?.status === 404) {
+        setError("Không tìm thấy thông tin người kiểm duyệt")
+      } else {
+        setError("Không thể tải thông tin người kiểm duyệt: " + (err.response?.data?.message || err.message))
+      }
+      
+      // Set a fallback approver object with basic info
+      const fallbackApprover: Approver = {
+        id: parseInt(approverId),
+        name: `Người kiểm duyệt #${approverId}`,
+        email: "N/A",
+        phone: "N/A",
+        status: "unknown",
+        joinDate: "N/A",
+        lastLogin: "N/A",
+        topicsApproved: 0,
+        vocabularyApproved: 0,
+        avatar: "/images/whale-character.png",
+        bio: "N/A",
+        specialization: "N/A",
+      }
+      setApprover(fallbackApprover)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (approverId) {
-      fetchApproverDetails()
+  const fetchApproverTopics = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${approverId}/approved-topics`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching approved topics:", response.data.error)
+          return
+        }
+        setApprovedTopics(response.data.topics || [])
+      }
+    } catch (err: any) {
+      console.error("Error fetching approver topics:", err)
     }
-  }, [approverId])
+  }
+
+  const fetchApproverVocabularies = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${approverId}/approved-vocabularies`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching approved vocabularies:", response.data.error)
+          return
+        }
+        setApprovedVocabularies(response.data.vocabularies || [])
+      }
+    } catch (err: any) {
+      console.error("Error fetching approver vocabularies:", err)
+    }
+  }
+
+  const fetchApproverStats = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${approverId}/approver-stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching approver stats:", response.data.error)
+          return
+        }
+        setApproverStats(response.data)
+      }
+    } catch (err: any) {
+      console.error("Error fetching approver stats:", err)
+    }
+  }
 
   const handleToggleAccountStatus = async (approver: Approver) => {
     try {
@@ -126,22 +265,35 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
       }
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      const newStatus = approver.status === "active" ? "inactive" : "active"
+      const newStatus = approver.status === "active" ? false : true
 
-      await axios.patch(
-        `${API_BASE_URL}/api/v1/admin/users/${approver.id}/status`,
-        { status: newStatus },
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/admin/users/${approver.id}`,
+        {
+          firstName: approver.name.split(' ')[0] || approver.name,
+          lastName: approver.name.split(' ').slice(1).join(' ') || approver.name,
+          userName: approver.name.toLowerCase().replace(/\s+/g, ''),
+          userEmail: approver.email,
+          phoneNumber: approver.phone && approver.phone !== "N/A" ? approver.phone : null,
+          userRole: "CONTENT_APPROVER",
+          userAvatar: approver.avatar || "",
+          isActive: newStatus
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       )
 
-      // Update local state
-      setApprover((prev) => (prev ? { ...prev, status: newStatus } : null))
-      setShowToggleStatusModal(false)
-      setSelectedApprover(null)
+      // Update local state based on server response
+      if (response.data && response.data.status === 200) {
+        const serverStatus = newStatus ? "active" : "inactive"
+        setApprover((prev) => (prev ? { ...prev, status: serverStatus } : null))
+        setShowToggleStatusModal(false)
+        setSelectedApprover(null)
+        alert("Cập nhật trạng thái tài khoản thành công!")
+      }
     } catch (err: any) {
       console.error("Error updating approver status:", err)
       setError("Không thể cập nhật trạng thái tài khoản: " + (err.response?.data?.message || err.message))
@@ -164,7 +316,7 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
     )
   }
 
-  if (error) {
+  if (error && !approver) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
         <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
@@ -174,9 +326,14 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
               <p className="font-bold">Lỗi</p>
               <p>{error}</p>
             </div>
-            <Button onClick={() => router.push("/general-manager/approvers")} className="mt-4">
-              Quay lại danh sách
-            </Button>
+            <div className="flex gap-2 justify-center mt-4">
+              <Button onClick={() => fetchApproverDetails()} className="bg-blue-600 hover:bg-blue-700">
+                Thử lại
+              </Button>
+              <Button onClick={() => router.push("/general-manager/approvers")} variant="outline">
+                Quay lại danh sách
+              </Button>
+            </div>
           </div>
         </main>
         <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
@@ -201,68 +358,19 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
     )
   }
 
-  const approvedTopics = [
-    {
-      name: "Giao tiếp hàng ngày",
-      vocabulary: 45,
-      creator: "Phạm Thị Lan",
-      status: "approved",
-      approvalDate: "2024-01-18",
-    },
-    {
-      name: "Du lịch và khách sạn",
-      vocabulary: 38,
-      creator: "Ngô Thị Mai",
-      status: "approved",
-      approvalDate: "2024-01-15",
-    },
-    {
-      name: "Ẩm thực và nhà hàng",
-      vocabulary: 42,
-      creator: "Phạm Thị Lan",
-      status: "rejected",
-      approvalDate: "2024-01-12",
-    },
-  ]
-
-  const approvedVocabularies = [
-    {
-      vocab: "Xin chào",
-      meaning: "Hello",
-      topic: "Chào hỏi",
-      creator: "Nguyễn Văn A",
-      status: "approved",
-      approvalDate: "2024-01-20",
-    },
-    {
-      vocab: "Cảm ơn",
-      meaning: "Thank you",
-      topic: "Chào hỏi",
-      creator: "Trần Thị B",
-      status: "approved",
-      approvalDate: "2024-01-18",
-    },
-    {
-      vocab: "Xin lỗi",
-      meaning: "Sorry",
-      topic: "Giao tiếp",
-      creator: "Lê Văn C",
-      status: "rejected",
-      approvalDate: "2024-01-15",
-    },
-  ]
+  // Use approved topics and vocabularies from API instead of hardcoded data
 
   const stats = [
     {
       label: "Chủ đề đã duyệt",
-      value: approver.topicsApproved,
+      value: approverStats?.approvedTopics || approver.topicsApproved || 0,
       icon: BookOpen,
       color: "text-green-600",
       bg: "bg-green-100",
     },
     {
       label: "Từ vựng đã duyệt",
-      value: approver.vocabularyApproved,
+      value: approverStats?.approvedVocabularies || approver.vocabularyApproved || 0,
       icon: FileText,
       color: "text-blue-600",
       bg: "bg-blue-100",
@@ -300,12 +408,22 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-20 left-10 w-32 h-32 bg-blue-200/30 rounded-full blur-xl"></div>
-      <div className="absolute bottom-20 right-10 w-40 h-40 bg-cyan-200/30 rounded-full blur-xl"></div>
-      <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-blue-300/20 rounded-full blur-lg"></div>
+                {/* Decorative background elements */}
+          <div className="absolute top-20 left-10 w-32 h-32 bg-blue-200/30 rounded-full blur-xl"></div>
+          <div className="absolute bottom-20 right-10 w-40 h-40 bg-cyan-200/30 rounded-full blur-xl"></div>
+          <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-blue-300/20 rounded-full blur-lg"></div>
 
-      <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+          <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+
+          {/* Error Alert */}
+          {error && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-600">⚠️</span>
+                <span className="text-sm">{error}</span>
+              </div>
+            </div>
+          )}
 
       <main className="pt-20 pb-20 lg:pb-4 px-4 relative z-10">
         <div className="container mx-auto max-w-7xl">
@@ -419,12 +537,12 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
                             </AlertDialogDescription>
                             {selectedApprover?.status === "active" && (
                               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                                ⚠️ người kiểm duyệt sẽ không thể đăng nhập và sử dụng hệ thống.
+                                âš ï¸ người kiểm duyệt sẽ không thể đăng nhập và sử dụng hệ thống.
                               </div>
                             )}
                             {selectedApprover?.status === "inactive" && (
                               <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                                ✅ người kiểm duyệt sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
+                                âœ… người kiểm duyệt sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
                               </div>
                             )}
                           </AlertDialogHeader>
@@ -534,28 +652,35 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
                       <UserCheck className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-blue-900">Chủ đề đã duyệt</h3>
                     </div>
-                    {approvedTopics.map((topic, index) => (
-                      <div
-                        key={index}
-                        className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-900">{topic.name}</h4>
-                          {getStatusBadge(topic.status)}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-blue-600" />
-                            <span className="text-gray-700">{topic.vocabulary} từ vựng</span>
+                    {approvedTopics.length > 0 ? (
+                      approvedTopics.map((topic, index) => (
+                        <div
+                          key={topic.id || index}
+                          className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">{topic.name}</h4>
+                            {getStatusBadge(topic.status)}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <UserCheck className="w-4 h-4 text-purple-600" />
-                            <span className="text-gray-700">Tạo bởi: {topic.creator}</span>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-blue-600" />
+                              <span className="text-gray-700">{topic.vocabulary} từ vựng</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="w-4 h-4 text-purple-600" />
+                              <span className="text-gray-700">Tạo bởi: {topic.creator}</span>
+                            </div>
+                            <div>{getApprovalInfo(topic.status, topic.approvalDate)}</div>
                           </div>
-                          <div>{getApprovalInfo(topic.status, topic.approvalDate)}</div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <BookOpen className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Chưa có chủ đề nào được duyệt</p>
                       </div>
-                    ))}
+                    )}
                   </TabsContent>
 
                   <TabsContent value="vocabulary" className="space-y-4">
@@ -563,30 +688,37 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
                       <FileText className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-blue-900">Từ vựng đã duyệt</h3>
                     </div>
-                    {approvedVocabularies.map((vocab, index) => (
-                      <div
-                        key={index}
-                        className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-gray-900">
-                            {vocab.vocab} - {vocab.meaning}
-                          </h4>
-                          {getStatusBadge(vocab.status)}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-blue-600" />
-                            <span className="text-gray-700">Chủ đề: {vocab.topic}</span>
+                    {approvedVocabularies.length > 0 ? (
+                      approvedVocabularies.map((vocab, index) => (
+                        <div
+                          key={vocab.id || index}
+                          className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-gray-900">
+                              {vocab.vocab} - {vocab.meaning}
+                            </h4>
+                            {getStatusBadge(vocab.status)}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <UserCheck className="w-4 h-4 text-purple-600" />
-                            <span className="text-gray-700">Tạo bởi: {vocab.creator}</span>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                            <div className="flex items-center gap-2">
+                              <BookOpen className="w-4 h-4 text-blue-600" />
+                              <span className="text-gray-700">Chủ đề: {vocab.topic}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="w-4 h-4 text-purple-600" />
+                              <span className="text-gray-700">Tạo bởi: {vocab.creator}</span>
+                            </div>
+                            <div>{getApprovalInfo(vocab.status, vocab.approvalDate)}</div>
                           </div>
-                          <div>{getApprovalInfo(vocab.status, vocab.approvalDate)}</div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Chưa có từ vựng nào được duyệt</p>
                       </div>
-                    ))}
+                    )}
                   </TabsContent>
                 </CardContent>
               </Tabs>
@@ -601,3 +733,4 @@ const ApproversDetailPage = ({ approverId }: ApproversDetailPageProps) => {
 }
 
 export default ApproversDetailPage
+

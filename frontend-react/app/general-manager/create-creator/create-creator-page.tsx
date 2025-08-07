@@ -37,20 +37,42 @@ const CreateCreatorPage = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
+    // Validate name (required)
     if (!formData.name.trim()) {
       newErrors.name = "Họ tên là bắt buộc"
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = "Họ tên phải có ít nhất 2 ký tự"
+    } else if (formData.name.trim().length > 100) {
+      newErrors.name = "Họ tên không được vượt quá 100 ký tự"
     }
 
+    // Validate email (required)
     if (!formData.email.trim()) {
       newErrors.email = "Email là bắt buộc"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Email không hợp lệ"
+    } else if (formData.email.length > 255) {
+      newErrors.email = "Email không được vượt quá 255 ký tự"
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Số điện thoại là bắt buộc"
-    } else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ""))) {
-      newErrors.phone = "Số điện thoại không hợp lệ"
+    // Validate phone (optional but if provided, must be valid)
+    if (formData.phone.trim()) {
+      const phoneNumber = formData.phone.replace(/\s/g, "")
+      if (!/^[0-9]{10,11}$/.test(phoneNumber)) {
+        newErrors.phone = "Số điện thoại phải có 10-11 chữ số"
+      } else if (formData.phone.length > 12) {
+        newErrors.phone = "Số điện thoại không được vượt quá 12 ký tự"
+      }
+    }
+
+    // Validate address (optional)
+    if (formData.address.trim() && formData.address.length > 255) {
+      newErrors.address = "Địa chỉ không được vượt quá 255 ký tự"
+    }
+
+    // Validate bio (optional)
+    if (formData.bio.trim() && formData.bio.length > 500) {
+      newErrors.bio = "Giới thiệu không được vượt quá 500 ký tự"
     }
 
     setErrors(newErrors)
@@ -66,20 +88,29 @@ const CreateCreatorPage = () => {
     e.preventDefault()
     if (validateForm()) {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-        const token = localStorage.getItem('token')
+        const token = localStorage.getItem("token")
+        const userName = generateUsername(formData.email)
         
-        // Generate username từ email
-        const userName = generateUsername(formData.email);
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+        const requestUrl = `${API_BASE_URL}/api/v1/admin/users/create`
+        // Ensure firstName and lastName are not empty
+        const nameParts = formData.name.trim().split(' ')
+        const firstName = nameParts.slice(0, -1).join(' ') || formData.name
+        const lastName = nameParts.slice(-1).join(' ') || formData.name
         
-        const res = await axios.post(`${API_BASE_URL}/api/v1/admin/users/create`, {
+        const requestData = {
           userName: userName,
-          firstName: formData.name.split(' ').slice(0, -1).join(' ') || formData.name,
-          lastName: formData.name.split(' ').slice(-1).join(' '),
+          firstName: firstName,
+          lastName: lastName,
           userEmail: formData.email,
-          phoneNumber: formData.phone,
+          phoneNumber: formData.phone || null,
           userRole: 'CONTENT_CREATOR',
-        }, {
+        }
+        
+        console.log("Creating creator with URL:", requestUrl)
+        console.log("Request data:", requestData)
+        
+        const res = await axios.post(requestUrl, requestData, {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.data && res.data.status === 200) {
@@ -88,6 +119,9 @@ const CreateCreatorPage = () => {
           alert(res.data.message || "Tạo người biên soạn thất bại");
         }
       } catch (err: any) {
+        console.error("Error creating creator:", err);
+        console.error("Error response:", err.response?.data);
+        console.error("Error status:", err.response?.status);
         alert(err.response?.data?.message || err.message || "Có lỗi xảy ra")
       }
     }
@@ -95,18 +129,23 @@ const CreateCreatorPage = () => {
 
   const checkDuplicate = async (field: string, value: string) => {
     if (!value) return false;
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    
     const token = localStorage.getItem('token');
     try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
       const res = await axios.get(`${API_BASE_URL}/api/v1/admin/users/all?search=${encodeURIComponent(value)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const users = res.data?.content || res.data?.data || [];
+      
       if (field === 'userEmail' || field === 'email') {
         return users.some((u: any) => u.userEmail === value);
       }
       if (field === 'phone' || field === 'phoneNumber') {
         return users.some((u: any) => u.phoneNumber === value);
+      }
+      if (field === 'userName') {
+        return users.some((u: any) => u.userName === value);
       }
       return false;
     } catch {
@@ -122,13 +161,34 @@ const CreateCreatorPage = () => {
       setErrors((prev) => ({ ...prev, [field]: "" }))
     }
 
-    // Kiểm tra trùng email, phone
+    // Kiểm tra trùng email, phone, userName
     if (["email", "phone"].includes(field)) {
       if (debounceRef.current[field]) clearTimeout(debounceRef.current[field]);
       debounceRef.current[field] = setTimeout(async () => {
-        const isDup = await checkDuplicate(field, value);
-        if (isDup) {
-          setErrors((prev) => ({ ...prev, [field]: `${field === 'email' ? 'Email' : 'Số điện thoại'} đã tồn tại` }));
+        // Chỉ check trùng phone khi có giá trị
+        if (field === "phone" && !value.trim()) {
+          return;
+        }
+        
+        // Nếu là email, check cả email và userName
+        if (field === "email") {
+          const userName = generateUsername(value);
+          const isEmailDup = await checkDuplicate("email", value);
+          const isUserNameDup = await checkDuplicate("userName", userName);
+          
+          if (isEmailDup && isUserNameDup) {
+            setErrors((prev) => ({ ...prev, email: "Email và tên đăng nhập đã tồn tại" }));
+          } else if (isEmailDup) {
+            setErrors((prev) => ({ ...prev, email: "Email đã tồn tại" }));
+          } else if (isUserNameDup) {
+            setErrors((prev) => ({ ...prev, email: "Tên đăng nhập đã tồn tại (tạo từ email)" }));
+          }
+        } else {
+          // Check trùng field hiện tại (phone)
+          const isDup = await checkDuplicate(field, value);
+          if (isDup) {
+            setErrors((prev) => ({ ...prev, [field]: "Số điện thoại đã tồn tại" }));
+          }
         }
       }, 500);
     }
@@ -226,7 +286,7 @@ const CreateCreatorPage = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="text-gray-700 font-medium">
-                        Số điện thoại *
+                        Số điện thoại
                       </Label>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -268,9 +328,10 @@ const CreateCreatorPage = () => {
                         value={formData.address}
                         onChange={(e) => handleInputChange("address", e.target.value)}
                         placeholder="Nhập địa chỉ"
-                        className="pl-10 border-blue-200 focus:border-blue-400 min-h-[60px] sm:min-h-[80px]"
+                        className={`pl-10 border-blue-200 focus:border-blue-400 min-h-[60px] sm:min-h-[80px] ${errors.address ? "border-red-300" : ""}`}
                         rows={2}
                       />
+                      {errors.address && <p className="text-red-500 text-sm">{errors.address}</p>}
                     </div>
                   </div>
 
@@ -283,9 +344,10 @@ const CreateCreatorPage = () => {
                       value={formData.bio}
                       onChange={(e) => handleInputChange("bio", e.target.value)}
                       placeholder="Mô tả ngắn gọn về bản thân, kinh nghiệm và phong cách tạo nội dung"
-                      className="border-blue-200 focus:border-blue-400 min-h-[80px] sm:min-h-[100px]"
+                      className={`border-blue-200 focus:border-blue-400 min-h-[80px] sm:min-h-[100px] ${errors.bio ? "border-red-300" : ""}`}
                       rows={3}
                     />
+                    {errors.bio && <p className="text-red-500 text-sm">{errors.bio}</p>}
                   </div>
                 </CardContent>
               </Card>
@@ -350,7 +412,7 @@ const CreateCreatorPage = () => {
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
-            <div className="text-green-600 text-2xl mb-2">✔</div>
+            <div className="text-green-600 text-2xl mb-2">✓</div>
             <div className="font-semibold mb-2">Tạo người biên soạn thành công!</div>
             <div className="mb-4 text-gray-700">Mật khẩu mặc định: <b>123456</b></div>
             <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={() => router.push("/general-manager/creators")}>OK</button>
@@ -365,3 +427,4 @@ const CreateCreatorPage = () => {
 }
 
 export default CreateCreatorPage
+

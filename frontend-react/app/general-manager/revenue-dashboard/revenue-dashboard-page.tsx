@@ -275,12 +275,23 @@ const packageSalesData = {
 
 export function RevenueDashboardComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
   
   // Separate filters for each chart
   const [pieChartYear, setPieChartYear] = useState("2025")
   const [pieChartMonth, setPieChartMonth] = useState("all")
   const [barChartYear, setBarChartYear] = useState("2025")
   const [barChartMonth, setBarChartMonth] = useState("all")
+  
+  // Real data state
+  const [revenueData, setRevenueData] = useState([])
+  const [packageData, setPackageData] = useState([])
+  const [statsData, setStatsData] = useState({
+    totalUsers: 0,
+    packageBuyers: 0,
+    totalRevenue: 0
+  })
 
   // Get available months for selected year
   const availableMonths = useMemo(() => {

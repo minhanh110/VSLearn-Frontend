@@ -28,7 +28,7 @@ interface Approver {
   id: number
   name: string
   email: string
-  phone: string
+  phone: string | null
   status: string
   joinDate: string
   topicsApproved: number
@@ -59,6 +59,7 @@ export default function ApproversListPage() {
         return
       }
 
+      
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
       const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/approvers`, {
         headers: {
@@ -99,22 +100,34 @@ export default function ApproversListPage() {
       if (!token) return
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      const newStatus = approverToUpdate.status === "active" ? "inactive" : "active"
+      const newStatus = approverToUpdate.status === "active" ? false : true
 
-      await axios.patch(
-        `${API_BASE_URL}/api/v1/admin/users/${approverToUpdate.id}/status`,
-        { status: newStatus },
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/admin/users/${approverToUpdate.id}`,
+        {
+          firstName: approverToUpdate.name.split(' ')[0] || approverToUpdate.name,
+          lastName: approverToUpdate.name.split(' ').slice(1).join(' ') || approverToUpdate.name,
+          userName: approverToUpdate.name.toLowerCase().replace(/\s+/g, ''),
+          userEmail: approverToUpdate.email,
+          phoneNumber: approverToUpdate.phone && approverToUpdate.phone !== "N/A" && approverToUpdate.phone !== null ? approverToUpdate.phone : null,
+          userRole: "CONTENT_APPROVER",
+          userAvatar: approverToUpdate.avatar || "",
+          isActive: newStatus
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       )
 
-      // Update local state
-      setApprovers((prev) => prev.map((a) => (a.id === approverToUpdate.id ? { ...a, status: newStatus } : a)))
-
-      setSelectedApprover(null) // Close modal
+      // Update local state based on server response
+      if (response.data && response.data.status === 200) {
+        const serverStatus = newStatus ? "active" : "inactive"
+        setApprovers((prev) => prev.map((a) => (a.id === approverToUpdate.id ? { ...a, status: serverStatus } : a)))
+        setSelectedApprover(null) // Close modal
+        alert("Cập nhật trạng thái tài khoản thành công!")
+      }
     } catch (err: any) {
       console.error("Error updating approver status:", err)
       alert("Có lỗi xảy ra khi cập nhật trạng thái tài khoản")
@@ -253,7 +266,7 @@ export default function ApproversListPage() {
                                 </div>
                                 <div>
                                   <div className="font-semibold text-gray-900">{approver.name}</div>
-                                  <div className="text-sm text-gray-500">{approver.phone}</div>
+                                  <div className="text-sm text-gray-500">{approver.phone || "N/A"}</div>
                                 </div>
                               </div>
                             </td>
@@ -329,10 +342,8 @@ export default function ApproversListPage() {
                                           : "Xác nhận mở khóa tài khoản"}
                                       </AlertDialogTitle>
                                       <AlertDialogDescription className="text-base text-gray-600">
-                                        Bạn có chắc chắn muốn{" "}
-                                        {selectedApprover?.status === "active" ? "khóa" : "mở khóa"} tài khoản của
-                                        <span className="font-semibold text-blue-600"> {selectedApprover?.name}</span>{" "}
-                                        không?
+                                        Bạn có chắc chắn muốn {selectedApprover?.status === "active" ? "khóa" : "mở khóa"} tài khoản của
+                                        <span className="font-semibold text-blue-600"> {selectedApprover?.name}</span> không?
                                       </AlertDialogDescription>
                                       {selectedApprover?.status === "active" && (
                                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

@@ -52,7 +52,7 @@ const PackageEditPageComponent = () => {
             description: packageData.description || "",
             price: packageData.price.toString(),
             duration: packageData.durationDays.toString(),
-            discount: (packageData.discount || 0).toString(),
+            discount: (packageData.discountPercent || 0).toString(),
             status: packageData.isActive ? "active" : "inactive",
           })
         } else {

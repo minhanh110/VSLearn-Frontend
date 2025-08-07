@@ -28,7 +28,7 @@ interface Creator {
   id: number
   name: string
   email: string
-  phone: string
+  phone: string | null
   status: string
   joinDate: string
   topicsCreated: number
@@ -100,22 +100,34 @@ export default function CreatorsListPage() {
       if (!token) return
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      const newStatus = creatorToUpdate.status === "active" ? "inactive" : "active"
+      const newStatus = creatorToUpdate.status === "active" ? false : true
 
-      await axios.patch(
-        `${API_BASE_URL}/api/v1/admin/users/${creatorToUpdate.id}/status`,
-        { status: newStatus },
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/admin/users/${creatorToUpdate.id}`,
+        {
+          firstName: creatorToUpdate.name.split(' ')[0] || creatorToUpdate.name,
+          lastName: creatorToUpdate.name.split(' ').slice(1).join(' ') || creatorToUpdate.name,
+          userName: creatorToUpdate.name.toLowerCase().replace(/\s+/g, ''),
+          userEmail: creatorToUpdate.email,
+          phoneNumber: creatorToUpdate.phone && creatorToUpdate.phone !== "N/A" && creatorToUpdate.phone !== null ? creatorToUpdate.phone : null,
+          userRole: "CONTENT_CREATOR",
+          userAvatar: creatorToUpdate.avatar || "",
+          isActive: newStatus
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       )
 
-      // Update local state
-      setCreators((prev) => prev.map((c) => (c.id === creatorToUpdate.id ? { ...c, status: newStatus } : c)))
-
-      setSelectedCreator(null) // Close modal
+      // Update local state based on server response
+      if (response.data && response.data.status === 200) {
+        const serverStatus = newStatus ? "active" : "inactive"
+        setCreators((prev) => prev.map((c) => (c.id === creatorToUpdate.id ? { ...c, status: serverStatus } : c)))
+        setSelectedCreator(null) // Close modal
+        alert("Cập nhật trạng thái tài khoản thành công!")
+      }
     } catch (err: any) {
       console.error("Error updating creator status:", err)
       alert("Có lỗi xảy ra khi cập nhật trạng thái tài khoản")
@@ -255,7 +267,7 @@ export default function CreatorsListPage() {
                                 </div>
                                 <div>
                                   <div className="font-semibold text-gray-900">{creator.name}</div>
-                                  <div className="text-sm text-gray-500">{creator.phone}</div>
+                                  <div className="text-sm text-gray-500">{creator.phone || "N/A"}</div>
                                 </div>
                               </div>
                             </td>
