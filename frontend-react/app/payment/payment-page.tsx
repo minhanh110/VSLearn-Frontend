@@ -6,7 +6,9 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Check, X, Clock, RefreshCw } from "lucide-react"
-import api from "@/lib/axios"
+import axiosInstance from "@/app/services/axios.config"
+import axios from "axios"
+import authService from "@/app/services/auth.service"
 
 interface VietQRResponse {
   qrCodeUrl: string
@@ -33,11 +35,11 @@ export function PaymentPage() {
   const [checkingPayment, setCheckingPayment] = useState(false)
   const [mockQRPattern, setMockQRPattern] = useState<boolean[]>([])
 
-  // Mock package data - in real app, get from searchParams or API
-  const packageData = {
+  // Get package data from URL params or use default
+  const [packageData, setPackageData] = useState({
     title: "Gói Premium 1 Năm",
     subtitle: "Truy cập không giới hạn tất cả khóa học",
-    price: 299000,
+    price: 0, // Không set giá cố định
     duration: "12 tháng",
     features: [
       "Truy cập không giới hạn",
@@ -46,7 +48,29 @@ export function PaymentPage() {
       "Chứng chỉ hoàn thành",
       "Hỗ trợ ưu tiên",
     ],
-  }
+  })
+
+  // Load package data from URL params
+  useEffect(() => {
+    const packageParam = searchParams.get('package')
+    if (packageParam) {
+      try {
+        const decodedPackage = JSON.parse(decodeURIComponent(packageParam))
+        // Convert price from "100.000 VND" to number
+        const priceNumber = parseInt(decodedPackage.price.replace(/\D/g, ''))
+        setPackageData({
+          title: decodedPackage.title,
+          subtitle: `Gói học ${decodedPackage.duration}`,
+          price: priceNumber,
+          duration: decodedPackage.duration,
+          features: decodedPackage.features || []
+        })
+        console.log('Loaded package from URL:', decodedPackage)
+      } catch (error) {
+        console.error('Error parsing package data:', error)
+      }
+    }
+  }, [searchParams])
 
   // Countdown timer
   useEffect(() => {
@@ -54,6 +78,10 @@ export function PaymentPage() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
+          // Khi hết thời gian, hiển thị popup thất bại
+          if (!showSuccessModal) {
+            setShowFailureModal(true)
+          }
           return 0
         }
         return prev - 1
@@ -61,12 +89,14 @@ export function PaymentPage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [])
+  }, [showSuccessModal])
 
-  // Tạo VietQR khi component mount
+  // Tạo VietQR sau khi package data đã được load
   useEffect(() => {
-    createVietQR()
-  }, [])
+    if (packageData.price > 0) { // Chỉ tạo QR khi có giá hợp lệ
+      createVietQR()
+    }
+  }, [packageData.price]) // Dependency vào price thay vì mount
 
   // Tạo mock QR pattern khi component mount
   useEffect(() => {
@@ -87,13 +117,13 @@ export function PaymentPage() {
     try {
       // Test connection trước
       try {
-        const testResponse = await api.get('/payment/test')
+        const testResponse = await axiosInstance.get('/payment/test')
         console.log('Test connection:', testResponse.data)
       } catch (testError) {
         console.error('Test connection failed:', testError)
       }
 
-      const response = await api.post('/payment/vietqr/create', {
+      const response = await axiosInstance.post('/payment/vietqr/create', {
         bankId: 'MB', // Vietcombank
         accountNo: '0356682909', // Số tài khoản thực
         accountName: 'PHAM MINH QUOC', // Tên chủ tài khoản
@@ -101,7 +131,7 @@ export function PaymentPage() {
         description: `VSLearn - ${packageData.title}`,
         packageName: packageData.title,
         packageDuration: packageData.duration,
-        userId: 1 // Lấy từ auth
+        userId: authService.getCurrentUser()?.id || 1 // Lấy từ auth
       })
 
       console.log('VietQR Response:', response.data) // Debug log
@@ -119,34 +149,114 @@ export function PaymentPage() {
     }
   }
 
+  // Kiểm tra trạng thái thanh toán từ database
+  const checkDatabaseStatus = async () => {
+    if (!vietQRData?.transactionCode) return
+
+    setCheckingPayment(true)
+    try {
+      console.log('🔍 Checking database status for transaction:', vietQRData.transactionCode)
+      console.log('🔍 Current token:', authService.getCurrentToken())
+      
+      // Check subscription status to see if user has premium access
+      const subscriptionResponse = await axios.get('/users/subscription-status', {
+        headers: {
+          'Authorization': `Bearer ${authService.getCurrentToken()}`
+        }
+      })
+      
+      console.log('🔍 Subscription status response:', subscriptionResponse.data)
+      
+      if (subscriptionResponse.data?.data?.userType === 'premium') {
+        console.log('✅ User has premium access, showing success modal')
+        setShowSuccessModal(true)
+        return
+      }
+      
+      console.log('❌ User does not have premium access yet')
+      console.log('🔍 Full response data:', JSON.stringify(subscriptionResponse.data, null, 2))
+      console.log('🔍 userType value:', subscriptionResponse.data?.data?.userType)
+    } catch (error: any) {
+      console.error('Lỗi kiểm tra subscription status:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+    } finally {
+      setCheckingPayment(false)
+    }
+  }
+
   // Kiểm tra trạng thái thanh toán
   const checkPaymentStatus = async () => {
     if (!vietQRData?.transactionCode) return
 
     setCheckingPayment(true)
     try {
-      const response = await api.get(`/payment/status/${vietQRData.transactionCode}`)
+      // Comment out automatic payment checking since we disabled auto-updates
+      // Only show success when webhook confirms payment
+      console.log('🔍 Payment check disabled - waiting for webhook confirmation')
       
-      if (response.data.success && response.data.isPaid) {
-        setShowSuccessModal(true)
-      }
-    } catch (error) {
+      // Thử check bằng Casso API trước (chỉ để log, không hiển thị popup)
+      const cassoResponse = await axiosInstance.get(`/payment/casso/check/${vietQRData.transactionCode}`, {
+        params: { amount: packageData.price }
+      })
+      
+      console.log('🔍 Casso API response:', cassoResponse.data)
+      
+      // Comment out automatic success popup
+      // if (cassoResponse.data.success && cassoResponse.data.isPaid) {
+      //   console.log('✅ Casso API confirmed payment, showing success modal')
+      //   setShowSuccessModal(true)
+      //   return
+      // }
+      
+      // Fallback về VietQR status check (chỉ để log, không hiển thị popup)
+      const response = await axiosInstance.get(`/payment/status/${vietQRData.transactionCode}`)
+      
+      console.log('🔍 VietQR API response:', response.data)
+      
+      // Comment out automatic success popup
+      // if (response.data.success && response.data.isPaid) {
+      //   console.log('✅ VietQR API confirmed payment, showing success modal')
+      //   setShowSuccessModal(true)
+      // } else {
+      //   console.log('❌ Payment not completed yet...')
+      // }
+      
+      console.log('❌ Payment not completed yet - waiting for webhook...')
+    } catch (error: any) {
       console.error('Lỗi kiểm tra thanh toán:', error)
+      
+      // Check if it's a rate limiting error
+      if (error.response?.status === 429) {
+        alert('⚠️ Đã vượt quá giới hạn kiểm tra (2 requests/phút). Vui lòng đợi 1 phút rồi thử lại.')
+      }
     } finally {
       setCheckingPayment(false)
     }
   }
 
-  // Auto check payment status every 10 seconds
+  // Auto check payment status every 60 seconds (to avoid rate limiting - 2 requests/min)
+  // Comment out automatic checking since we disabled auto-updates
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (vietQRData?.transactionCode) {
+  //       checkPaymentStatus()
+  //     }
+  //   }, 60000) // Check every 60 seconds
+
+  //   return () => clearInterval(interval)
+  // }, [vietQRData])
+
+  // Auto check database status every 30 seconds to detect when payment is confirmed
   useEffect(() => {
     const interval = setInterval(() => {
-      if (vietQRData?.transactionCode) {
-        checkPaymentStatus()
+      if (vietQRData?.transactionCode && !showSuccessModal) {
+        checkDatabaseStatus()
       }
-    }, 10000) // Check every 10 seconds
+    }, 60000) // Check every 30 seconds
 
     return () => clearInterval(interval)
-  }, [vietQRData])
+  }, [vietQRData, showSuccessModal])
 
   const handleStartLearning = () => {
     setShowSuccessModal(false)
@@ -216,7 +326,22 @@ export function PaymentPage() {
                 <h1 className="text-2xl font-bold text-blue-800 mb-2">{packageData.title}</h1>
                 <p className="text-blue-600 mb-4">{packageData.subtitle}</p>
                 <div className="text-4xl font-bold text-blue-700 mb-2">₫{packageData.price.toLocaleString()}</div>
-                <p className="text-blue-500">Quét mã QR để thanh toán</p>
+                <p className="text-blue-500 mb-4">Quét mã QR để thanh toán</p>
+                
+                {/* Package Features */}
+                {packageData.features && packageData.features.length > 0 && (
+                  <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-semibold text-blue-800 mb-2">Tính năng gói học:</h3>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      {packageData.features.map((feature: string, index: number) => (
+                        <li key={index} className="flex items-center">
+                          <Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* QR Code */}
@@ -267,7 +392,7 @@ export function PaymentPage() {
               {/* Transaction Info */}
               {vietQRData && (
                 <div className="text-center mb-6">
-                  <p className="text-sm text-blue-600 mb-2">Mã giao dịch: {vietQRData.transactionCode}</p>
+                  {/* <p className="text-sm text-blue-600 mb-2">Mã giao dịch: {vietQRData.transactionCode}</p> */}
                   <p className="text-sm text-blue-600 mb-2">Ngân hàng: {vietQRData.bankId}</p>
                   <p className="text-sm text-blue-600 mb-2">Tài khoản: {vietQRData.accountNo}</p>
                   <p className="text-sm text-blue-600 mb-2">Nội dung: {vietQRData.description}</p>
@@ -281,6 +406,7 @@ export function PaymentPage() {
                   <span className="text-blue-700 font-medium">Thời gian còn lại:</span>
                   <span className="text-blue-800 font-bold text-lg">{formatTime(timeLeft)}</span>
                 </div>
+                
               </div>
 
               {/* Check Payment Button */}
