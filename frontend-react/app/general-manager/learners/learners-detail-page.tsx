@@ -42,6 +42,33 @@ interface Learner {
   birthDate: string
 }
 
+interface Package {
+  id: number
+  name: string
+  type: string
+  status: string
+  startDate: string
+  endDate: string
+  price: string
+  code: string
+}
+
+interface Activity {
+  id: number
+  action: string
+  time: string
+  type: string
+  isComplete: boolean
+}
+
+interface DetailedStats {
+  completedTopics: number
+  totalPackages: number
+  activePackages: number
+  totalProgress: number
+  lastActivity: string | null
+}
+
 const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -50,62 +77,176 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
   const [error, setError] = useState<string | null>(null)
   const [showToggleStatusModal, setShowToggleStatusModal] = useState(false) // New state
   const [selectedLearner, setSelectedLearner] = useState<Learner | null>(null) // New state
+  const [packages, setPackages] = useState<Package[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [detailedStats, setDetailedStats] = useState<DetailedStats | null>(null)
 
   useEffect(() => {
-    const fetchLearnerDetails = async () => {
-      try {
-        setLoading(true)
-        const token = localStorage.getItem("token")
+    fetchLearnerDetails()
+  }, [learnerId])
 
-        if (!token) {
-          setError("Vui lòng đăng nhập để truy cập trang này")
-          setLoading(false)
+  const fetchLearnerDetails = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem("token")
+
+      if (!token) {
+        setError("Vui lòng đăng nhập để truy cập trang này")
+        setLoading(false)
+        return
+      }
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      console.log("Fetching learner details for ID:", learnerId)
+      console.log("API URL:", `${API_BASE_URL}/api/v1/admin/users/${learnerId}`)
+      
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${learnerId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      
+      console.log("API Response:", response.data)
+
+      if (response.data) {
+        // Check if response has error
+        if (response.data.error) {
+          setError("Không thể tải thông tin học viên: " + response.data.error)
           return
         }
-
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-        const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${learnerId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
+        
+        // Transform the data to match Learner interface
         const userData = response.data
         const learnerData: Learner = {
           id: userData.id,
-          name: userData.name,
-          username: userData.username || userData.email.split("@")[0],
-          email: userData.email,
-          phone: userData.phone || "N/A",
-          status: userData.status,
-          joinDate: userData.joinDate,
+          name: userData.name || `${userData.firstName} ${userData.lastName}`,
+          username: userData.userName || userData.email?.split("@")[0] || "",
+          email: userData.email || userData.userEmail || "",
+          phone: userData.phone || userData.phoneNumber || "N/A",
+          status: userData.status || "active",
+          joinDate: userData.joinDate || "N/A",
           lastLogin: userData.lastLogin || "N/A",
           topicsCompleted: userData.topicsCompleted || 0,
           packagesOwned: userData.packagesOwned || 0,
-          avatar: userData.avatar || "/images/whale-character.png",
+          avatar: userData.avatar || userData.userAvatar || "/images/whale-character.png",
           address: userData.address || "N/A",
           birthDate: userData.birthDate || "N/A",
         }
-
+        
         setLearner(learnerData)
-      } catch (err: any) {
-        console.error("Error fetching learner details:", err)
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
-        } else if (err.response?.status === 404) {
-          setError("Không tìm thấy thông tin học viên")
-        } else {
-          setError("Không thể tải thông tin học viên: " + (err.response?.data?.message || err.message))
-        }
-      } finally {
-        setLoading(false)
+        
+        // Fetch additional data
+        await Promise.all([
+          fetchLearnerPackages(),
+          fetchLearnerActivities(),
+          fetchLearnerDetailedStats()
+        ])
+      } else {
+        setError("Không thể tải thông tin học viên")
       }
+    } catch (err: any) {
+      console.error("Error fetching learner details:", err)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError("Không có quyền truy cập. Vui lòng đăng nhập với tài khoản General Manager")
+      } else if (err.response?.status === 404) {
+        setError("Không tìm thấy học viên")
+      } else {
+        setError("Không thể tải thông tin học viên: " + (err.response?.data?.message || err.message))
+      }
+      
+      // Set a fallback learner object with basic info
+      const fallbackLearner: Learner = {
+        id: parseInt(learnerId),
+        name: `Học viên #${learnerId}`,
+        username: `user_${learnerId}`,
+        email: "N/A",
+        phone: "N/A",
+        status: "unknown",
+        joinDate: "N/A",
+        lastLogin: "N/A",
+        topicsCompleted: 0,
+        packagesOwned: 0,
+        avatar: "/images/whale-character.png",
+        address: "N/A",
+        birthDate: "N/A",
+      }
+      setLearner(fallbackLearner)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (learnerId) {
-      fetchLearnerDetails()
+  const fetchLearnerPackages = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${learnerId}/packages`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching packages:", response.data.error)
+          return
+        }
+        setPackages(response.data.packages || [])
+      }
+    } catch (err: any) {
+      console.error("Error fetching learner packages:", err)
     }
-  }, [learnerId])
+  }
+
+  const fetchLearnerActivities = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${learnerId}/activities`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching activities:", response.data.error)
+          return
+        }
+        setActivities(response.data.activities || [])
+      }
+    } catch (err: any) {
+      console.error("Error fetching learner activities:", err)
+    }
+  }
+
+  const fetchLearnerDetailedStats = async () => {
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) return
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      const response = await axios.get(`${API_BASE_URL}/api/v1/admin/users/${learnerId}/detailed-stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.data) {
+        if (response.data.error) {
+          console.error("Error fetching detailed stats:", response.data.error)
+          return
+        }
+        setDetailedStats(response.data)
+      }
+    } catch (err: any) {
+      console.error("Error fetching learner detailed stats:", err)
+    }
+  }
 
   const handleToggleAccountStatus = async (learnerToUpdate: Learner) => {
     try {
@@ -115,12 +256,27 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
         return
       }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      const newStatus = learnerToUpdate.status === "active" ? "inactive" : "active"
+      
+      const newStatus = learnerToUpdate.status === "active" ? false : true
 
-      await axios.patch(
-        `${API_BASE_URL}/api/v1/admin/users/${learnerToUpdate.id}/status`,
-        { status: newStatus },
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+      
+      const requestData = {
+        firstName: learnerToUpdate.name.split(' ')[0] || learnerToUpdate.name,
+        lastName: learnerToUpdate.name.split(' ').slice(1).join(' ') || learnerToUpdate.name,
+        userName: learnerToUpdate.username || learnerToUpdate.name.toLowerCase().replace(/\s+/g, ''),
+        userEmail: learnerToUpdate.email,
+        phoneNumber: learnerToUpdate.phone && learnerToUpdate.phone !== "N/A" ? learnerToUpdate.phone : null,
+        userRole: "LEARNER",
+        userAvatar: learnerToUpdate.avatar || "",
+        isActive: newStatus
+      }
+      
+      console.log("Request data:", requestData)
+      
+      const response = await axios.put(
+        `${API_BASE_URL}/api/v1/admin/users/${learnerToUpdate.id}`,
+        requestData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -128,14 +284,20 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
         },
       )
 
-      // Update local state for the single learner
-      setLearner((prev) => (prev ? { ...prev, status: newStatus } : null))
+      // Update local state based on server response
+      if (response.data && response.data.status === 200) {
+        const serverStatus = newStatus ? "active" : "inactive"
+        setLearner((prev) => (prev ? { ...prev, status: serverStatus } : null))
+        alert("Cập nhật trạng thái tài khoản thành công!")
+      }
 
       setShowToggleStatusModal(false)
       setSelectedLearner(null)
     } catch (err: any) {
       console.error("Error updating learner status:", err)
-      alert("Có lỗi xảy ra khi cập nhật trạng thái tài khoản")
+      console.error("Error response:", err.response?.data)
+      console.error("Error status:", err.response?.status)
+      alert("Có lỗi xảy ra khi cập nhật trạng thái tài khoản: " + (err.response?.data?.message || err.message))
     }
   }
 
@@ -155,7 +317,7 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
     )
   }
 
-  if (error) {
+  if (error && !learner) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-cyan-50">
         <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
@@ -165,9 +327,14 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
               <p className="font-bold">Lỗi</p>
               <p>{error}</p>
             </div>
-            <Button onClick={() => router.push("/general-manager/learners")} className="mt-4">
-              Quay lại danh sách
-            </Button>
+            <div className="flex gap-2 justify-center mt-4">
+              <Button onClick={() => fetchLearnerDetails()} className="bg-blue-600 hover:bg-blue-700">
+                Thử lại
+              </Button>
+              <Button onClick={() => router.push("/general-manager/learners")} variant="outline">
+                Quay lại danh sách
+              </Button>
+            </div>
           </div>
         </main>
         <Footer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
@@ -192,50 +359,24 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
     )
   }
 
-  const packages = [
-    {
-      name: "Gói học cơ bản - 6 tháng",
-      type: "6-month",
-      status: "active",
-      startDate: "2024-01-15",
-      endDate: "2024-07-15",
-      price: "1,200,000 VNĐ",
-    },
-    {
-      name: "Gói học nâng cao - 1 năm",
-      type: "12-month",
-      status: "expired",
-      startDate: "2023-06-01",
-      endDate: "2024-06-01",
-      price: "2,000,000 VNĐ",
-    },
-  ]
-
-  const activities = [
-    { action: 'Hoàn thành chủ đề "Chào hỏi cơ bản"', time: "2024-01-20 10:30", type: "topic" },
-    { action: "Đăng nhập vào hệ thống", time: "2024-01-20 09:15", type: "login" },
-    { action: 'Hoàn thành bài kiểm tra "Số đếm"', time: "2024-01-19 16:45", type: "test" },
-    { action: "Xem video bài giảng", time: "2024-01-19 14:20", type: "video" },
-  ]
-
   const stats = [
     {
       label: "Chủ đề hoàn thành",
-      value: learner.topicsCompleted,
+      value: detailedStats?.completedTopics || learner?.topicsCompleted || 0,
       icon: BookOpen,
       color: "text-blue-600",
       bg: "bg-blue-100",
     },
     {
-      label: "Gói học sở hữu",
-      value: learner.packagesOwned,
+      label: "Gói học sử dụng",
+      value: detailedStats?.totalPackages || learner?.packagesOwned || 0,
       icon: Package,
       color: "text-emerald-600",
       bg: "bg-emerald-100",
     },
     {
       label: "Gói đang hoạt động",
-      value: packages.filter((p) => p.status === "active").length,
+      value: detailedStats?.activePackages || packages.filter((p) => p.status === "active").length,
       icon: Package,
       color: "text-orange-600",
       bg: "bg-orange-100",
@@ -252,6 +393,16 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
           <div className="absolute top-20 left-10 w-20 h-20 bg-blue-200/30 rounded-full blur-xl"></div>
           <div className="absolute top-40 right-20 w-32 h-32 bg-cyan-200/30 rounded-full blur-xl"></div>
           <div className="absolute bottom-40 left-1/4 w-24 h-24 bg-blue-300/30 rounded-full blur-xl"></div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-600">⚠️</span>
+                <span className="text-sm">{error}</span>
+              </div>
+            </div>
+          )}
 
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-4 mb-6">
@@ -349,12 +500,12 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
                           </AlertDialogDescription>
                           {selectedLearner?.status === "active" && (
                             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                              ⚠️ Học viên sẽ không thể đăng nhập và sử dụng hệ thống.
+                              âš ï¸ Học viên sẽ không thể đăng nhập và sử dụng hệ thống.
                             </div>
                           )}
                           {selectedLearner?.status === "inactive" && (
                             <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                              ✅ Học viên sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
+                              âœ… Học viên sẽ có thể đăng nhập và sử dụng hệ thống bình thường.
                             </div>
                           )}
                         </AlertDialogHeader>
@@ -462,42 +613,52 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
                     <Package className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-blue-800">Gói học đã mua</h3>
                   </div>
-                  {packages.map((pkg, index) => (
-                    <div
-                      key={index}
-                      className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-semibold text-gray-900">{pkg.name}</h4>
-                        <Badge
-                          variant={pkg.status === "active" ? "default" : "secondary"}
-                          className={`${
-                            pkg.status === "active"
-                              ? "bg-green-100 text-green-700 border-green-200"
-                              : "bg-gray-100 text-gray-600 border-gray-200"
-                          } font-medium`}
-                        >
-                          {pkg.status === "active" ? "Đang hoạt động" : "Đã hết hạn"}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <span className="text-blue-600 font-medium text-sm">Thời gian:</span>
-                          <div className="text-gray-700">
-                            {pkg.startDate} - {pkg.endDate}
+                  {packages.length > 0 ? (
+                    packages.map((pkg, index) => (
+                      <div
+                        key={pkg.id || index}
+                        className="p-4 border border-blue-100 rounded-lg bg-gradient-to-r from-blue-50/50 to-cyan-50/50"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-semibold text-gray-900">{pkg.name}</h4>
+                          <Badge
+                            variant={pkg.status === "active" ? "default" : "secondary"}
+                            className={`${
+                              pkg.status === "active"
+                                ? "bg-green-100 text-green-700 border-green-200"
+                                : "bg-gray-100 text-gray-600 border-gray-200"
+                            } font-medium`}
+                          >
+                            {pkg.status === "active" ? "Đang hoạt động" : "Đã hết hạn"}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <span className="text-blue-600 font-medium text-sm">Thời gian:</span>
+                            <div className="text-gray-700">
+                              {pkg.startDate} - {pkg.endDate}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-blue-600 font-medium text-sm">Loại gói:</span>
+                            <div className="text-gray-700">{pkg.type}</div>
+                          </div>
+                          <div>
+                            <span className="text-blue-600 font-medium text-sm">Giá:</span>
+                            <div className="text-gray-700 font-medium">{pkg.price} VNĐ</div>
                           </div>
                         </div>
-                        <div>
-                          <span className="text-blue-600 font-medium text-sm">Loại gói:</span>
-                          <div className="text-gray-700">{pkg.type === "6-month" ? "6 tháng" : "12 tháng"}</div>
-                        </div>
-                        <div>
-                          <span className="text-blue-600 font-medium text-sm">Giá:</span>
-                          <div className="text-gray-700 font-medium">{pkg.price}</div>
+                        <div className="mt-2 text-xs text-gray-500">
+                          Mã gói: {pkg.code}
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>Chưa có gói học nào</p>
                     </div>
-                  ))}
+                  )}
                 </TabsContent>
 
                 <TabsContent value="activity" className="space-y-4">
@@ -505,23 +666,35 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
                     <Activity className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-blue-800">Hoạt động gần đây</h3>
                   </div>
-                  {activities.map((activity, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start gap-3 p-4 border-l-4 border-blue-200 bg-blue-50/30 rounded-r-lg"
-                    >
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 mb-1">{activity.action}</p>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs border-blue-200 text-blue-700">
-                            {activity.type}
-                          </Badge>
-                          <span className="text-xs text-gray-500">{activity.time}</span>
+                  {activities.length > 0 ? (
+                    activities.map((activity, index) => (
+                      <div
+                        key={activity.id || index}
+                        className="flex items-start gap-3 p-4 border-l-4 border-blue-200 bg-blue-50/30 rounded-r-lg"
+                      >
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 mb-1">{activity.action}</p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs border-blue-200 text-blue-700">
+                              {activity.type}
+                            </Badge>
+                            <span className="text-xs text-gray-500">{activity.time}</span>
+                            {activity.isComplete && (
+                              <Badge variant="outline" className="text-xs border-green-200 text-green-700">
+                                Hoàn thành
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Activity className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>Chưa có hoạt động nào</p>
                     </div>
-                  ))}
+                  )}
                 </TabsContent>
 
                 <TabsContent value="info" className="space-y-4">
@@ -551,11 +724,15 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
                       </div>
                       <div className="p-3 bg-blue-50 rounded-lg">
                         <label className="text-sm font-medium text-blue-600">Chủ đề hoàn thành</label>
-                        <p className="text-gray-900 font-medium">{learner.topicsCompleted} chủ đề</p>
+                        <p className="text-gray-900 font-medium">{detailedStats?.completedTopics || learner.topicsCompleted || 0} chủ đề</p>
                       </div>
                       <div className="p-3 bg-blue-50 rounded-lg">
                         <label className="text-sm font-medium text-blue-600">Ngày tham gia</label>
                         <p className="text-gray-900 font-medium">{learner.joinDate}</p>
+                      </div>
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <label className="text-sm font-medium text-blue-600">Hoạt động cuối</label>
+                        <p className="text-gray-900 font-medium">{detailedStats?.lastActivity || "Chưa có"}</p>
                       </div>
                     </div>
                     <div className="md:col-span-2">
@@ -581,3 +758,4 @@ const LearnersDetailPage = ({ learnerId }: LearnersDetailPageProps) => {
 }
 
 export default LearnersDetailPage
+
