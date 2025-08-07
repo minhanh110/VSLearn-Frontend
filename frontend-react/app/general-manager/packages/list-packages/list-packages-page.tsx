@@ -28,6 +28,7 @@ const ListPackagesPageComponent = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [packages, setPackages] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [deleteModal, setDeleteModal] = useState({
@@ -52,45 +53,23 @@ const ListPackagesPageComponent = () => {
             description: item.description || "",
             price: item.price.toLocaleString("vi-VN"),
             duration: item.durationDays.toString(),
-            discount: item.discount || 0,
-            status: item.isActive ? "active" : "inactive",
+            discount: item.discountPercent || 0,
+            status: item.isActive !== false ? "active" : "inactive",
             createdAt: new Date(item.createdAt).toLocaleDateString("vi-VN"),
             updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("vi-VN") : "-",
           }))
           setPackages(transformedPackages)
         } else {
           console.error("Failed to fetch packages:", response.message || "Unknown error")
-          // Fallback to mock data
-          const mockPackages = [
-            {
-              id: "1",
-              title: "GÓI 1 TUẦN",
-              description: "Gói học ngắn hạn cho người mới bắt đầu",
-              price: "50.000",
-              duration: "7",
-              discount: 10,
-              status: "active",
-              createdAt: "2024-01-15",
-              updatedAt: "2024-01-20",
-            },
-            {
-              id: "2",
-              title: "GÓI 1 THÁNG",
-              description: "Gói học cơ bản cho người mới bắt đầu",
-              price: "100.000",
-              duration: "30",
-              discount: 15,
-              status: "inactive",
-              createdAt: "2024-01-15",
-              updatedAt: "2024-01-20",
-            },
-          ]
-          setPackages(mockPackages)
+          setError(response.message || "Không thể tải danh sách gói học")
+          setPackages([])
         }
       } catch (error) {
         console.error("Error fetching packages:", error)
+        setError("Có lỗi xảy ra khi tải dữ liệu")
+        setPackages([])
       } finally {
-        setLoading(false)
+      setLoading(false)
       }
     }
 
@@ -132,9 +111,9 @@ const ListPackagesPageComponent = () => {
     try {
       const response = await packagesApi.deletePackage(deleteModal.packageId)
       if (response.success) {
-        alert("Xóa gói học thành công!")
-        const updatedPackages = packages.filter((pkg) => pkg.id !== deleteModal.packageId)
-        setPackages(updatedPackages)
+      alert("Xóa gói học thành công!")
+      const updatedPackages = packages.filter((pkg) => pkg.id !== deleteModal.packageId)
+      setPackages(updatedPackages)
       } else {
         alert("Có lỗi xảy ra: " + response.message)
       }
@@ -190,8 +169,8 @@ const ListPackagesPageComponent = () => {
                   </h1>
                   <p className="text-blue-600 mt-1">Theo dõi và quản lý các gói học trong hệ thống</p>
                 </div>
-              </div>
             </div>
+          </div>
 
             {/* Loading and Error States */}
             {loading && (
@@ -203,8 +182,28 @@ const ListPackagesPageComponent = () => {
               </Card>
             )}
 
+            {error && !loading && (
+              <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
+                <CardContent className="p-8 text-center">
+                  <div className="text-red-500 mb-4">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Không thể tải dữ liệu</h3>
+                  <p className="text-gray-600 mb-4">{error}</p>
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Thử lại
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Search, Filters and Add Button */}
-            {!loading && (
+            {!loading && !error && (
               <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
@@ -241,7 +240,7 @@ const ListPackagesPageComponent = () => {
             )}
 
             {/* Packages Table */}
-            {!loading && (
+            {!loading && !error && (
               <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
                   <CardTitle className="text-lg font-bold text-blue-900 flex items-center gap-2">
@@ -309,34 +308,34 @@ const ListPackagesPageComponent = () => {
                             </td>
                             <td className="py-4 px-6">
                               <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  size="sm"
+                      <Button
+                        size="sm"
                                   variant="ghost"
                                   className="text-blue-600 hover:bg-blue-100 p-2"
-                                  title="Xem chi tiết"
+                        title="Xem chi tiết"
                                   onClick={() => handleViewPackage(pkg.id)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
                                   variant="ghost"
                                   className="text-green-600 hover:bg-green-100 p-2"
-                                  title="Chỉnh sửa"
+                        title="Chỉnh sửa"
                                   onClick={() => handleEditPackage(pkg.id)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button
-                                      size="sm"
+                      <Button
+                        size="sm"
                                       variant="ghost"
                                       className="text-red-600 hover:bg-red-100 p-2"
-                                      title="Xóa"
+                        title="Xóa"
                                       onClick={() => handleDeletePackage(pkg.id, pkg.title)}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
+                      >
+                        <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent className="sm:max-w-[425px] p-6 rounded-xl shadow-2xl border-2 border-blue-100">
@@ -376,23 +375,60 @@ const ListPackagesPageComponent = () => {
                     </table>
                   </div>
 
+                  {/* Empty State */}
+                  {filteredPackages.length === 0 && (
+                    <div className="p-8 text-center">
+                      <div className="text-gray-400 mb-4">
+                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-600 mb-2">Không có gói học nào</h3>
+                      <p className="text-gray-500 mb-4">
+                        {searchTerm || statusFilter !== "all" 
+                          ? "Không tìm thấy gói học phù hợp với bộ lọc" 
+                          : "Chưa có gói học nào trong hệ thống"}
+                      </p>
+                      {searchTerm || statusFilter !== "all" ? (
+                        <Button 
+                          onClick={() => {
+                            setSearchTerm("")
+                            setStatusFilter("all")
+                          }} 
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Xóa bộ lọc
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={handleCreatePackage} 
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          Tạo gói học đầu tiên
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
                   {/* Pagination */}
-                  <div className="flex items-center justify-between px-6 py-4 bg-blue-50/30 border-t border-blue-100">
-                    <div className="text-sm text-gray-600">
-                      Hiển thị {filteredPackages.length} trên tổng số {packages.length} gói học
+                  {filteredPackages.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 bg-blue-50/30 border-t border-blue-100">
+                      <div className="text-sm text-gray-600">
+                        Hiển thị {filteredPackages.length} trên tổng số {packages.length} gói học
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-transparent">
+                          Trước
+                        </Button>
+                        <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-blue-100">
+                          1
+                        </Button>
+                        <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-transparent">
+                          Sau
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-transparent">
-                        Trước
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-blue-100">
-                        1
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-blue-200 text-blue-600 bg-transparent">
-                        Sau
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             )}
