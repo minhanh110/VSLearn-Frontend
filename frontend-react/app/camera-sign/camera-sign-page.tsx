@@ -19,39 +19,58 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
+  Wifi,
+  WifiOff,
+  ChevronLeft,
+  ChevronRight,
+  Shuffle,
 } from "lucide-react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { useAIService } from "@/hooks/useAIService"
+import { useVocabulary } from "@/hooks/useVocabulary"
+import { useSearchParams } from "next/navigation"
+import { VocabularyWord } from "@/lib/api/vocabulary-service"
 
-interface VocabularyWord {
-  id: string
-  word: string
-  category: string
-  videoUrl: string
-  description: string
-  difficulty: "easy" | "medium" | "hard"
-}
+// Remove this interface since we're using the one from vocabulary-service
 
 const CameraSignPage = () => {
+  const searchParams = useSearchParams()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentWord, setCurrentWord] = useState<VocabularyWord>({
-    id: "1",
-    word: "BỐ MẸ",
-    category: "GIA ĐÌNH",
-    videoUrl: "/placeholder.svg?height=400&width=600",
-    description:
-      'Tay phải giống chữ cái ngón tay "B", lòng bàn tay hướng vào trong, đặt chạm các đầu ngón tay vào cằm. Lòng bàn tay hướng sang trái, đầu ngón tay hướng lên trên, đặt áp vào má phải.',
-    difficulty: "easy",
-  })
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [recordingTime, setRecordingTime] = useState(0)
-  const [accuracy, setAccuracy] = useState(0)
   const [uploadedVideo, setUploadedVideo] = useState<string | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
+  
+  // Vocabulary Hook
+  const {
+    vocabulary,
+    currentWord,
+    currentIndex,
+    isLoading: vocabularyLoading,
+    error: vocabularyError,
+    goToNext,
+    goToPrevious,
+    goToRandom,
+    searchByCategory,
+    searchByDifficulty,
+  } = useVocabulary()
+  
+  // AI Service Hook
+  const {
+    isProcessing,
+    isAnalyzing,
+    accuracy,
+    taskId,
+    aiResponse,
+    error,
+    healthStatus,
+    processVideo,
+    resetState,
+  } = useAIService()
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const referenceVideoRef = useRef<HTMLVideoElement>(null)
@@ -128,23 +147,28 @@ const CameraSignPage = () => {
     }
   }, [])
 
-  // Simulate video analysis
-  const analyzeVideo = useCallback(() => {
-    setIsAnalyzing(true)
-    setAccuracy(0)
-
-    // Simulate analysis progress
-    const analysisInterval = setInterval(() => {
-      setAccuracy((prev) => {
-        if (prev >= 85) {
-          clearInterval(analysisInterval)
-          setIsAnalyzing(false)
-          return 85
-        }
-        return prev + Math.random() * 10
+  // Real video analysis using AI service
+  const analyzeVideo = useCallback(async () => {
+    if (!uploadedVideo || !currentWord) return
+    
+    try {
+      // Convert video URL to File object
+      const response = await fetch(uploadedVideo)
+      const blob = await response.blob()
+      const videoFile = new File([blob], 'recorded_video.webm', { type: 'video/webm' })
+      
+      // Process video with AI service
+      await processVideo({
+        video: videoFile,
+        expectedWord: currentWord.vocab,
+        category: currentWord.category,
+        difficulty: currentWord.difficulty || "medium",
       })
-    }, 200)
-  }, [])
+      
+    } catch (err) {
+      console.error('Failed to analyze video:', err)
+    }
+  }, [uploadedVideo, currentWord, processVideo])
 
   // Toggle reference video play
   const toggleReferenceVideo = useCallback(() => {
@@ -179,6 +203,35 @@ const CameraSignPage = () => {
     return <AlertCircle className="h-5 w-5 text-red-600" />
   }
 
+  // Load word from URL parameters
+  useEffect(() => {
+    const wordId = searchParams.get('wordId')
+    const category = searchParams.get('category')
+    
+    if (category) {
+      searchByCategory(category)
+    }
+  }, [searchParams, searchByCategory])
+
+  // Navigation functions with reset
+  const goToNextWord = useCallback(() => {
+    goToNext()
+    resetState()
+    setUploadedVideo(null)
+  }, [goToNext, resetState])
+
+  const goToPreviousWord = useCallback(() => {
+    goToPrevious()
+    resetState()
+    setUploadedVideo(null)
+  }, [goToPrevious, resetState])
+
+  const goToRandomWord = useCallback(() => {
+    goToRandom()
+    resetState()
+    setUploadedVideo(null)
+  }, [goToRandom, resetState])
+
   // Initialize camera on component mount
   useEffect(() => {
     initializeCamera()
@@ -196,6 +249,43 @@ const CameraSignPage = () => {
       }
     }
   }, [])
+
+  // Reset AI state when component unmounts
+  useEffect(() => {
+    return () => {
+      resetState()
+    }
+  }, [resetState])
+
+  // Loading state
+  if (vocabularyLoading || !currentWord) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 relative overflow-hidden">
+        <Header onMenuToggle={() => setIsMenuOpen(!isMenuOpen)} />
+        <div className="relative z-10 px-4 pt-20 pb-28 lg:pb-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-lg text-gray-600">
+                {vocabularyLoading ? 'Đang tải từ vựng từ database...' : 'Không tìm thấy từ vựng'}
+              </p>
+              {vocabularyError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
+                  <p className="text-red-600 text-sm">Lỗi: {vocabularyError}</p>
+                  <p className="text-gray-600 text-xs mt-2">Vui lòng kiểm tra kết nối database</p>
+                </div>
+              )}
+              {vocabulary.length > 0 && (
+                <p className="mt-2 text-sm text-gray-500">
+                  Đã tải {vocabulary.length} từ vựng
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 relative overflow-hidden">
@@ -225,8 +315,61 @@ const CameraSignPage = () => {
               </Badge>
             </div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent mb-2 mt-2">
-              {currentWord.word}
+              {currentWord.vocab}
             </h1>
+            
+            {/* Navigation Controls */}
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Button
+                onClick={goToPreviousWord}
+                variant="outline"
+                size="sm"
+                className="border-2 border-blue-200/60 bg-white/90 text-blue-600 hover:bg-blue-50 rounded-full p-2"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              
+              <Button
+                onClick={goToRandomWord}
+                variant="outline"
+                size="sm"
+                className="border-2 border-blue-200/60 bg-white/90 text-blue-600 hover:bg-blue-50 rounded-full p-2"
+              >
+                <Shuffle className="h-5 w-5" />
+              </Button>
+              
+              <Button
+                onClick={goToNextWord}
+                variant="outline"
+                size="sm"
+                className="border-2 border-blue-200/60 bg-white/90 text-blue-600 hover:bg-blue-50 rounded-full p-2"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            {/* Progress Indicator */}
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <span className="text-sm text-gray-600">
+                {currentIndex + 1} / {vocabulary.length}
+              </span>
+            </div>
+            
+            {/* Debug Info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg max-w-md mx-auto">
+                <p className="text-xs text-blue-600">
+                  <strong>Debug:</strong> ID: {currentWord.id} | Category: {currentWord.category} | 
+                  Total: {vocabulary.length} items
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                >
+                  Force Reload
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -376,6 +519,25 @@ const CameraSignPage = () => {
                             : "Cần cải thiện. Xem lại video mẫu và thử lại."}
                       </p>
                     )}
+                    
+                    {/* AI Service Health Status */}
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      {healthStatus?.ai_service_available ? (
+                        <Wifi className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <WifiOff className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className={`text-xs ${healthStatus?.ai_service_available ? 'text-green-600' : 'text-red-600'}`}>
+                        {healthStatus?.ai_service_available ? 'AI Service Online' : 'AI Service Offline'}
+                      </span>
+                    </div>
+                    
+                    {/* Error Display */}
+                    {error && (
+                      <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-600">{error}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -391,34 +553,86 @@ const CameraSignPage = () => {
                     <CardTitle className="text-blue-700 text-center">CÁCH THỰC HIỆN</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="relative bg-black rounded-xl overflow-hidden shadow-lg">
-                      <img
-                        src={currentWord.videoUrl || "/placeholder.svg"}
-                        alt="Reference video"
-                        className="w-full h-80 object-cover"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                        <Button
-                          onClick={toggleReferenceVideo}
-                          size="lg"
-                          className="bg-white/30 backdrop-blur-sm hover:bg-white/50 text-white border-white/50 rounded-full p-4"
+                    {/* Video demo */}
+                    {currentWord && (
+                      <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-100">
+                        <video
+                          className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                          muted
+                          playsInline
+                          preload="metadata"
+                          controls
+                          onLoadedMetadata={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            const times = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+                            const randomTime = times[Math.floor(Math.random() * times.length)];
+                            video.currentTime = randomTime;
+                            console.log("🎬 Seeking to time:", randomTime, "for vocab:", currentWord.vocab);
+                          }}
+                          onError={(e) => {
+                            // Fallback to letter if video fails to load
+                            const video = e.target as HTMLVideoElement;
+                            video.style.display = "none";
+                            const parent = video.parentElement;
+                            if (parent) {
+                              const fallback = document.createElement("div");
+                              fallback.className = "absolute inset-0 bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center";
+                              fallback.innerHTML = `<span class="text-4xl font-bold text-blue-600">${currentWord.vocab.charAt(0).toUpperCase()}</span>`;
+                              parent.appendChild(fallback);
+                            }
+                          }}
                         >
-                          {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8" />}
-                        </Button>
+                          <source src={currentWord.videoUrl} type="video/mp4" />
+                        </video>
                       </div>
-                      <video
-                        ref={referenceVideoRef}
-                        className="hidden"
-                        onPlay={() => setIsPlaying(true)}
-                        onPause={() => setIsPlaying(false)}
-                        onEnded={() => setIsPlaying(false)}
-                      >
-                        <source src={currentWord.videoUrl} type="video/mp4" />
-                      </video>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
+
+              {/* AI Result Display */}
+              {aiResponse && aiResponse.status === 'completed' && aiResponse.result && (
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-emerald-400/20 rounded-3xl blur-xl"></div>
+                  <Card className="relative bg-gradient-to-br from-green-100/95 to-emerald-100/95 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/50">
+                    <CardHeader>
+                      <CardTitle className="text-green-700 text-center">KẾT QUẢ PHÂN TÍCH AI</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-white/70 p-6 rounded-xl border border-green-200">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="font-semibold text-green-700 mb-2">Từ được nhận diện:</h4>
+                            <p className="text-2xl font-bold text-gray-800">{aiResponse.result.predictedWord}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-green-700 mb-2">Độ tin cậy:</h4>
+                            <p className="text-2xl font-bold text-gray-800">
+                              {Math.round(aiResponse.result.confidence * 100)}%
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4">
+                          <h4 className="font-semibold text-green-700 mb-2">Đánh giá:</h4>
+                          <p className="text-gray-700">{aiResponse.result.feedback}</p>
+                        </div>
+                        
+                        {aiResponse.result.suggestions && aiResponse.result.suggestions.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="font-semibold text-green-700 mb-2">Gợi ý cải thiện:</h4>
+                            <ul className="list-disc list-inside space-y-1">
+                              {aiResponse.result.suggestions.map((suggestion, index) => (
+                                <li key={index} className="text-gray-700 text-sm">{suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {/* Description */}
               <div className="relative">
