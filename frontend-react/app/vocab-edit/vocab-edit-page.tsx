@@ -89,7 +89,7 @@ export function VocabEditPageComponent() {
   // Fetch regions on mount
   useEffect(() => {
     // Fetch regions
-    fetch("http://localhost:8080/api/v1/vocab/regions")
+    fetch("/vocab/regions")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
