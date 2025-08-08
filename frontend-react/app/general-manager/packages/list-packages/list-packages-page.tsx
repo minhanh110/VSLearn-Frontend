@@ -317,15 +317,6 @@ const ListPackagesPageComponent = () => {
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                                  variant="ghost"
-                                  className="text-green-600 hover:bg-green-100 p-2"
-                        title="Chỉnh sửa"
-                                  onClick={() => handleEditPackage(pkg.id)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                       <Button

@@ -2,7 +2,7 @@ import axiosInstance from './axios.config';
 import Cookies from 'js-cookie';
 import { jwtDecode } from 'jwt-decode';
 
-const API_URL = 'http://localhost:8080/users';
+const API_URL = '/users';
 
 export interface RegisterData {
   username: string;
@@ -35,7 +35,7 @@ class AuthService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch('http://localhost:8080/users/signin', {
+      const response = await fetch('/users/signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +193,7 @@ class AuthService {
 
   async handleOAuth2Callback() {
     try {
-      const response = await fetch('http://localhost:8080/users/oauth2/success', {
+      const response = await fetch('/users/oauth2/success', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -258,13 +258,55 @@ class AuthService {
     if (!token) return false;
     try {
       const decoded: any = jwtDecode(token);
-      // Tùy backend, có thể là 'ROLE_GENERAL_MANAGER' hoặc 'general-manager'
       return (
         decoded.scope === 'ROLE_GENERAL_MANAGER' ||
         decoded.role === 'general-manager'
       );
     } catch {
       return false;
+    }
+  }
+
+  isContentCreator() {
+    const token = this.getCurrentToken();
+    if (!token) return false;
+    try {
+      const decoded: any = jwtDecode(token);
+      return (
+        decoded.scope === 'ROLE_CONTENT_CREATOR' ||
+        decoded.role === 'content-creator'
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  isContentApprover() {
+    const token = this.getCurrentToken();
+    if (!token) return false;
+    try {
+      const decoded: any = jwtDecode(token);
+      return (
+        decoded.scope === 'ROLE_CONTENT_APPROVER' ||
+        decoded.role === 'content-approver'
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  getCurrentUser() {
+    const token = this.getCurrentToken();
+    if (!token) return null;
+    try {
+      const decoded: any = jwtDecode(token);
+      return {
+        id: decoded.id ? parseInt(decoded.id) : null,
+        email: decoded.sub || decoded.email,
+        roles: decoded.roles || decoded.scope
+      };
+    } catch {
+      return null;
     }
   }
 }

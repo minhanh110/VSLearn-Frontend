@@ -11,6 +11,11 @@ export interface Package {
   status: "active" | "inactive" | "draft"
   createdAt: string
   updatedAt: string
+  // UI properties
+  bgColor?: string
+  borderColor?: string
+  textColor?: string
+  buttonStyle?: string
 }
 
 export interface CreatePackageRequest {
@@ -18,6 +23,8 @@ export interface CreatePackageRequest {
   description: string
   price: string
   duration: string
+  discount?: number
+  status?: string
   features: string[]
 }
 
@@ -26,6 +33,8 @@ export interface UpdatePackageRequest {
   description?: string
   price?: string
   duration?: string
+  discount?: number
+  status?: string
   features?: string[]
 }
 
@@ -79,12 +88,20 @@ export const packagesApi = {
   // Tạo package mới
   createPackage: async (data: CreatePackageRequest) => {
     try {
-      const response = await api.post('/pricing/create', {
+      const requestData: any = {
         pricingType: data.title,
         description: data.description,
         price: parseInt(data.price.replace(/\D/g, '')), // Convert "100.000" to 100000
         durationDays: parseInt(data.duration)
-      })
+      }
+      if (data.discount !== undefined) {
+        requestData.discountPercent = data.discount
+      }
+      if (data.status) {
+        requestData.isActive = data.status === "active"
+      }
+      
+      const response = await api.post('/pricing/create', requestData)
       return response.data
     } catch (error: any) {
       console.error('Create package error:', error)
@@ -103,6 +120,8 @@ export const packagesApi = {
       if (data.description) updateData.description = data.description
       if (data.price) updateData.price = parseInt(data.price.replace(/\D/g, ''))
       if (data.duration) updateData.durationDays = parseInt(data.duration)
+      if (data.discount !== undefined) updateData.discountPercent = data.discount
+      if (data.status) updateData.isActive = data.status === "active"
 
       const response = await api.put(`/pricing/${id}`, updateData)
       return response.data

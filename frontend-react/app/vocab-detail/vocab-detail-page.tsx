@@ -42,9 +42,9 @@ export function VocabDetailPageComponent() {
   // Fetch topics and regions on mount
   useEffect(() => {
     // Fetch topics
-    fetch("http://localhost:8080/api/v1/vocab/topics")
-      .then((res) => res.json())
-      .then((data) => {
+    fetch("/vocab/topics")
+      .then(res => res.json())
+      .then(data => {
         if (Array.isArray(data)) {
           setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label, id: t.id })))
         }
@@ -52,7 +52,7 @@ export function VocabDetailPageComponent() {
       .catch(() => setTopics([]))
 
     // Fetch regions
-    fetch("http://localhost:8080/api/v1/vocab/regions")
+    fetch("/vocab/regions")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -405,3 +405,4 @@ export function VocabDetailPageComponent() {
 }
 
 export default VocabDetailPageComponent
+

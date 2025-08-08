@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Save, Mail, Phone, User, MapPin, Calendar, GraduationCap } from "lucide-react"
+import { ArrowLeft, Save, Mail, Phone, User, MapPin, Calendar, Award } from "lucide-react"
 import Image from "next/image"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -17,7 +17,7 @@ import axios from "axios"
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const EditLearnerPage = () => {
+const EditApproverPage = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("id")
@@ -29,14 +29,15 @@ const EditLearnerPage = () => {
     name: "",
     email: "",
     phone: "",
+    specialization: "",
+    bio: "",
     address: "",
     dateOfBirth: "",
-    learningGoal: "",
-    currentLevel: "",
-    preferredLearningStyle: "",
-    notes: "",
+    experience: "",
+    education: "",
+    certifications: "",
     status: "active",
-    userRole: "LEARNER",
+    userRole: "CONTENT_APPROVER",
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const debounceRef = useRef<any>({})

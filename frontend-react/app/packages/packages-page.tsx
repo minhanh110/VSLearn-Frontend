@@ -1,78 +1,60 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { packagesApi, Package } from "@/lib/api/packages"
 
 export function PackagesPageComponent() {
   const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [selectedPackage, setSelectedPackage] = useState<any>(null)
+  const [packages, setPackages] = useState<Package[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const packages = [
-    {
-      id: "1month",
-      title: "GÓI 1 THÁNG",
-      description: "Gói học cơ bản cho người mới bắt đầu khám phá ngôn ngữ ký hiệu",
-      price: "100.000 VND",
-      duration: "1 tháng",
-      features: ["Truy cập tất cả bài học cơ bản", "Từ điển ngôn ngữ ký hiệu", "Thực hành với camera", "Hỗ trợ 24/7"],
-      isPopular: false,
-      bgColor: "bg-white",
-      borderColor: "border-gray-200",
-      textColor: "text-gray-700",
-      buttonStyle: "bg-gray-100 hover:bg-gray-200 text-gray-700",
-      lessons: 15,
-      exercises: 25,
-    },
-    {
-      id: "3months",
-      title: "GÓI 3 THÁNG",
-      description: "Gói học được khuyến nghị cho việc học tập hiệu quả và tiến bộ nhanh chóng",
-      price: "250.000 VND",
-      duration: "3 tháng",
-      features: [
-        "Tất cả tính năng gói 1 tháng",
-        "Bài học nâng cao",
-        "Kiểm tra tiến độ",
-        "Chứng chỉ hoàn thành",
-        "Ưu tiên hỗ trợ",
-      ],
-      isPopular: true,
-      bgColor: "bg-blue-500",
-      borderColor: "border-blue-500",
-      textColor: "text-white",
-      buttonStyle: "bg-white hover:bg-gray-100 text-blue-500",
-      lessons: 45,
-      exercises: 80,
-    },
-    {
-      id: "6months",
-      title: "GÓI 6 THÁNG",
-      description: "Gói học toàn diện cho việc thành thạo ngôn ngữ ký hiệu một cách hoàn thiện",
-      price: "500.000 VND",
-      duration: "6 tháng",
-      features: [
-        "Tất cả tính năng gói 3 tháng",
-        "Bài học chuyên sâu",
-        "Lớp học trực tuyến",
-        "Mentor cá nhân",
-        "Tài liệu độc quyền",
-      ],
-      isPopular: false,
-      bgColor: "bg-white",
-      borderColor: "border-gray-200",
-      textColor: "text-gray-700",
-      buttonStyle: "bg-gray-100 hover:bg-gray-200 text-gray-700",
-      lessons: 90,
-      exercises: 150,
-    },
-  ]
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        setLoading(true)
+        const response = await packagesApi.getPackages()
+        if (response.success) {
+          const transformedPackages: Package[] = response.data.content.map((item: any, index: number) => ({
+            id: item.id.toString(),
+            title: item.pricingType,
+            description: item.description || '',
+            price: item.price.toLocaleString('vi-VN') + ' VND',
+            duration: item.durationDays.toString() + ' ngày',
+            features: [], // Backend chưa có features field
+            isPopular: index === 1, // Gói thứ 2 sẽ là popular
+            status: 'active',
+            createdAt: new Date(item.createdAt).toLocaleDateString('vi-VN'),
+            updatedAt: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('vi-VN') : '-',
+            // UI properties
+            bgColor: index === 1 ? "bg-blue-500" : "bg-white",
+            borderColor: index === 1 ? "border-blue-500" : "border-gray-200",
+            textColor: index === 1 ? "text-white" : "text-gray-700",
+            buttonStyle: index === 1 ? "bg-white hover:bg-gray-100 text-blue-500" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+          }))
+          setPackages(transformedPackages)
+        } else {
+          setError(response.message || 'Không thể tải danh sách gói học')
+        }
+      } catch (error: any) {
+        console.error('Error fetching packages:', error)
+        setError('Có lỗi xảy ra khi tải danh sách gói học')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPackages()
+  }, [])
 
   const handlePurchaseClick = (pkg: any) => {
     setSelectedPackage(pkg)
@@ -81,18 +63,77 @@ export function PackagesPageComponent() {
 
   const handleConfirmPurchase = () => {
     setShowConfirmModal(false)
-    // Redirect to payment page
+    // Redirect to payment page with package info
+    if (selectedPackage) {
+      const packageInfo = encodeURIComponent(JSON.stringify({
+        id: selectedPackage.id,
+        title: selectedPackage.title,
+        price: selectedPackage.price,
+        duration: selectedPackage.duration,
+        features: selectedPackage.features
+      }))
+      router.push(`/payment?package=${packageInfo}`)
+    } else {
     router.push("/payment")
+    }
   }
 
   const handleCancelPurchase = () => {
     setShowConfirmModal(false)
-    setSelectedPackage(null)
   }
 
   const handleMaybeLater = () => {
     setShowConfirmModal(false)
-    setSelectedPackage(null)
+    router.push("/homepage")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100">
+        <Header />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-blue-700 font-medium">Đang tải danh sách gói học...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100">
+        <Header />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-red-600 font-medium mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700">
+              Thử lại
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100">
+        <Header />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <p className="text-gray-600 font-medium mb-4">Chưa có gói học nào</p>
+            <Button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700">
+              Tải lại
+            </Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
   }
 
   return (

@@ -280,42 +280,6 @@ export function PaymentPage() {
 
       {/* Main Content */}
       <div className="flex pt-16">
-        {/* Sidebar Navigation */}
-        <div className="hidden lg:block w-64 bg-blue-100 min-h-screen p-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-3 bg-blue-200 rounded-lg">
-              <div className="w-6 h-6 bg-blue-400 rounded flex items-center justify-center">
-                <span className="text-white text-sm">📚</span>
-              </div>
-              <span className="text-blue-800 font-medium">Học theo chủ đề</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 hover:bg-blue-150 rounded-lg cursor-pointer">
-              <div className="w-6 h-6 bg-blue-300 rounded flex items-center justify-center">
-                <span className="text-white text-sm">📖</span>
-              </div>
-              <span className="text-blue-800">Từ điển</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 hover:bg-blue-150 rounded-lg cursor-pointer">
-              <div className="w-6 h-6 bg-blue-300 rounded flex items-center justify-center">
-                <span className="text-white text-sm">📹</span>
-              </div>
-              <span className="text-blue-800">Thực hành Camera</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 hover:bg-blue-150 rounded-lg cursor-pointer">
-              <div className="w-6 h-6 bg-blue-300 rounded flex items-center justify-center">
-                <span className="text-white text-sm">💰</span>
-              </div>
-              <span className="text-blue-800">Các gói học</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 hover:bg-blue-150 rounded-lg cursor-pointer">
-              <div className="w-6 h-6 bg-blue-300 rounded flex items-center justify-center">
-                <span className="text-white text-sm">⚙️</span>
-              </div>
-              <span className="text-blue-800">Cài đặt</span>
-            </div>
-          </div>
-        </div>
-
         {/* Payment Content */}
         <div className="flex-1 p-4 lg:p-8">
           <div className="max-w-2xl mx-auto">
