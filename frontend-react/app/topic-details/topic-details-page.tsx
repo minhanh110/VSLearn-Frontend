@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, ChevronRight, Check, X, BookOpen } from "lucide-react" // Added FileText icon
+import { ArrowLeft, ChevronRight, Check, X, BookOpen, Star, History } from 'lucide-react' // Added Star and History icons
 import { useRouter, useSearchParams } from "next/navigation"
 import { TopicService } from "@/app/services/topic.service"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -43,6 +43,23 @@ interface Sentence {
   content: string
 }
 
+// New interfaces for Reviews and Review History
+interface Review {
+  id: number
+  username: string
+  rating: number // 1-5 stars
+  content: string
+  date: string
+}
+
+interface ReviewHistoryEntry {
+  id: number
+  action: "approved" | "rejected" | "created"
+  date: string
+  actor: string // Who performed the action
+  reason?: string // Reason for rejection
+}
+
 export function TopicDetailsPageComponent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -51,7 +68,7 @@ export function TopicDetailsPageComponent() {
   const [topic, setTopic] = useState<TopicDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [subtopics, setSubtopics] = useState<Subtopic[]>([])
-  const [activeTab, setActiveTab] = useState<"subtopics" | "sentences">("subtopics")
+  const [activeTab, setActiveTab] = useState<"subtopics" | "sentences" | "reviews" | "review-history">("subtopics")
 
   // Mock sentences data for demonstration
   const [sentences, setSentences] = useState<Sentence[]>([
@@ -70,6 +87,23 @@ export function TopicDetailsPageComponent() {
     { id: "s13", content: "Bạn có thể giúp tôi không?" },
     { id: "s14", content: "Đây là một cuốn sách thú vị." },
     { id: "s15", content: "Thời tiết hôm nay thật tuyệt vời." },
+  ])
+
+  // Mock reviews data
+  const [reviews, setReviews] = useState<Review[]>([
+    { id: 1, username: "Nguyễn Văn A", rating: 5, content: "Bài học rất hay và dễ hiểu!", date: "2024-07-20" },
+    { id: 2, username: "Trần Thị B", rating: 4, content: "Nội dung phong phú, nhưng video hơi mờ.", date: "2024-07-18" },
+    { id: 3, username: "Lê Văn C", rating: 5, content: "Tuyệt vời! Tôi đã học được rất nhiều.", date: "2024-07-15" },
+    { id: 4, username: "Phạm Thị D", rating: 3, content: "Cần thêm ví dụ thực tế.", date: "2024-07-10" },
+    { id: 5, username: "Hoàng Văn E", rating: 5, content: "Giáo viên giảng rất nhiệt tình.", date: "2024-07-05" },
+  ])
+
+  // Mock review history data
+  const [reviewHistory, setReviewHistory] = useState<ReviewHistoryEntry[]>([
+    { id: 1, action: "created", date: "2024-07-01 10:00", actor: "NGUYEN VAN A" },
+    { id: 2, action: "approved", date: "2024-07-02 14:30", actor: "NGUYEN THI B (Approver)" },
+    { id: 3, action: "rejected", date: "2024-07-03 09:00", actor: "TRAN VAN C (Approver)", reason: "Thiếu ví dụ minh họa" },
+    { id: 4, action: "approved", date: "2024-07-05 11:45", actor: "LE THI D (Approver)" },
   ])
 
   useEffect(() => {
@@ -216,10 +250,10 @@ export function TopicDetailsPageComponent() {
 
               {/* Tabs */}
               <div className="mb-8">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2"> {/* Use flex-wrap for responsiveness */}
                   <Button
                     onClick={() => setActiveTab("subtopics")}
-                    className={`px-6 py-3 rounded-2xl font-bold transition-all duration-300 ${
+                    className={`px-4 py-2 rounded-2xl font-bold transition-all duration-300 text-sm ${ // Smaller padding and font size
                       activeTab === "subtopics"
                         ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
                         : "bg-white/60 text-gray-600 hover:bg-white/80"
@@ -229,13 +263,33 @@ export function TopicDetailsPageComponent() {
                   </Button>
                   <Button
                     onClick={() => setActiveTab("sentences")}
-                    className={`px-6 py-3 rounded-2xl font-bold transition-all duration-300 ${
+                    className={`px-4 py-2 rounded-2xl font-bold transition-all duration-300 text-sm ${ // Smaller padding and font size
                       activeTab === "sentences"
                         ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
                         : "bg-white/60 text-gray-600 hover:bg-white/80"
                     }`}
                   >
                     CÂU ĐÃ TẠO
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab("reviews")}
+                    className={`px-4 py-2 rounded-2xl font-bold transition-all duration-300 text-sm ${ // Smaller padding and font size
+                      activeTab === "reviews"
+                        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
+                        : "bg-white/60 text-gray-600 hover:bg-white/80"
+                    }`}
+                  >
+                    XEM ĐÁNH GIÁ
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab("review-history")}
+                    className={`px-4 py-2 rounded-2xl font-bold transition-all duration-300 text-sm ${ // Smaller padding and font size
+                      activeTab === "review-history"
+                        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg"
+                        : "bg-white/60 text-gray-600 hover:bg-white/80"
+                    }`}
+                  >
+                    LỊCH SỬ KIỂM DUYỆT
                   </Button>
                 </div>
               </div>
@@ -356,6 +410,92 @@ export function TopicDetailsPageComponent() {
                               >
                                 <span className="font-bold text-blue-700 text-lg">{idx + 1}.</span>
                                 <p className="flex-1 text-gray-800 text-base">{sentence.content}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "reviews" && (
+                  <div className="relative">
+                    <div className="max-h-[500px] p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm overflow-y-auto custom-scrollbar">
+                      <div className="space-y-6">
+                        {reviews.length === 0 ? (
+                          <div className="text-gray-500 italic text-center py-4">Chủ đề này chưa có đánh giá nào.</div>
+                        ) : (
+                          <div className="space-y-4">
+                            {reviews.map((review) => (
+                              <div
+                                key={review.id}
+                                className="p-5 border border-blue-100 rounded-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-200"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="font-bold text-blue-700">{review.username}</p>
+                                  <div className="flex items-center gap-1">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`w-4 h-4 ${
+                                          i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                                <p className="text-gray-700 text-sm mb-2">{review.content}</p>
+                                <p className="text-gray-500 text-xs text-right">{review.date}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "review-history" && (
+                  <div className="relative">
+                    <div className="max-h-[500px] p-8 border-2 border-blue-200/60 rounded-2xl bg-white/90 backdrop-blur-sm overflow-y-auto custom-scrollbar">
+                      <div className="space-y-6">
+                        {reviewHistory.length === 0 ? (
+                          <div className="text-gray-500 italic text-center py-4">Chưa có lịch sử kiểm duyệt nào.</div>
+                        ) : (
+                          <div className="space-y-4">
+                            {reviewHistory.map((entry) => (
+                              <div
+                                key={entry.id}
+                                className="p-5 border border-blue-100 rounded-2xl bg-white shadow-md hover:shadow-lg transition-shadow duration-200"
+                              >
+                                <div className="flex items-center gap-3 mb-2">
+                                  {entry.action === "approved" && (
+                                    <Check className="w-5 h-5 text-green-500" />
+                                  )}
+                                  {entry.action === "rejected" && (
+                                    <X className="w-5 h-5 text-red-500" />
+                                  )}
+                                  {entry.action === "created" && (
+                                    <History className="w-5 h-5 text-blue-500" />
+                                  )}
+                                  <p className="font-bold text-gray-800">
+                                    {entry.action === "approved" && "Đã phê duyệt"}
+                                    {entry.action === "rejected" && "Đã từ chối"}
+                                    {entry.action === "created" && "Đã tạo"}
+                                  </p>
+                                </div>
+                                <p className="text-gray-700 text-sm mb-1">
+                                  <span className="font-semibold">Thời gian:</span> {entry.date}
+                                </p>
+                                <p className="text-gray-700 text-sm">
+                                  <span className="font-semibold">Người thực hiện:</span> {entry.actor}
+                                </p>
+                                {entry.reason && (
+                                  <p className="text-red-500 text-sm mt-1">
+                                    <span className="font-semibold">Lý do từ chối:</span> {entry.reason}
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
