@@ -65,7 +65,7 @@ export function TopicEditPageComponent() {
   useEffect(() => {
     const fetchStatusOptions = async () => {
       try {
-        const response = await fetch("http://localhost:8080/api/v1/topics/status-options")
+        const response = await fetch("/topics/status-options")
         const data = await response.json()
         setStatusOptions(data)
       } catch (error) {
@@ -598,3 +598,4 @@ export function TopicEditPageComponent() {
 }
 
 export default TopicEditPageComponent
+

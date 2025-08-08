@@ -61,7 +61,16 @@ export default function LoginPage() {
         if (returnUrl) {
           router.push(decodeURIComponent(returnUrl))
         } else {
+          // Check user role and redirect accordingly
+          if (authService.isGeneralManager()) {
+            router.push("/general-manager")
+          } else if (authService.isContentCreator()) {
+            router.push("/content-creator")
+          } else if (authService.isContentApprover()) {
+            router.push("/content-approver")
+          } else {
           router.push("/homepage")
+          }
         }
       } else {
         // Hiển thị thông báo lỗi rõ ràng
@@ -81,7 +90,7 @@ export default function LoginPage() {
   }
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+    window.location.href = '/oauth2/authorization/google';
   }
 
   return (
@@ -209,3 +218,4 @@ export default function LoginPage() {
     </BackgroundLayout>
   )
 }
+

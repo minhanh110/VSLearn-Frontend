@@ -1,8 +1,8 @@
-﻿import axiosInstance from './axios.config';
+import axiosInstance from './axios.config';
 import Cookies from 'js-cookie';
 import { jwtDecode } from 'jwt-decode';
 
-const API_URL = '/users';
+const API_URL = 'http://localhost:8080/users';
 
 export interface RegisterData {
   username: string;
@@ -35,7 +35,7 @@ class AuthService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch('/users/signin', {
+      const response = await fetch('http://localhost:8080/users/signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,9 +65,7 @@ class AuthService {
       }
       
       if (jsonObj.status === 200) {
-        // Store token in both Cookies and localStorage for compatibility
         Cookies.set('token', jsonObj.data);
-        localStorage.setItem('token', jsonObj.data);
         return jsonObj;
       } else {
         // Handle unsuccessful response with proper status code
@@ -123,25 +121,12 @@ class AuthService {
 
   logout() {
     Cookies.remove('token');
-    localStorage.removeItem('token');
     Cookies.remove('email-reset');
     Cookies.remove('otp');
   }
 
   getCurrentToken() {
-    // Try to get token from both Cookies and localStorage for compatibility
-    const tokenFromCookies = Cookies.get('token');
-    const tokenFromLocalStorage = localStorage.getItem('token');
-    const token = tokenFromCookies || tokenFromLocalStorage;
-    
-    // If we have token in one place but not the other, sync them
-    if (tokenFromCookies && !tokenFromLocalStorage) {
-      localStorage.setItem('token', tokenFromCookies);
-    } else if (tokenFromLocalStorage && !tokenFromCookies) {
-      Cookies.set('token', tokenFromLocalStorage);
-    }
-    
-    return token;
+    return Cookies.get('token');
   }
 
   isAuthenticated() {
@@ -193,7 +178,7 @@ class AuthService {
 
   async handleOAuth2Callback() {
     try {
-      const response = await fetch('/users/oauth2/success', {
+      const response = await fetch('http://localhost:8080/users/oauth2/success', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -209,9 +194,7 @@ class AuthService {
       const data = await response.json();
       
       if (data.status === 200 && data.data) {
-        // Store token in both Cookies and localStorage for compatibility
         Cookies.set('token', data.data);
-        localStorage.setItem('token', data.data);
         return data;
       }
       throw new Error(data.message || 'Authentication failed');
@@ -250,63 +233,6 @@ class AuthService {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Registration failed');
-    }
-  }
-
-  isGeneralManager() {
-    const token = this.getCurrentToken();
-    if (!token) return false;
-    try {
-      const decoded: any = jwtDecode(token);
-      return (
-        decoded.scope === 'ROLE_GENERAL_MANAGER' ||
-        decoded.role === 'general-manager'
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  isContentCreator() {
-    const token = this.getCurrentToken();
-    if (!token) return false;
-    try {
-      const decoded: any = jwtDecode(token);
-      return (
-        decoded.scope === 'ROLE_CONTENT_CREATOR' ||
-        decoded.role === 'content-creator'
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  isContentApprover() {
-    const token = this.getCurrentToken();
-    if (!token) return false;
-    try {
-      const decoded: any = jwtDecode(token);
-      return (
-        decoded.scope === 'ROLE_CONTENT_APPROVER' ||
-        decoded.role === 'content-approver'
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  getCurrentUser() {
-    const token = this.getCurrentToken();
-    if (!token) return null;
-    try {
-      const decoded: any = jwtDecode(token);
-      return {
-        id: decoded.id ? parseInt(decoded.id) : null,
-        email: decoded.sub || decoded.email,
-        roles: decoded.roles || decoded.scope
-      };
-    } catch {
-      return null;
     }
   }
 }

@@ -12,7 +12,16 @@ export default function OAuth2Callback() {
       try {
         const response = await authService.handleOAuth2Callback()
         if (response.status === 200) {
-          router.push('/homepage')
+          // Check user role and redirect accordingly
+          if (authService.isGeneralManager()) {
+            router.push("/general-manager")
+          } else if (authService.isContentCreator()) {
+            router.push("/content-creator")
+          } else if (authService.isContentApprover()) {
+            router.push("/content-approver")
+          } else {
+            router.push("/homepage")
+          }
         }
       } catch (error) {
         console.error('OAuth2 callback error:', error)

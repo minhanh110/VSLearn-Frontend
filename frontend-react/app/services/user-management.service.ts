@@ -1,4 +1,4 @@
-import authService from './auth.service'
+﻿import authService from './auth.service'
 
 export interface UserManagementData {
   id: number
@@ -80,7 +80,7 @@ export interface ApproversStats {
 }
 
 class UserManagementService {
-  private baseUrl = 'http://localhost:8080/api/v1/admin'
+  private baseUrl = '/api/v1/admin'
 
   private async getAuthHeaders() {
     const token = authService.getCurrentToken();

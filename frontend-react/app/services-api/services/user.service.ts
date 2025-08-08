@@ -1,8 +1,8 @@
-﻿import axiosInstance from './axios.config';
+import axiosInstance from './axios.config';
 import Cookies from 'js-cookie';
 import authService from './auth.service';
 
-const API_URL = '/users';
+const API_URL = 'http://localhost:8080/users';
 
 export interface ProfileData {
     firstName?: string;
