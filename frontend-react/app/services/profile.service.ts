@@ -1,6 +1,6 @@
-import axiosInstance from './axios.config';
+﻿import axiosInstance from './axios.config';
 
-const API_URL = 'http://localhost:8080/users';
+const API_URL = '/users';
 
 export interface ProfileData {
   firstName: string;
