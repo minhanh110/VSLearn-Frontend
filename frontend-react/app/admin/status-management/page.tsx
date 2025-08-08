@@ -33,7 +33,7 @@ export default function StatusManagementPage() {
   const fetchStatusOptions = async () => {
     try {
       setLoading(true)
-      const response = await fetch("http://localhost:8080/api/v1/topics/status-options")
+      const response = await fetch("/topics/status-options")
       const data = await response.json()
       setStatusOptions(data)
     } catch (error) {
@@ -51,7 +51,7 @@ export default function StatusManagementPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/v1/topics/status-options", {
+      const response = await fetch("/topics/status-options", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -24,6 +24,10 @@ export function AddVocabularyPageComponent() {
     description: "",
     videoLink: "",
     meaning: "",
+    videoSize: 0,
+    videoDuration: "",
+    videoFileName: "",
+    videoContentType: "",
   })
 
   // Dynamic data
@@ -32,7 +36,7 @@ export function AddVocabularyPageComponent() {
   // Fetch regions on mount
   useEffect(() => {
     // Fetch regions
-    fetch("http://localhost:8080/api/v1/vocab/regions")
+    fetch("/vocab/regions")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -49,26 +53,60 @@ export function AddVocabularyPageComponent() {
     }))
   }
 
-  // Thêm hàm upload video
+  // Thêm state cho upload
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Thêm hàm upload video với validation và progress
   const handleVideoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validation
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      alert("File quá lớn. Tối đa 50MB!");
+      return;
+    }
+
+    if (!file.type.startsWith('video/')) {
+      alert("Chỉ chấp nhận file video!");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
     const form = new FormData();
     form.append("file", file);
+
     try {
       const res = await fetch("/api/v1/vocab/upload-video", {
         method: "POST",
         body: form,
       });
+      
       const data = await res.json();
-      if (data.videoUrl) {
-        setFormData(prev => ({ ...prev, videoLink: data.videoUrl }));
+      
+      if (data.success && data.data) {
+        const videoData = data.data;
+        setFormData(prev => ({ 
+          ...prev, 
+          videoLink: videoData.videoUrl,
+          videoSize: videoData.fileSize,
+          videoFileName: videoData.fileName,
+          videoContentType: videoData.contentType,
+        }));
         alert("Upload video thành công!");
       } else {
-        alert("Upload video thất bại!");
+        alert(data.message || "Upload video thất bại!");
       }
-    } catch {
+    } catch (error) {
       alert("Upload video thất bại!");
+      console.error("Upload error:", error);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -87,16 +125,24 @@ export function AddVocabularyPageComponent() {
         description: formData.description,
         videoLink: formData.videoLink,
         meaning: formData.meaning,
+        videoSize: formData.videoSize,
+        videoDuration: formData.videoDuration,
+        videoFileName: formData.videoFileName,
+        videoContentType: formData.videoContentType,
       };
       await VocabService.createVocab(payload);
       alert("Thêm từ vựng thành công! Từ vựng đã được gửi để duyệt và sẽ hiển thị sau khi được phê duyệt.")
-      setFormData({
-        vocab: "",
-        region: "",
-        description: "",
-        videoLink: "",
-        meaning: "",
-      })
+              setFormData({
+          vocab: "",
+          region: "",
+          description: "",
+          videoLink: "",
+          meaning: "",
+          videoSize: 0,
+          videoDuration: "",
+          videoFileName: "",
+          videoContentType: "",
+        })
       router.push("/list-vocab");
     } catch (error: any) {
       alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
@@ -206,10 +252,32 @@ export function AddVocabularyPageComponent() {
                       type="file"
                       accept="video/*"
                       onChange={handleVideoChange}
+                      disabled={isUploading}
                       className="w-full border-blue-200 rounded-xl mb-2"
                     />
-                    {formData.videoLink && (
-                      <video src={formData.videoLink} controls width={300} className="mt-2 rounded-xl" />
+                    
+                    {/* Upload progress */}
+                    {isUploading && (
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">Đang upload... {uploadProgress}%</p>
+                      </div>
+                    )}
+                    
+                    {/* Video preview */}
+                    {formData.videoLink && !isUploading && (
+                      <div className="mt-2">
+                        <video src={formData.videoLink} controls width={300} className="rounded-xl" />
+                        <div className="mt-2 text-sm text-gray-600">
+                          <p>File: {formData.videoFileName}</p>
+                          <p>Size: {(formData.videoSize / 1024 / 1024).toFixed(2)} MB</p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -254,3 +322,4 @@ export function AddVocabularyPageComponent() {
 }
 
 export default AddVocabularyPageComponent
+

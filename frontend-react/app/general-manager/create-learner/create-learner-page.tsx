@@ -43,19 +43,19 @@ const CreateLearnerPage = () => {
     const newErrors: Record<string, string> = {}
 
     if (!formData.name.trim()) {
-      newErrors.name = "Họ tên là bắt buộc"
+      newErrors.name = "Há» tÃªn lÃ  báº¯t buá»™c"
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = "Email là bắt buộc"
+      newErrors.email = "Email lÃ  báº¯t buá»™c"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Email không hợp lệ"
+      newErrors.email = "Email khÃ´ng há»£p lá»‡"
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = "Số điện thoại là bắt buộc"
+      newErrors.phone = "Sá»‘ Ä‘iá»‡n thoáº¡i lÃ  báº¯t buá»™c"
     } else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ""))) {
-      newErrors.phone = "Số điện thoại không hợp lệ"
+      newErrors.phone = "Sá»‘ Ä‘iá»‡n thoáº¡i khÃ´ng há»£p lá»‡"
     }
 
     setErrors(newErrors)
@@ -66,35 +66,22 @@ const CreateLearnerPage = () => {
     e.preventDefault()
     if (validateForm()) {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-        const token = localStorage.getItem('token')
-        const res = await axios.post(`${API_BASE_URL}/api/v1/admin/users/create`, {
-          userName: formData.userName,
-          firstName: formData.name.split(' ').slice(0, -1).join(' ') || formData.name,
-          lastName: formData.name.split(' ').slice(-1).join(' '),
-          userEmail: formData.email,
-          phoneNumber: formData.phone,
-          userRole: 'LEARNER',
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        if (res.data && res.data.status === 200) {
-          setShowSuccess(true);
+        
         } else {
-          alert(res.data.message || "Tạo học viên thất bại");
+          alert(res.data.message || "Táº¡o há»c viÃªn tháº¥t báº¡i");
         }
       } catch (err: any) {
-        alert(err.response?.data?.message || err.message || "Có lỗi xảy ra")
+        alert(err.response?.data?.message || err.message || "CÃ³ lá»—i xáº£y ra")
       }
     }
   }
 
   const checkDuplicate = async (field: string, value: string) => {
     if (!value) return false;
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    
     const token = localStorage.getItem('token');
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/v1/admin/users/all?search=${encodeURIComponent(value)}`, {
+      const res = await axios.get(`/admin/users/all?search=${encodeURIComponent(value)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const users = res.data?.content || res.data?.data || [];
@@ -120,13 +107,13 @@ const CreateLearnerPage = () => {
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }))
     }
-    // Kiểm tra trùng userName, email, phone
+    // Kiá»ƒm tra trÃ¹ng userName, email, phone
     if (["userName", "email", "phone"].includes(field)) {
       if (debounceRef.current[field]) clearTimeout(debounceRef.current[field]);
       debounceRef.current[field] = setTimeout(async () => {
         const isDup = await checkDuplicate(field, value);
         if (isDup) {
-          setErrors((prev) => ({ ...prev, [field]: `${field === 'userName' ? 'Tên đăng nhập' : field === 'email' ? 'Email' : 'Số điện thoại'} đã tồn tại` }));
+          setErrors((prev) => ({ ...prev, [field]: `${field === 'userName' ? 'TÃªn Ä‘Äƒng nháº­p' : field === 'email' ? 'Email' : 'Sá»‘ Ä‘iá»‡n thoáº¡i'} Ä‘Ã£ tá»“n táº¡i` }));
         }
       }, 500);
     }
@@ -153,7 +140,7 @@ const CreateLearnerPage = () => {
                 className="border-blue-200 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Quay lại danh sách
+                Quay láº¡i danh sÃ¡ch
               </Button>
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <Image
@@ -165,9 +152,9 @@ const CreateLearnerPage = () => {
                 />
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                    Tạo học viên mới
+                    Táº¡o há»c viÃªn má»›i
                   </h1>
-                  <p className="text-sm sm:text-base text-blue-600">Thêm học viên mới vào hệ thống</p>
+                  <p className="text-sm sm:text-base text-blue-600">ThÃªm há»c viÃªn má»›i vÃ o há»‡ thá»‘ng</p>
                 </div>
               </div>
             </div>
@@ -179,33 +166,33 @@ const CreateLearnerPage = () => {
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
                   <div className="flex items-center gap-2">
                     <User className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-base sm:text-lg font-semibold text-blue-900">Thông tin cá nhân</h2>
+                    <h2 className="text-base sm:text-lg font-semibold text-blue-900">ThÃ´ng tin cÃ¡ nhÃ¢n</h2>
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="userName" className="text-gray-700 font-medium">
-                        Tên đăng nhập *
+                        TÃªn Ä‘Äƒng nháº­p *
                       </Label>
                       <Input
                         id="userName"
                         value={formData.userName}
                         onChange={(e) => handleInputChange("userName", e.target.value)}
-                        placeholder="Nhập tên đăng nhập"
+                        placeholder="Nháº­p tÃªn Ä‘Äƒng nháº­p"
                         className={`border-blue-200 focus:border-blue-400 ${errors.userName ? "border-red-300" : ""}`}
                       />
                       {errors.userName && <p className="text-red-500 text-sm">{errors.userName}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="name" className="text-gray-700 font-medium">
-                        Họ và tên *
+                        Há» vÃ  tÃªn *
                       </Label>
                       <Input
                         id="name"
                         value={formData.name}
                         onChange={(e) => handleInputChange("name", e.target.value)}
-                        placeholder="Nhập họ và tên"
+                        placeholder="Nháº­p há» vÃ  tÃªn"
                         className={`border-blue-200 focus:border-blue-400 ${errors.name ? "border-red-300" : ""}`}
                       />
                       {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
@@ -221,7 +208,7 @@ const CreateLearnerPage = () => {
                           type="email"
                           value={formData.email}
                           onChange={(e) => handleInputChange("email", e.target.value)}
-                          placeholder="Nhập địa chỉ email"
+                          placeholder="Nháº­p Ä‘á»‹a chá»‰ email"
                           className={`pl-10 border-blue-200 focus:border-blue-400 ${errors.email ? "border-red-300" : ""}`}
                         />
                       </div>
@@ -232,7 +219,7 @@ const CreateLearnerPage = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="text-gray-700 font-medium">
-                        Số điện thoại *
+                        Sá»‘ Ä‘iá»‡n thoáº¡i *
                       </Label>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -240,7 +227,7 @@ const CreateLearnerPage = () => {
                           id="phone"
                           value={formData.phone}
                           onChange={(e) => handleInputChange("phone", e.target.value)}
-                          placeholder="Nhập số điện thoại"
+                          placeholder="Nháº­p sá»‘ Ä‘iá»‡n thoáº¡i"
                           className={`pl-10 border-blue-200 focus:border-blue-400 ${errors.phone ? "border-red-300" : ""}`}
                         />
                       </div>
@@ -248,7 +235,7 @@ const CreateLearnerPage = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="dateOfBirth" className="text-gray-700 font-medium">
-                        Ngày sinh
+                        NgÃ y sinh
                       </Label>
                       <div className="relative">
                         <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -265,7 +252,7 @@ const CreateLearnerPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="address" className="text-gray-700 font-medium">
-                      Địa chỉ
+                      Äá»‹a chá»‰
                     </Label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -273,7 +260,7 @@ const CreateLearnerPage = () => {
                         id="address"
                         value={formData.address}
                         onChange={(e) => handleInputChange("address", e.target.value)}
-                        placeholder="Nhập địa chỉ"
+                        placeholder="Nháº­p Ä‘á»‹a chá»‰"
                         className="pl-10 border-blue-200 focus:border-blue-400 min-h-[60px] sm:min-h-[80px]"
                         rows={2}
                       />
@@ -287,46 +274,46 @@ const CreateLearnerPage = () => {
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
                   <div className="flex items-center gap-2">
                     <GraduationCap className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-base sm:text-lg font-semibold text-blue-900">Thông tin học tập</h2>
+                    <h2 className="text-base sm:text-lg font-semibold text-blue-900">ThÃ´ng tin há»c táº­p</h2>
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="currentLevel" className="text-gray-700 font-medium">
-                        Trình độ hiện tại
+                        TrÃ¬nh Ä‘á»™ hiá»‡n táº¡i
                       </Label>
                       <Select
                         value={formData.currentLevel}
                         onValueChange={(value) => handleInputChange("currentLevel", value)}
                       >
                         <SelectTrigger className="border-blue-200 focus:border-blue-400">
-                          <SelectValue placeholder="Chọn trình độ" />
+                          <SelectValue placeholder="Chá»n trÃ¬nh Ä‘á»™" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="beginner">Người mới bắt đầu</SelectItem>
-                          <SelectItem value="elementary">Sơ cấp</SelectItem>
-                          <SelectItem value="intermediate">Trung cấp</SelectItem>
-                          <SelectItem value="advanced">Nâng cao</SelectItem>
+                          <SelectItem value="beginner">NgÆ°á»i má»›i báº¯t Ä‘áº§u</SelectItem>
+                          <SelectItem value="elementary">SÆ¡ cáº¥p</SelectItem>
+                          <SelectItem value="intermediate">Trung cáº¥p</SelectItem>
+                          <SelectItem value="advanced">NÃ¢ng cao</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="preferredLearningStyle" className="text-gray-700 font-medium">
-                        Phong cách học tập
+                        Phong cÃ¡ch há»c táº­p
                       </Label>
                       <Select
                         value={formData.preferredLearningStyle}
                         onValueChange={(value) => handleInputChange("preferredLearningStyle", value)}
                       >
                         <SelectTrigger className="border-blue-200 focus:border-blue-400">
-                          <SelectValue placeholder="Chọn phong cách" />
+                          <SelectValue placeholder="Chá»n phong cÃ¡ch" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="visual">Học qua hình ảnh</SelectItem>
-                          <SelectItem value="auditory">Học qua âm thanh</SelectItem>
-                          <SelectItem value="kinesthetic">Học qua thực hành</SelectItem>
-                          <SelectItem value="mixed">Kết hợp</SelectItem>
+                          <SelectItem value="visual">Há»c qua hÃ¬nh áº£nh</SelectItem>
+                          <SelectItem value="auditory">Há»c qua Ã¢m thanh</SelectItem>
+                          <SelectItem value="kinesthetic">Há»c qua thá»±c hÃ nh</SelectItem>
+                          <SelectItem value="mixed">Káº¿t há»£p</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -334,13 +321,13 @@ const CreateLearnerPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="learningGoal" className="text-gray-700 font-medium">
-                      Mục tiêu học tập
+                      Má»¥c tiÃªu há»c táº­p
                     </Label>
                     <Textarea
                       id="learningGoal"
                       value={formData.learningGoal}
                       onChange={(e) => handleInputChange("learningGoal", e.target.value)}
-                      placeholder="Mô tả mục tiêu học tập của học viên"
+                      placeholder="MÃ´ táº£ má»¥c tiÃªu há»c táº­p cá»§a há»c viÃªn"
                       className="border-blue-200 focus:border-blue-400 min-h-[60px] sm:min-h-[80px]"
                       rows={2}
                     />
@@ -348,13 +335,13 @@ const CreateLearnerPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="notes" className="text-gray-700 font-medium">
-                      Ghi chú
+                      Ghi chÃº
                     </Label>
                     <Textarea
                       id="notes"
                       value={formData.notes}
                       onChange={(e) => handleInputChange("notes", e.target.value)}
-                      placeholder="Ghi chú thêm về học viên (tình trạng sức khỏe, sở thích, v.v.)"
+                      placeholder="Ghi chÃº thÃªm vá» há»c viÃªn (tÃ¬nh tráº¡ng sá»©c khá»e, sá»Ÿ thÃ­ch, v.v.)"
                       className="border-blue-200 focus:border-blue-400 min-h-[80px] sm:min-h-[100px]"
                       rows={3}
                     />
@@ -365,12 +352,12 @@ const CreateLearnerPage = () => {
               {/* Status */}
               <Card className="border-0 shadow-lg bg-white/95 backdrop-blur-sm">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-lg">
-                  <h2 className="text-base sm:text-lg font-semibold text-blue-900">Trạng thái</h2>
+                  <h2 className="text-base sm:text-lg font-semibold text-blue-900">Tráº¡ng thÃ¡i</h2>
                 </CardHeader>
                 <CardContent className="p-4 sm:p-6">
                   <div className="space-y-2">
                     <Label htmlFor="status" className="text-gray-700 font-medium">
-                      Trạng thái hoạt động
+                      Tráº¡ng thÃ¡i hoáº¡t Ä‘á»™ng
                     </Label>
                     <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
                       <SelectTrigger className="border-blue-200 focus:border-blue-400">
@@ -380,13 +367,13 @@ const CreateLearnerPage = () => {
                         <SelectItem value="active">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            Đang hoạt động
+                            Äang hoáº¡t Ä‘á»™ng
                           </div>
                         </SelectItem>
                         <SelectItem value="inactive">
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                            Không hoạt động
+                            KhÃ´ng hoáº¡t Ä‘á»™ng
                           </div>
                         </SelectItem>
                       </SelectContent>
@@ -403,14 +390,14 @@ const CreateLearnerPage = () => {
                   onClick={() => router.push("/general-manager/learners")}
                   className="border-gray-300 text-gray-600 hover:bg-gray-50 w-full sm:w-auto order-2 sm:order-1"
                 >
-                  Hủy bỏ
+                  Há»§y bá»
                 </Button>
                 <Button
                   type="submit"
                   className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-lg w-full sm:w-auto order-1 sm:order-2"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Tạo học viên
+                  Táº¡o há»c viÃªn
                 </Button>
               </div>
             </form>
@@ -418,13 +405,13 @@ const CreateLearnerPage = () => {
         </div>
       </main>
 
-      {/* Dialog thông báo thành công */}
+      {/* Dialog thÃ´ng bÃ¡o thÃ nh cÃ´ng */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
-            <div className="text-green-600 text-2xl mb-2">✔</div>
-            <div className="font-semibold mb-2">Tạo học viên thành công!</div>
-            <div className="mb-4 text-gray-700">Mật khẩu mặc định: <b>123456</b></div>
+            <div className="text-green-600 text-2xl mb-2">âœ”</div>
+            <div className="font-semibold mb-2">Táº¡o há»c viÃªn thÃ nh cÃ´ng!</div>
+            <div className="mb-4 text-gray-700">Máº­t kháº©u máº·c Ä‘á»‹nh: <b>123456</b></div>
             <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={() => router.push("/general-manager/learners")}>OK</button>
           </div>
         </div>
@@ -437,3 +424,5 @@ const CreateLearnerPage = () => {
 }
 
 export default CreateLearnerPage
+
+
