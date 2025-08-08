@@ -10,7 +10,6 @@ import authService from "@/app/services/auth.service"
 import { FlashcardService } from "@/app/services/flashcard.service"
 import { useRouter } from "next/navigation"
 import { jwtDecode } from "jwt-decode"
-import axios from "axios"
 
 export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -44,18 +43,14 @@ export default function HomePage() {
         } else {
           // Kiểm tra subscription status từ backend
           try {
-            const subscriptionRes = await axios.get("/users/subscription-status", {
+            const subscriptionRes = await axiosInstance.get("/users/subscription-status", {
               headers: { 'Authorization': `Bearer ${token}` }
             })
             
-            console.log("🔍 Subscription response:", subscriptionRes.data)
-            
             if (subscriptionRes.data && subscriptionRes.data.data) {
               const subscriptionData = subscriptionRes.data.data
-              console.log("🔍 Subscription data:", subscriptionData)
               setUserType(subscriptionData.userType)
             } else {
-              console.log("🔍 No subscription data, setting to registered")
               setUserType('registered')
             }
           } catch (subscriptionError: any) {
@@ -80,7 +75,7 @@ export default function HomePage() {
           headers['Authorization'] = `Bearer ${token}`
         }
         
-        const res1 = await axiosInstance.get("/learning-path", { headers })
+        const res1 = await axiosInstance.get("/api/v1/learning-path", { headers })
         console.log("📊 Learning path response:", res1.data)
         console.log("📊 Response status:", res1.status)
         console.log("📊 Response headers:", res1.headers)
@@ -157,7 +152,7 @@ export default function HomePage() {
   const markLessonCompleted = async (lessonId: string) => {
     try {
       // Gọi API thực cho tất cả user
-      await axiosInstance.post("/progress", { lessonId: parseInt(lessonId) })
+      await axiosInstance.post("/api/v1/progress", { lessonId: parseInt(lessonId) })
       setCompletedLessons((prev) => prev.includes(lessonId) ? prev : [...prev, lessonId])
     } catch (err) {
       console.error("❌ Error marking lesson completed:", err)
@@ -224,16 +219,6 @@ export default function HomePage() {
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} showMenuButton={true} />
       
       {/* Debug component to show current role */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-100 border-l-4 border-gray-400 p-2 mb-4 text-xs">
-          <strong>Debug:</strong> UserType: {userType} | Units: {units.length} | 
-          <span className="ml-2">
-            {userType === 'guest' && 'Guest - 1 topic'}
-            {userType === 'registered' && 'Registered - 2 topics'}
-            {userType === 'premium' && 'Premium - All topics'}
-          </span>
-        </div>
-      )}
       
 
       {/* User Type Notification */}
@@ -250,17 +235,14 @@ export default function HomePage() {
                 <strong>Chế độ khách:</strong> Bạn chỉ có thể học chủ đề đầu tiên. 
                 <a href="/login" className="font-medium underline text-yellow-700 hover:text-yellow-600 ml-1">
                   Đăng nhập
-                </a> để học thêm chủ đề hoặc 
-                <a href="/packages" className="font-medium underline text-yellow-700 hover:text-yellow-600 ml-1">
-                  mua gói học
-                </a> để truy cập tất cả!
+                </a> để học thêm chủ đề!
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {userType === 'registered' && (
+      {userType === 'registered' && units.length <= 2 && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -291,32 +273,6 @@ export default function HomePage() {
             <div className="ml-3">
               <p className="text-sm text-green-700">
                 <strong>Gói học Premium:</strong> Bạn có thể truy cập tất cả chủ đề học tập!
-                {units.length <= 2 && (
-                  <span className="block mt-1 text-xs text-green-600">
-                    Hiện tại chỉ có {units.length} chủ đề trong hệ thống.
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Thông báo cho subscription expired */}
-      {userType === 'registered' && units.length > 2 && (
-        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 mb-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-orange-700">
-                <strong>Gói học đã hết hạn:</strong> Bạn chỉ có thể học 2 chủ đề đầu tiên. 
-                <a href="/packages" className="font-medium underline text-orange-700 hover:text-orange-600 ml-1">
-                  Gia hạn gói học
-                </a> để tiếp tục truy cập tất cả chủ đề!
               </p>
             </div>
           </div>
@@ -341,4 +297,3 @@ export default function HomePage() {
     </div>
   )
 }
-
