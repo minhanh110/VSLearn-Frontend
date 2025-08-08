@@ -1,9 +1,9 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import Cookies from 'js-cookie';
 
 const instance = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
