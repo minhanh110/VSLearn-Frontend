@@ -85,17 +85,17 @@ export function DictionaryPageComponent() {
   // Fetch topics and regions on mount
   useEffect(() => {
     // Fetch topics
-    fetch("http://localhost:8080/api/v1/vocab/topics")
-      .then((res) => res.json())
-      .then((data) => {
+    fetch("/vocab/topics")
+      .then(res => res.json())
+      .then(data => {
         if (Array.isArray(data)) {
-          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label })))
+          setTopics(data.map((t: any) => ({ value: t.id?.toString() || t.value, label: t.name || t.label, id: t.id })))
         }
       })
       .catch(() => setTopics([]))
 
     // Fetch regions
-    fetch("http://localhost:8080/api/v1/vocab/regions")
+    fetch("/vocab/regions")
       .then((res) => res.json())
       .then((data) => {
         console.log("🔍 Regions data from API:", data)
@@ -680,3 +680,4 @@ export function DictionaryPageComponent() {
 }
 
 export default DictionaryPageComponent
+
