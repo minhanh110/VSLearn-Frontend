@@ -1,4 +1,4 @@
-import { authService } from './auth.service'
+﻿import { authService } from './auth.service'
 
 export interface PricingData {
   id: number
@@ -34,7 +34,7 @@ export interface PricingStats {
 }
 
 class PricingService {
-  private baseUrl = 'http://localhost:8080/api/v1/pricing'
+  private baseUrl = '/api/v1/pricing'
 
   private async getAuthHeaders() {
     const token = authService.getToken()
