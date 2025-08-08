@@ -1,10 +1,28 @@
 "use client"
 
-import { Home, BookOpen, Camera, CreditCard, Settings, X, FolderPlus, FileText, CheckCircle, Edit3, Users, BarChart3, Shield, Clock, DollarSign, UserCheck, LogIn, Package } from 'lucide-react'
+import {
+  Home,
+  BookOpen,
+  Camera,
+  CreditCard,
+  Settings,
+  X,
+  FolderPlus,
+  FileText,
+  CheckCircle,
+  Edit3,
+  Users,
+  BarChart3,
+  Shield,
+  Clock,
+  DollarSign,
+  UserCheck,
+  LogIn,
+  Package,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useUserRole, UserRole } from "@/hooks/use-user-role"
-import { useEffect, useRef } from 'react' // Import useEffect and useRef
 
 interface FooterProps {
   isOpen?: boolean
@@ -59,9 +77,8 @@ const getAllMenuItems = () => {
 }
 
 export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) {
-  const { role: actualRole, loading } = useUserRole()
-  const sidebarRef = useRef<HTMLElement>(null) // Ref for the sidebar element
-  
+  const { role, loading } = useUserRole()
+
   // Determine which menu items to show based on actual role from JWT
   const getMenuItems = () => {
     // If loading, show loading state or default menu
@@ -70,7 +87,7 @@ export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) 
     }
 
     // Use actual role from JWT if available, otherwise fallback to roleId prop
-    const currentRole = actualRole || roleId as keyof typeof roleMenus
+    const currentRole = role || roleId as keyof typeof roleMenus
     
     if (currentRole && roleMenus[currentRole as keyof typeof roleMenus]) {
       return roleMenus[currentRole as keyof typeof roleMenus]
@@ -82,34 +99,25 @@ export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) 
 
   const menuItems = getMenuItems()
 
-  // Effect to close sidebar when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node) && isOpen) {
-        onClose?.() // Call onClose if it exists and sidebar is open
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, onClose])
-
   return (
     <>
       {/* Desktop Sidebar - positioned below header */}
       <div className="hidden lg:block">
         {/* Sidebar */}
         <aside
-          ref={sidebarRef} // Attach ref to the aside element
-          className={`fixed left-0 top-12 h-[calc(100vh-3rem)] w-max bg-gradient-to-b from-blue-100 to-cyan-100 transform transition-transform duration-300 z-40 shadow-lg flex flex-col ${
+          className={`fixed left-0 top-12 h-[calc(100vh-3rem)] w-64 bg-gradient-to-b from-blue-100 to-cyan-100 transform transition-transform duration-300 z-40 shadow-lg flex flex-col ${
             isOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          {/* Removed Close button */}
-          {/* Adjusted padding for menu items */}
-          <div className="flex-1 px-6 pt-4"> {/* Added pt-4 for spacing */}
+          {/* Close button */}
+          <div className="flex justify-end p-6 pb-4 flex-shrink-0">
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/50 rounded-lg">
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Menu items - Scrollable container */}
+          <div className="flex-1 overflow-hidden px-6">
             <nav className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent hover:scrollbar-thumb-blue-400 pb-6">
               <div className="space-y-3">
                 {menuItems.map((item, index) => (
@@ -126,25 +134,11 @@ export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) 
               </div>
             </nav>
           </div>
-
-          {/* Contact Info for Learners (Desktop) - Placed at the very bottom of the sidebar */}
-          {actualRole === 'learner' && (
-            <div className="px-6 py-4 mt-auto"> {/* mt-auto pushes it to the bottom */}
-              <p className="text-blue-700 font-semibold text-sm mb-2">Liên hệ hỗ trợ:</p>
-              <p className="text-blue-600 text-xs flex items-center gap-2 mb-1">
-                <span className="font-medium">📞</span> {'0799 161 739'}
-              </p>
-              <p className="text-blue-600 text-xs flex items-center gap-2">
-                <span className="font-medium">✉️</span> {'hearmyhand2025@gmail.com'}
-              </p>
-            </div>
-          )}
         </aside>
       </div>
 
       {/* Mobile Footer - Only icons, scrollable horizontally if needed */}
       <footer className="lg:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-200 to-cyan-200 border-t border-blue-300 z-30">
-        {/* Navigation icons with horizontal scrollbar - Placed at the top of mobile footer */}
         <div className="overflow-x-auto scrollbar-none">
           <nav className="flex items-center py-3 px-2 min-w-max">
             {menuItems.map((item, index) => (
@@ -158,14 +152,6 @@ export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) 
             ))}
           </nav>
         </div>
-
-        {/* Contact Info for Learners (Mobile) - Placed below navigation icons */}
-        {actualRole === 'learner' && (
-          <div className="px-4 py-2 text-center">
-            <p className="text-blue-700 font-semibold text-xs">Liên hệ hỗ trợ:</p>
-            <p className="text-blue-600 text-xs">📞 {'0799 161 739'} • ✉️ {'hearmyhand2025@gmail.com'}</p>
-          </div>
-        )}
       </footer>
 
       {/* Custom scrollbar styles */}
@@ -185,6 +171,10 @@ export function Footer({ isOpen = false, onClose, roleId = null }: FooterProps) 
         
         .scrollbar-track-transparent::-webkit-scrollbar-track {
           background: transparent;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 6px;
         }
         
         .scrollbar-none {
