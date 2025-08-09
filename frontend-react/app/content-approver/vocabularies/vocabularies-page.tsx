@@ -50,7 +50,7 @@ export function ApproverVocabulariesPageComponent() {
   const { role, loading: roleLoading } = useUserRole();
   const [pendingAction, setPendingAction] = useState<null | { id: number; type: "approve" | "reject" }>(null)
   const [creators, setCreators] = useState<UserManagementData[]>([])
-  const [selectedCreator, setSelectedCreator] = useState<string>("all")
+  const [selectedStatus, setSelectedStatus] = useState<string>("pending") // Changed from selectedCreator to selectedStatus
 
   useEffect(() => {
     console.log("useEffect called, role:", role);
@@ -58,7 +58,7 @@ export function ApproverVocabulariesPageComponent() {
       fetchVocabularies();
       fetchCreators();
     }
-  }, [role, searchTerm, currentPage, selectedCreator]);
+  }, [role, searchTerm, currentPage, selectedStatus]); // Changed selectedCreator to selectedStatus
 
   const fetchVocabularies = async () => {
     try {
@@ -67,13 +67,13 @@ export function ApproverVocabulariesPageComponent() {
         page: currentPage - 1,
         size: 10,
         search: searchTerm,
-        status: "pending",
+        status: selectedStatus, // Use selectedStatus instead of hardcoded "pending"
       });
       const vocabData = response.data.vocabList || response.data.content || response.data || [];
       setVocabularies(Array.isArray(vocabData) ? vocabData : []);
       setTotalPages(response.data.totalPages || 1);
     } catch (error: any) {
-      alert("Không thể tải danh sách từ vựng chờ duyệt. Vui lòng thử lại!");
+      alert("Không thể tải danh sách từ vựng. Vui lòng thử lại!");
       setVocabularies([]);
       setTotalPages(1);
     } finally {
@@ -122,10 +122,19 @@ export function ApproverVocabulariesPageComponent() {
     router.push(`/vocab-detail?id=${id}`)
   }
 
-  // Filter vocabularies theo người tạo nếu có chọn
-  const filteredVocabularies = selectedCreator && selectedCreator !== "all"
-    ? vocabularies.filter(v => String(v.createdBy) === selectedCreator)
-    : vocabularies
+  // Get status display text
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case "active":
+        return { text: "Đã duyệt", color: "bg-gradient-to-r from-green-100 to-green-200 text-green-700" };
+      case "rejected":
+        return { text: "Đã từ chối", color: "bg-gradient-to-r from-red-100 to-red-200 text-red-700" };
+      case "pending":
+        return { text: "Chờ duyệt", color: "bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-700" };
+      default:
+        return { text: status, color: "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700" };
+    }
+  }
 
   if (roleLoading) {
     return <div className="min-h-screen flex items-center justify-center text-blue-700 font-medium">Đang kiểm tra quyền truy cập...</div>;
@@ -182,20 +191,17 @@ export function ApproverVocabulariesPageComponent() {
                   </div>
                 </div>
 
-                {/* Creator Filter */}
+                {/* Status Filter */}
                 <div className="w-full lg:w-72">
-                  <label className="block text-sm font-bold text-gray-700 mb-3">NGƯỜI TẠO</label>
-                  <Select value={selectedCreator} onValueChange={setSelectedCreator}>
+                  <label className="block text-sm font-bold text-gray-700 mb-3">TRẠNG THÁI</label>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                     <SelectTrigger className="h-14 border-2 border-blue-200/60 rounded-2xl bg-white/90 focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-sm hover:shadow-md">
-                      <SelectValue placeholder="Chọn người tạo" />
+                      <SelectValue placeholder="Chọn trạng thái" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-blue-200 shadow-xl">
-                      <SelectItem value="all" className="rounded-lg">Tất cả</SelectItem>
-                      {creators.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)} className="rounded-lg">
-                          {c.firstName} {c.lastName} ({c.userEmail})
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="pending" className="rounded-lg">Đang chờ duyệt</SelectItem>
+                      <SelectItem value="active" className="rounded-lg">Đã duyệt</SelectItem>
+                      <SelectItem value="rejected" className="rounded-lg">Đã từ chối</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -209,12 +215,13 @@ export function ApproverVocabulariesPageComponent() {
             <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden min-w-[900px]">
               {/* Table Header */}
               <div className="bg-gradient-to-r from-blue-100/80 to-cyan-100/80 px-4 sm:px-8 py-4 sm:py-6">
-                <div className="grid grid-cols-6 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
+                <div className="grid grid-cols-7 gap-2 sm:gap-4 font-bold text-blue-700 text-xs sm:text-sm">
                   <div>TỪ VỰNG</div>
                   <div>CHỦ ĐỀ</div>
                   <div>KHU VỰC</div>
                   <div>NGƯỜI TẠO</div>
                   <div>NGÀY TẠO</div>
+                  <div>TRẠNG THÁI</div>
                   <div>HÀNH ĐỘNG</div>
                 </div>
               </div>
@@ -226,95 +233,109 @@ export function ApproverVocabulariesPageComponent() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <p className="text-blue-700 font-medium">Đang tải...</p>
                   </div>
-                ) : filteredVocabularies.length === 0 ? (
+                ) : vocabularies.length === 0 ? (
                   <div className="px-4 sm:px-8 py-8 text-center">
-                    <p className="text-gray-500 text-lg">Không tìm thấy từ vựng nào chờ duyệt.</p>
+                    <p className="text-gray-500 text-lg">Không tìm thấy từ vựng nào.</p>
                   </div>
                 ) : (
-                  filteredVocabularies.map((vocab) => (
-                    <div
-                      key={vocab.id}
-                      className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group"
-                    >
-                      <div className="grid grid-cols-6 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
-                        {/* Vocabulary Column */}
-                        <div>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-bold text-gray-900 truncate">{vocab.vocab}</span>
-                            {vocab.description && (
-                              <span className="text-xs text-gray-500 italic truncate">{vocab.description}</span>
-                            )}
+                  vocabularies.map((vocab) => {
+                    const statusDisplay = getStatusDisplay(vocab.status);
+                    return (
+                      <div
+                        key={vocab.id}
+                        className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group"
+                      >
+                        <div className="grid grid-cols-7 gap-2 sm:gap-4 items-center text-xs sm:text-sm">
+                          {/* Vocabulary Column */}
+                          <div>
+                            <div className="flex flex-col gap-1">
+                              <span className="font-bold text-gray-900 truncate">{vocab.vocab}</span>
+                              {vocab.description && (
+                                <span className="text-xs text-gray-500 italic truncate">{vocab.description}</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Topic Column */}
-                        <div>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-gray-700 font-medium truncate block">
-                              {vocab.topicName || "Chưa phân loại"}
-                            </span>
-                            {vocab.subTopicName && (
-                              <span className="text-xs text-gray-500 truncate">
-                                {vocab.subTopicName}
+                          {/* Topic Column */}
+                          <div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-gray-700 font-medium truncate block">
+                                {vocab.topicName || "Chưa phân loại"}
                               </span>
+                              {vocab.subTopicName && (
+                                <span className="text-xs text-gray-500 truncate">
+                                  {vocab.subTopicName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Region Column */}
+                          <div>
+                            <span className="px-3 py-1 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-xl text-xs font-bold shadow-sm">
+                              {vocab.region || "Toàn quốc"}
+                            </span>
+                          </div>
+
+                          {/* Creator Column */}
+                          <div>
+                            <span className="text-gray-700 font-medium">
+                              {creators.find(c => c.id === vocab.createdBy)?.firstName || "N/A"} {creators.find(c => c.id === vocab.createdBy)?.lastName || ""}
+                            </span>
+                          </div>
+
+                          {/* Created Date Column */}
+                          <div>
+                            <span className="text-gray-700 font-medium">
+                              {new Date(vocab.createdAt).toLocaleDateString("vi-VN")}
+                            </span>
+                          </div>
+
+                          {/* Status Column */}
+                          <div>
+                            <span className={`px-3 py-1 rounded-xl text-xs font-bold shadow-sm ${statusDisplay.color}`}>
+                              {statusDisplay.text}
+                            </span>
+                          </div>
+
+                          {/* Actions Column */}
+                          <div className="flex gap-1 sm:gap-2">
+                            <Button
+                              onClick={() => handleViewVocab(vocab.id)}
+                              className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                              size="sm"
+                              title="Xem chi tiết"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                            </Button>
+                            {vocab.status === "pending" && (
+                              <>
+                                <Button
+                                  onClick={() => handleApprove(vocab.id)}
+                                  className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                                  size="sm"
+                                  title="Duyệt"
+                                >
+                                  <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                                </Button>
+                                <Button
+                                  onClick={() => handleReject(vocab.id)}
+                                  className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
+                                  size="sm"
+                                  title="Từ chối"
+                                >
+                                  <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                                  <XCircle className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
+                                </Button>
+                              </>
                             )}
                           </div>
-                        </div>
-
-                        {/* Region Column */}
-                        <div>
-                          <span className="px-3 py-1 bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-700 rounded-xl text-xs font-bold shadow-sm">
-                            {vocab.region || "Toàn quốc"}
-                          </span>
-                        </div>
-
-                        {/* Creator Column */}
-                        <div>
-                          <span className="text-gray-700 font-medium">
-                            {creators.find(c => c.id === vocab.createdBy)?.firstName || "N/A"} {creators.find(c => c.id === vocab.createdBy)?.lastName || ""}
-                          </span>
-                        </div>
-
-                        {/* Created Date Column */}
-                        <div>
-                          <span className="text-gray-700 font-medium">
-                            {new Date(vocab.createdAt).toLocaleDateString("vi-VN")}
-                          </span>
-                        </div>
-
-                        {/* Actions Column */}
-                        <div className="flex gap-1 sm:gap-2">
-                          <Button
-                            onClick={() => handleViewVocab(vocab.id)}
-                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 text-blue-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                            size="sm"
-                            title="Xem chi tiết"
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                            <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                          </Button>
-                          <Button
-                            onClick={() => handleApprove(vocab.id)}
-                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-green-100 to-green-200 hover:from-green-200 hover:to-green-300 text-green-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                            size="sm"
-                            title="Duyệt"
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                          </Button>
-                          <Button
-                            onClick={() => handleReject(vocab.id)}
-                            className="group/btn relative p-2 sm:p-3 bg-gradient-to-r from-red-100 to-red-200 hover:from-red-200 hover:to-red-300 text-red-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105 overflow-hidden"
-                            size="sm"
-                            title="Từ chối"
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-                            <XCircle className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
-                          </Button>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
