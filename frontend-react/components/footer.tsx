@@ -36,7 +36,7 @@ const roleMenus = {
   "content-approver": [
     { icon: Clock, label: "Chủ đề chờ duyệt", href: "/content-approver/topics" },
     { icon: Clock, label: "Từ vựng chờ duyệt", href: "/content-approver/vocabularies" },
-    { icon: Shield, label: "Duyệt lộ trình học", href: "content-approver/curriculum-approval" },
+    { icon: Shield, label: "Duyệt lộ trình học", href: "content-approver/curriculum-requests-list" },
     { icon: CheckCircle, label: "Chủ đề đang hoạt động", href: "/list-approved-topic" },
     { icon: Edit3, label: "từ vựng đang hoạt động", href: "/list-approved-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
@@ -47,6 +47,8 @@ const roleMenus = {
     { icon: Shield, label: "Quản lý người kiểm duyệt", href: "/general-manager/approvers" },
     { icon: DollarSign, label: "Quản lý doanh thu", href: "/general-manager/revenue-dashboard" },
     { icon: DollarSign, label: "Quản lý gói học", href: "/general-manager/packages/list-packages" },
+    { icon: CheckCircle, label: "Chủ đề đang hoạt động", href: "/list-approved-topic" },
+    { icon: Edit3, label: "từ vựng đang hoạt động", href: "/list-approved-vocab" },
     { icon: Settings, label: "Cài đặt", href: "/settings" },
   ],
 }
