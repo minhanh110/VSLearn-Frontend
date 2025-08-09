@@ -6,23 +6,23 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, Search, Edit3, EyeOff, CheckCircle, AlertTriangle, Settings, Save, X } from "lucide-react"
+import { Eye, Edit, Edit3, Trash2, Plus, Search, GripVertical, AlertCircle, CheckCircle, Settings, X, Save, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { TopicService } from "@/app/services/topic.service"
+import { useUserRole } from "@/hooks/use-user-role"
 
 interface ApprovedTopicItem {
   id: number
   topicName: string
   isFree: boolean
-  status: "active" | "needs_edit"
+  status: string
   sortOrder: number
   createdAt: string
   createdBy: number
   updatedAt?: string
   updatedBy?: number
-  subtopicCount?: number
-  isHidden?: boolean
-  editRequestedBy?: number
-  editRequestedAt?: string
+  deletedAt?: string
+  deletedBy?: number
 }
 
 interface ContentCreator {
@@ -31,10 +31,9 @@ interface ContentCreator {
   email: string
 }
 
-type UserRole = "content_creator" | "content_approver"
-
 export function ListApprovedTopicComponent() {
   const router = useRouter()
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -51,8 +50,15 @@ export function ListApprovedTopicComponent() {
   const [dragOverItemId, setDragOverItemId] = useState<number | null>(null)
   const [tempTopics, setTempTopics] = useState<ApprovedTopicItem[]>([])
 
-  // Mock user role - in real app this would come from auth context
-  const [userRole] = useState<UserRole>("content_approver") // Change to "content_creator" to test
+  // Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!roleLoading) {
+      if (role !== 'content-creator' && role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
+      }
+    }
+  }, [role, roleLoading, router])
 
   // Mock content creators list
   const contentCreators: ContentCreator[] = [
@@ -62,98 +68,30 @@ export function ListApprovedTopicComponent() {
     { id: 4, name: "Phạm Thị D", email: "phamthid@example.com" },
   ]
 
-  // Mock data for approved topics
-  const mockApprovedTopics: ApprovedTopicItem[] = [
-    {
-      id: 1,
-      topicName: "Chào hỏi cơ bản",
-      isFree: true,
-      status: "active",
-      sortOrder: 1,
-      createdAt: "2024-01-15",
-      createdBy: 1,
-      subtopicCount: 12,
-      isHidden: false,
-    },
-    {
-      id: 2,
-      topicName: "Gia đình",
-      isFree: false,
-      status: "needs_edit",
-      sortOrder: 2,
-      createdAt: "2024-01-20",
-      createdBy: 1,
-      subtopicCount: 18,
-      isHidden: false,
-      editRequestedBy: 1,
-      editRequestedAt: "2024-02-25",
-    },
-    {
-      id: 3,
-      topicName: "Màu sắc",
-      isFree: true,
-      status: "active",
-      sortOrder: 3,
-      createdAt: "2024-01-25",
-      createdBy: 2,
-      subtopicCount: 10,
-      isHidden: true,
-    },
-    {
-      id: 4,
-      topicName: "Số đếm",
-      isFree: true,
-      status: "active",
-      sortOrder: 4,
-      createdAt: "2024-02-01",
-      createdBy: 1,
-      subtopicCount: 15,
-      isHidden: false,
-    },
-    {
-      id: 5,
-      topicName: "Thức ăn và đồ uống",
-      isFree: false,
-      status: "needs_edit",
-      sortOrder: 5,
-      createdAt: "2024-02-05",
-      createdBy: 3,
-      subtopicCount: 25,
-      isHidden: false,
-      editRequestedBy: 2,
-      editRequestedAt: "2024-02-26",
-    },
-  ]
-
   // Fetch approved topics data
   useEffect(() => {
-    const fetchApprovedTopics = async () => {
-      try {
-        setLoading(true)
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Filter topics based on search term and sort by sortOrder
-        const filteredTopics = mockApprovedTopics
-          .filter((topic) =>
-            topic.topicName.toLowerCase().includes(searchTerm.toLowerCase()),
-          )
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-
-        setTopics(filteredTopics)
-        setTempTopics(filteredTopics)
-      } catch (error: any) {
-        console.error("Error fetching approved topics:", error)
-        alert("Không thể tải danh sách chủ đề đã phê duyệt. Vui lòng thử lại!")
-        setTopics([])
-        setTempTopics([])
-      } finally {
-        setLoading(false)
+    if (role === 'content-creator' || role === 'content-approver' || role === 'general-manager') {
+      const fetchApprovedTopics = async () => {
+        try {
+          setLoading(true)
+          const response = await TopicService.getTopicList({
+            page: currentPage - 1,
+            search: searchTerm,
+            status: "active", // Chỉ lấy topics đã được approve
+          })
+          setTopics(response.data.topicList || response.data)
+        } catch (error: any) {
+          console.error("Error fetching approved topics:", error)
+          alert("Không thể tải danh sách chủ đề đã duyệt. Vui lòng thử lại!")
+          setTopics([])
+        } finally {
+          setLoading(false)
+        }
       }
-    }
 
-    fetchApprovedTopics()
-  }, [searchTerm])
+      fetchApprovedTopics()
+    }
+  }, [currentPage, searchTerm, role])
 
   const handleViewTopic = (id: number) => {
     router.push(`/topic-details?id=${id}`)
@@ -229,7 +167,7 @@ export function ListApprovedTopicComponent() {
     setDragOverItemId(null)
   }
 
-  const handleSaveCurriculumChanges = () => {
+  const handleSaveCurriculumChanges = async () => {
     // Update sort orders based on new positions
     const updatedTopics = tempTopics.map((topic, index) => ({
       ...topic,
@@ -241,9 +179,12 @@ export function ListApprovedTopicComponent() {
     setDraggedItemId(null)
     setDragOverItemId(null)
     
-    // Here you would make API call to save the new order
-    console.log("Saving curriculum changes:", updatedTopics.map(t => ({ id: t.id, sortOrder: t.sortOrder })))
-    alert("Đã lưu thay đổi lộ trình học thành công!")
+    try {
+      await TopicService.reorderTopics(updatedTopics.map(t => ({ id: t.id, sortOrder: t.sortOrder })))
+      alert("Đã lưu thay đổi lộ trình học thành công!")
+    } catch (e) {
+      alert("Không thể lưu thay đổi lộ trình. Vui lòng thử lại!")
+    }
   }
 
   const handleToggleVisibilityInEdit = (id: number) => {
@@ -252,16 +193,13 @@ export function ListApprovedTopicComponent() {
   }
 
   // Drag and drop functions with updated logic
-  const handleDragStart = (e: React.DragEvent, id: number) => {
-    if (!isEditingCurriculum) return
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, id: number) => {
     setDraggedItemId(id)
-    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.effectAllowed = 'move'
   }
 
-  const handleDragOver = (e: React.DragEvent, id: number) => {
-    if (!isEditingCurriculum || !draggedItemId) return
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, id: number) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
     setDragOverItemId(id)
   }
 
@@ -269,31 +207,20 @@ export function ListApprovedTopicComponent() {
     setDragOverItemId(null)
   }
 
-  const handleDrop = (e: React.DragEvent, dropId: number) => {
-    if (!isEditingCurriculum || !draggedItemId) return
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, id: number) => {
     e.preventDefault()
-    
-    if (draggedItemId === dropId) {
-      setDraggedItemId(null)
-      setDragOverItemId(null)
-      return
-    }
+    if (draggedItemId === null) return
 
-    const draggedIndex = tempTopics.findIndex(topic => topic.id === draggedItemId)
-    const dropIndex = tempTopics.findIndex(topic => topic.id === dropId)
-    
+    const draggedIndex = tempTopics.findIndex(item => item.id === draggedItemId)
+    const dropIndex = tempTopics.findIndex(item => item.id === id)
+
     if (draggedIndex === -1 || dropIndex === -1) return
 
-    const newTopics = [...tempTopics]
-    const draggedItem = newTopics[draggedIndex]
-    
-    // Remove dragged item
-    newTopics.splice(draggedIndex, 1)
-    
-    // Insert at new position
-    newTopics.splice(dropIndex, 0, draggedItem)
-    
-    setTempTopics(newTopics)
+    const newOrder = [...tempTopics]
+    const [moved] = newOrder.splice(draggedIndex, 1)
+    newOrder.splice(dropIndex, 0, moved)
+
+    setTempTopics(newOrder)
     setDraggedItemId(null)
     setDragOverItemId(null)
   }
@@ -526,7 +453,7 @@ export function ListApprovedTopicComponent() {
                             )}
 
                             {/* Request Edit Button - Only for content approver and only if not already needs edit and not editing */}
-                            {userRole === "content_approver" && topic.status !== "needs_edit" && !isEditingCurriculum && (
+                            {role === "content-approver" && topic.status !== "needs_edit" && !isEditingCurriculum && (
                               <Button
                                 onClick={() => handleRequestEdit(topic.id)}
                                 className="p-2 sm:p-3 bg-orange-200 hover:bg-orange-300 text-orange-600 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105"
