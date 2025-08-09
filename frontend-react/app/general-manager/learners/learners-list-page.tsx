@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import axios from "axios"
+import { useUserRole } from "@/hooks/use-user-role"
 
 interface Learner {
   id: number
@@ -36,6 +37,7 @@ interface Learner {
 
 const LearnersListPage = () => {
   const router = useRouter()
+  const { role, loading: roleLoading } = useUserRole()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -44,8 +46,20 @@ const LearnersListPage = () => {
   const [error, setError] = useState("")
   const [selectedLearner, setSelectedLearner] = useState<Learner | null>(null)
 
+  // Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!roleLoading) {
+      if (role !== 'general-manager') {
+        router.push('/homepage')
+        return
+      }
+    }
+  }, [role, roleLoading, router])
+
   // Fetch learners data from API
   const fetchLearners = async () => {
+    if (role !== 'general-manager') return
+    
     try {
       setLoading(true)
       const token = localStorage.getItem("token")
@@ -79,8 +93,10 @@ const LearnersListPage = () => {
   }
 
   useEffect(() => {
-    fetchLearners()
-  }, [])
+    if (role === 'general-manager') {
+      fetchLearners()
+    }
+  }, [role])
 
   const filteredLearners = learners.filter((learner) => {
     const matchesSearch =

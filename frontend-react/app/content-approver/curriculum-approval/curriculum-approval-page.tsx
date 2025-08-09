@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
+import { TopicService } from "@/app/services/topic.service"
 
 interface TopicItem {
   id: number
@@ -60,363 +61,50 @@ function CurriculumApprovalPage() {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [showApproveModal, setShowApproveModal] = useState(false)
 
-  // Mock data for multiple change requests
-  const mockChangeRequests: CurriculumChangeRequest[] = [
-    {
-      id: "CR-2024-001",
-      requestedBy: {
-        id: 1,
-        name: "Nguyễn Văn A",
-        email: "nguyenvana@example.com",
-      },
-      requestedAt: "2024-02-28",
-      reason:
-        "Cần sắp xếp lại thứ tự học tập để phù hợp hơn với trình độ người mới bắt đầu và ẩn một số chủ đề chưa hoàn thiện.",
-      oldCurriculum: [
-        {
-          id: 1,
-          topicName: "Chào hỏi cơ bản",
-          isFree: true,
-          status: "active",
-          sortOrder: 1,
-          createdAt: "2024-01-15",
-          createdBy: 1,
-          subtopicCount: 12,
-          isHidden: false,
-        },
-        {
-          id: 2,
-          topicName: "Gia đình",
-          isFree: false,
-          status: "active",
-          sortOrder: 2,
-          createdAt: "2024-01-20",
-          createdBy: 1,
-          subtopicCount: 18,
-          isHidden: false,
-        },
-        {
-          id: 3,
-          topicName: "Màu sắc",
-          isFree: true,
-          status: "active",
-          sortOrder: 3,
-          createdAt: "2024-01-25",
-          createdBy: 2,
-          subtopicCount: 10,
-          isHidden: false,
-        },
-        {
-          id: 4,
-          topicName: "Số đếm",
-          isFree: true,
-          status: "active",
-          sortOrder: 4,
-          createdAt: "2024-02-01",
-          createdBy: 1,
-          subtopicCount: 15,
-          isHidden: false,
-        },
-        {
-          id: 5,
-          topicName: "Thức ăn và đồ uống",
-          isFree: false,
-          status: "active",
-          sortOrder: 5,
-          createdAt: "2024-02-05",
-          createdBy: 3,
-          subtopicCount: 25,
-          isHidden: false,
-        },
-      ],
-      newCurriculum: [
-        {
-          id: 1,
-          topicName: "Chào hỏi cơ bản",
-          isFree: true,
-          status: "active",
-          sortOrder: 1,
-          createdAt: "2024-01-15",
-          createdBy: 1,
-          subtopicCount: 12,
-          isHidden: false,
-        },
-        {
-          id: 4,
-          topicName: "Số đếm",
-          isFree: true,
-          status: "active",
-          sortOrder: 2,
-          createdAt: "2024-02-01",
-          createdBy: 1,
-          subtopicCount: 15,
-          isHidden: false,
-        },
-        {
-          id: 3,
-          topicName: "Màu sắc",
-          isFree: true,
-          status: "active",
-          sortOrder: 3,
-          createdAt: "2024-01-25",
-          createdBy: 2,
-          subtopicCount: 10,
-          isHidden: true,
-        },
-        {
-          id: 2,
-          topicName: "Gia đình",
-          isFree: false,
-          status: "active",
-          sortOrder: 4,
-          createdAt: "2024-01-20",
-          createdBy: 1,
-          subtopicCount: 18,
-          isHidden: false,
-        },
-        {
-          id: 5,
-          topicName: "Thức ăn và đồ uống",
-          isFree: false,
-          status: "active",
-          sortOrder: 5,
-          createdAt: "2024-02-05",
-          createdBy: 3,
-          subtopicCount: 25,
-          isHidden: false,
-        },
-      ],
-      status: "pending",
-    },
-    {
-      id: "CR-2024-002",
-      requestedBy: {
-        id: 2,
-        name: "Trần Thị B",
-        email: "tranthib@example.com",
-      },
-      requestedAt: "2024-03-01",
-      reason: "Thêm chủ đề mới về động vật và sắp xếp lại để tạo luồng học tập logic hơn.",
-      oldCurriculum: [
-        {
-          id: 1,
-          topicName: "Chào hỏi cơ bản",
-          isFree: true,
-          status: "active",
-          sortOrder: 1,
-          createdAt: "2024-01-15",
-          createdBy: 1,
-          subtopicCount: 12,
-          isHidden: false,
-        },
-        {
-          id: 2,
-          topicName: "Gia đình",
-          isFree: false,
-          status: "active",
-          sortOrder: 2,
-          createdAt: "2024-01-20",
-          createdBy: 1,
-          subtopicCount: 18,
-          isHidden: false,
-        },
-        {
-          id: 5,
-          topicName: "Thức ăn và đồ uống",
-          isFree: false,
-          status: "active",
-          sortOrder: 3,
-          createdAt: "2024-02-05",
-          createdBy: 3,
-          subtopicCount: 25,
-          isHidden: false,
-        },
-      ],
-      newCurriculum: [
-        {
-          id: 1,
-          topicName: "Chào hỏi cơ bản",
-          isFree: true,
-          status: "active",
-          sortOrder: 1,
-          createdAt: "2024-01-15",
-          createdBy: 1,
-          subtopicCount: 12,
-          isHidden: false,
-        },
-        {
-          id: 6,
-          topicName: "Động vật",
-          isFree: true,
-          status: "active",
-          sortOrder: 2,
-          createdAt: "2024-03-01",
-          createdBy: 2,
-          subtopicCount: 20,
-          isHidden: false,
-        },
-        {
-          id: 2,
-          topicName: "Gia đình",
-          isFree: false,
-          status: "active",
-          sortOrder: 3,
-          createdAt: "2024-01-20",
-          createdBy: 1,
-          subtopicCount: 18,
-          isHidden: false,
-        },
-        {
-          id: 5,
-          topicName: "Thức ăn và đồ uống",
-          isFree: false,
-          status: "active",
-          sortOrder: 4,
-          createdAt: "2024-02-05",
-          createdBy: 3,
-          subtopicCount: 25,
-          isHidden: false,
-        },
-      ],
-      status: "pending",
-    },
-    {
-      id: "CR-2024-003",
-      requestedBy: {
-        id: 3,
-        name: "Lê Văn C",
-        email: "levanc@example.com",
-      },
-      requestedAt: "2024-03-05",
-      reason: "Ẩn các chủ đề khó và tạm thời loại bỏ chủ đề chưa có đủ nội dung.",
-      oldCurriculum: [
-        {
-          id: 7,
-          topicName: "Thời tiết",
-          isFree: true,
-          status: "active",
-          sortOrder: 1,
-          createdAt: "2024-02-10",
-          createdBy: 3,
-          subtopicCount: 8,
-          isHidden: false,
-        },
-        {
-          id: 8,
-          topicName: "Giao thông",
-          isFree: false,
-          status: "active",
-          sortOrder: 2,
-          createdAt: "2024-02-15",
-          createdBy: 3,
-          subtopicCount: 22,
-          isHidden: false,
-        },
-        {
-          id: 9,
-          topicName: "Mua sắm",
-          isFree: false,
-          status: "active",
-          sortOrder: 3,
-          createdAt: "2024-02-20",
-          createdBy: 2,
-          subtopicCount: 16,
-          isHidden: false,
-        },
-        {
-          id: 10,
-          topicName: "Y tế",
-          isFree: false,
-          status: "active",
-          sortOrder: 4,
-          createdAt: "2024-02-25",
-          createdBy: 1,
-          subtopicCount: 30,
-          isHidden: false,
-        },
-      ],
-      newCurriculum: [
-        {
-          id: 7,
-          topicName: "Thời tiết",
-          isFree: true,
-          status: "active",
-          sortOrder: 1,
-          createdAt: "2024-02-10",
-          createdBy: 3,
-          subtopicCount: 8,
-          isHidden: false,
-        },
-        {
-          id: 9,
-          topicName: "Mua sắm",
-          isFree: false,
-          status: "active",
-          sortOrder: 2,
-          createdAt: "2024-02-20",
-          createdBy: 2,
-          subtopicCount: 16,
-          isHidden: false,
-        },
-        {
-          id: 8,
-          topicName: "Giao thông",
-          isFree: false,
-          status: "active",
-          sortOrder: 3,
-          createdAt: "2024-02-15",
-          createdBy: 3,
-          subtopicCount: 22,
-          isHidden: true,
-        },
-        {
-          id: 10,
-          topicName: "Y tế",
-          isFree: false,
-          status: "active",
-          sortOrder: 4,
-          createdAt: "2024-02-25",
-          createdBy: 1,
-          subtopicCount: 30,
-          isHidden: true,
-        },
-      ],
-      status: "pending",
-    },
-  ]
-
-  // Function to get change request by ID
-  const getChangeRequestById = (id: string): CurriculumChangeRequest | null => {
-    return mockChangeRequests.find((request) => request.id === id) || null
-  }
-
   useEffect(() => {
-    const fetchChangeRequest = async () => {
+    const fetchFromDatabase = async () => {
       try {
         setLoading(true)
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Nếu không có requestId trong URL, dùng default
-        const targetId = requestId || "CR-2024-001"
-        const foundRequest = getChangeRequestById(targetId)
-
-        if (foundRequest) {
-          setChangeRequest(foundRequest)
-        } else {
-          // Nếu không tìm thấy, dùng request đầu tiên
-          setChangeRequest(mockChangeRequests[0])
-        }
+        const resp = await TopicService.getTopicList({ page: 0, size: 1000, status: "active" })
+        const list = resp.data?.topicList || []
+        const mapTopic = (t: any): TopicItem => ({
+          id: t.id,
+          topicName: t.topicName,
+          isFree: t.isFree,
+          status: (t.status as "active") || "active",
+          sortOrder: t.sortOrder,
+          createdAt: t.createdAt ? new Date(t.createdAt).toISOString().slice(0, 10) : "",
+          createdBy: t.createdBy,
+          subtopicCount: t.subtopicCount || 0,
+          isHidden: false,
+        })
+        const items: TopicItem[] = list.map(mapTopic)
+        const nowStr = new Date().toISOString().slice(0, 10)
+        setChangeRequest({
+          id: requestId || "CR-AUTO",
+          requestedBy: { id: 0, name: "Hệ thống", email: "" },
+          requestedAt: nowStr,
+          reason: "",
+          oldCurriculum: items,
+          newCurriculum: items,
+          status: "pending",
+        })
       } catch (error) {
-        console.error("Error fetching change request:", error)
-        // Vẫn set data thay vì để loading mãi
-        setChangeRequest(mockChangeRequests[0])
+        console.error("Error loading curriculum from DB:", error)
+        setChangeRequest({
+          id: requestId || "CR-AUTO",
+          requestedBy: { id: 0, name: "Hệ thống", email: "" },
+          requestedAt: new Date().toISOString().slice(0, 10),
+          reason: "",
+          oldCurriculum: [],
+          newCurriculum: [],
+          status: "pending",
+        })
       } finally {
         setLoading(false)
       }
     }
-
-    fetchChangeRequest()
+    fetchFromDatabase()
   }, [requestId])
 
   // Generate color mapping for topics that changed position

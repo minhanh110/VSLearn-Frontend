@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Eye, Ban, Plus, Search } from "lucide-react"
 import { VocabService } from "@/app/services/vocab.service"
+import { useUserRole } from "@/hooks/use-user-role"
 
 interface VocabularyItem {
   id: number
@@ -29,6 +30,7 @@ interface VocabularyItem {
 
 export function ListVocabPageComponent() {
   const router = useRouter()
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTopic, setSelectedTopic] = useState("")
@@ -41,6 +43,16 @@ export function ListVocabPageComponent() {
   const [regions, setRegions] = useState<{ value: string; label: string }[]>([])
   // Dynamic topics state
   const [topics, setTopics] = useState<{ value: string; label: string; id: string | number }[]>([])
+
+  // Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!roleLoading) {
+      if (role !== 'content-creator' && role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
+      }
+    }
+  }, [role, roleLoading, router])
 
   // Fetch regions and topics on mount
   useEffect(() => {
@@ -67,28 +79,31 @@ export function ListVocabPageComponent() {
 
   // Fetch vocabularies data
   useEffect(() => {
-    const fetchVocabularies = async () => {
-      try {
-        setLoading(true)
-        const response = await VocabService.getVocabList({
-          page: currentPage,
-          search: searchTerm,
-          topic: selectedTopic,
-          region: selectedRegion,
-        })
-        const vocabData = response.data.vocabList || response.data.content || response.data || []
-        setVocabularies(Array.isArray(vocabData) ? vocabData : [])
-      } catch (error: any) {
-        console.error("Error fetching vocabularies:", error)
-        alert("Không thể tải danh sách từ vựng. Vui lòng thử lại!")
-        setVocabularies([])
-      } finally {
-        setLoading(false)
+    if (role === 'content-creator' || role === 'content-approver' || role === 'general-manager') {
+      const fetchVocabularies = async () => {
+        try {
+          setLoading(true)
+          const response = await VocabService.getVocabList({
+            page: currentPage - 1,
+            search: searchTerm,
+            topic: selectedTopic,
+            region: selectedRegion,
+            ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
+          })
+          const vocabData = response.data.vocabList || response.data.content || response.data || []
+          setVocabularies(Array.isArray(vocabData) ? vocabData : [])
+        } catch (error: any) {
+          console.error("Error fetching vocabularies:", error)
+          alert("Không thể tải danh sách từ vựng. Vui lòng thử lại!")
+          setVocabularies([])
+        } finally {
+          setLoading(false)
+        }
       }
-    }
 
-    fetchVocabularies()
-  }, [currentPage, searchTerm, selectedTopic, selectedRegion])
+      fetchVocabularies()
+    }
+  }, [currentPage, searchTerm, selectedTopic, selectedRegion, selectedStatus, role])
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Edit, Ban, BookOpen } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { VocabService } from "@/app/services/vocab.service"
+import { useUserRole } from "@/hooks/use-user-role"
+import authService from "@/app/services/auth.service"
 
 interface VocabularyDetail {
   id: number
@@ -29,6 +31,7 @@ export function VocabDetailPageComponent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const vocabId = searchParams.get("id")
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [vocabulary, setVocabulary] = useState<VocabularyDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -42,7 +45,7 @@ export function VocabDetailPageComponent() {
   // Fetch topics and regions on mount
   useEffect(() => {
     // Fetch topics
-    fetch("/vocab/topics")
+    fetch("http://localhost:8080/api/v1/vocab/topics")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -52,7 +55,7 @@ export function VocabDetailPageComponent() {
       .catch(() => setTopics([]))
 
     // Fetch regions
-    fetch("/vocab/regions")
+    fetch("http://localhost:8080/api/v1/vocab/regions")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -119,6 +122,38 @@ export function VocabDetailPageComponent() {
         alert(error?.response?.data?.message || "Có lỗi xảy ra. Vui lòng thử lại!")
       }
     }
+  }
+
+  // Kiểm tra quyền chỉnh sửa
+  const canEdit = () => {
+    if (!vocabulary || !role) return false
+    
+    // General manager và content approver có thể chỉnh sửa tất cả
+    if (role === 'general-manager' || role === 'content-approver') return true
+    
+    // Content creator chỉ có thể chỉnh sửa nội dung mình tạo
+    if (role === 'content-creator') {
+      const currentUserId = authService.getCurrentUserId()
+      return currentUserId && vocabulary.createdBy === currentUserId
+    }
+    
+    return false
+  }
+
+  // Kiểm tra quyền vô hiệu hóa
+  const canDisable = () => {
+    if (!vocabulary || !role) return false
+    
+    // General manager và content approver có thể vô hiệu hóa tất cả
+    if (role === 'general-manager' || role === 'content-approver') return true
+    
+    // Content creator chỉ có thể vô hiệu hóa nội dung mình tạo
+    if (role === 'content-creator') {
+      const currentUserId = authService.getCurrentUserId()
+      return currentUserId && vocabulary.createdBy === currentUserId
+    }
+    
+    return false
   }
 
   if (loading) {
@@ -375,23 +410,29 @@ export function VocabDetailPageComponent() {
                   <span className="relative z-10">QUAY LẠI</span>
                 </Button>
 
-                <Button
-                  onClick={handleEdit}
-                  className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <Edit className="w-5 h-5 relative z-10" />
-                  <span className="relative z-10">CHỈNH SỬA</span>
-                </Button>
+                {/* Chỉ hiển thị nút Edit nếu có quyền */}
+                {canEdit() && (
+                  <Button
+                    onClick={handleEdit}
+                    className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <Edit className="w-5 h-5 relative z-10" />
+                    <span className="relative z-10">CHỈNH SỬA</span>
+                  </Button>
+                )}
 
-                <Button
-                  onClick={handleDisable}
-                  className="group relative flex items-center gap-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <Ban className="w-5 h-5 relative z-10" />
-                  <span className="relative z-10">VÔ HIỆU HÓA</span>
-                </Button>
+                {/* Chỉ hiển thị nút Disable nếu có quyền */}
+                {canDisable() && (
+                  <Button
+                    onClick={handleDisable}
+                    className="group relative flex items-center gap-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <Ban className="w-5 h-5 relative z-10" />
+                    <span className="relative z-10">VÔ HIỆU HÓA</span>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
