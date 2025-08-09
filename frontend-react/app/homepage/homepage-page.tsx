@@ -9,7 +9,6 @@ import axiosInstance from "@/app/services/axios.config"
 import authService from "@/app/services/auth.service"
 import { FlashcardService } from "@/app/services/flashcard.service"
 import { useRouter } from "next/navigation"
-import { jwtDecode } from "jwt-decode"
 import axios from "axios"
 
 export default function HomePage() {
@@ -26,8 +25,6 @@ export default function HomePage() {
       setLoading(true)
       setError(null)
       try {
-        console.log("🔄 Fetching learning path data...")
-        
         // Kiểm tra token expiration
         if (authService.isTokenExpiringSoon()) {
           authService.logout();
@@ -39,31 +36,25 @@ export default function HomePage() {
         const token = authService.getCurrentToken()
         const isAuthenticated = authService.isAuthenticated()
         
-        if (!isAuthenticated) {
+        if (!isAuthenticated || !token) {
           setUserType('guest')
         } else {
           // Kiểm tra subscription status từ backend
           try {
-            const subscriptionRes = await axios.get("/users/subscription-status", {
+            const subscriptionRes = await axios.get("http://localhost:8080/users/subscription-status", {
               headers: { 'Authorization': `Bearer ${token}` }
             })
             
-            console.log("🔍 Subscription response:", subscriptionRes.data)
-            
             if (subscriptionRes.data && subscriptionRes.data.data) {
               const subscriptionData = subscriptionRes.data.data
-              console.log("🔍 Subscription data:", subscriptionData)
               setUserType(subscriptionData.userType)
             } else {
-              console.log("🔍 No subscription data, setting to registered")
               setUserType('registered')
             }
           } catch (subscriptionError: any) {
-            console.warn("⚠️ Error fetching subscription status:", subscriptionError)
-            
-            // Nếu lỗi 401 (Unauthorized), có thể token hết hạn
-            if (subscriptionError.response?.status === 401) {
-              console.log("🔑 Token expired or invalid, setting user type to guest")
+            if (subscriptionError.message === 'Network Error' || subscriptionError.code === 'ERR_NETWORK') {
+              setUserType('guest')
+            } else if (subscriptionError.response?.status === 401 || subscriptionError.response?.status === 403) {
               authService.logout()
               setUserType('guest')
             } else {
@@ -72,24 +63,17 @@ export default function HomePage() {
           }
         }
         
-        // Gọi API learning-path để lấy dữ liệu units từ database (cho tất cả user)
-        console.log("📊 Calling learning-path API for all users")
-        
+        // Gọi API learning-path để lấy dữ liệu units
         const headers: Record<string, string> = {}
         if (token) {
           headers['Authorization'] = `Bearer ${token}`
         }
         
         const res1 = await axiosInstance.get("/learning-path", { headers })
-        console.log("📊 Learning path response:", res1.data)
-        console.log("📊 Response status:", res1.status)
-        console.log("📊 Response headers:", res1.headers)
-        
         if (res1.data && res1.data.data) {
           setUnits(res1.data.data)
-          console.log("📊 Units loaded:", res1.data.data.length, "units")
           
-          // Extract completed lessons từ units (backend đã tính toán accessible)
+          // Extract completed lessons từ units
           const allCompletedLessons: string[] = [];
           res1.data.data.forEach((unit: any) => {
             unit.lessons.forEach((lesson: any) => {
@@ -98,24 +82,15 @@ export default function HomePage() {
               }
             });
           });
-          
           setCompletedLessons(allCompletedLessons);
-          console.log("✅ Completed lessons extracted:", allCompletedLessons);
         } else {
-          console.warn("⚠️ No units data in response")
           setUnits([])
         }
-      
-        
-              } catch (error: any) {
-          console.error("❌ Error fetching data:", error)
-          setError(error.message || "Failed to load data")
-        } finally {
-          setLoading(false)
-          console.log("🏁 Finished loading data")
-          console.log("🏁 Final units state:", units)
-          console.log("🏁 Final completedLessons state:", completedLessons)
-        }
+      } catch (error: any) {
+        setError(error.message || "Failed to load data")
+      } finally {
+        setLoading(false)
+      }
     }
     fetchData()
   }, [router])
@@ -123,18 +98,14 @@ export default function HomePage() {
   // Refresh data when returning from test result page
   useEffect(() => {
     const handleFocus = () => {
-      // Check if we're returning from test result page
       const testResults = sessionStorage.getItem("testResults");
       if (testResults) {
         try {
           const results = JSON.parse(testResults);
           if (results.accuracy >= 90) {
-            // Test passed with ≥90%, refresh data to show unlocked topics
             window.location.reload();
           }
-        } catch (e) {
-          console.warn("Error parsing test results:", e);
-        }
+        } catch {}
       }
     };
 
@@ -149,22 +120,19 @@ export default function HomePage() {
         authService.logout();
         router.push('/login');
       }
-    }, 60000); // Kiểm tra mỗi phút
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [router]);
 
   const markLessonCompleted = async (lessonId: string) => {
     try {
-      // Gọi API thực cho tất cả user
       await axiosInstance.post("/progress", { lessonId: parseInt(lessonId) })
       setCompletedLessons((prev) => prev.includes(lessonId) ? prev : [...prev, lessonId])
     } catch (err) {
-      console.error("❌ Error marking lesson completed:", err)
+      // no-op
     }
   }
-
-
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-cyan-50 flex items-center justify-center">
@@ -191,7 +159,7 @@ export default function HomePage() {
     </div>
   )
 
-  // Hiển thị thông tin debug nếu không có units
+  // Hiển thị thông tin khi không có units
   if (!units || units.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-cyan-50 flex items-center justify-center">
@@ -199,14 +167,8 @@ export default function HomePage() {
           <div className="text-yellow-500 text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-bold text-yellow-600 mb-2">Không có dữ liệu</h2>
           <p className="text-gray-600 mb-4">
-            Không tìm thấy units trong database. Vui lòng kiểm tra:
+            Không tìm thấy units trong database.
           </p>
-          <ul className="text-left text-sm text-gray-500 mb-4 max-w-md mx-auto">
-            <li>• Database có dữ liệu trong bảng topic và sub_topic</li>
-            <li>• Backend API /api/v1/learning-path hoạt động</li>
-            <li>• Console logs để xem chi tiết lỗi</li>
-          </ul>
-
           <button 
             onClick={() => window.location.reload()} 
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -223,19 +185,6 @@ export default function HomePage() {
       {/* Fixed Header */}
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} showMenuButton={true} />
       
-      {/* Debug component to show current role */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-100 border-l-4 border-gray-400 p-2 mb-4 text-xs">
-          <strong>Debug:</strong> UserType: {userType} | Units: {units.length} | 
-          <span className="ml-2">
-            {userType === 'guest' && 'Guest - 1 topic'}
-            {userType === 'registered' && 'Registered - 2 topics'}
-            {userType === 'premium' && 'Premium - All topics'}
-          </span>
-        </div>
-      )}
-      
-
       {/* User Type Notification */}
       {userType === 'guest' && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
