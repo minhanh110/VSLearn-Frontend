@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts"
 import { Users, ShoppingCart, TrendingUp, Calendar, DollarSign } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import axios from "axios"
+import { apiInstance } from "@/app/services/axios.config"
 
 // Function to generate random colors
 const generateRandomColor = () => {
@@ -62,12 +62,7 @@ export function RevenueDashboardComponent() {
   const fetchRevenueStats = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("token")
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      
-      const response = await axios.get(`${API_BASE_URL}/api/v1/revenue/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await apiInstance.get(`/revenue/stats`)
       
       if (response.data && response.data.status === 200) {
         setStatsData({
@@ -90,16 +85,11 @@ export function RevenueDashboardComponent() {
   const fetchRevenueByPeriod = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("token")
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      
       const params = new URLSearchParams()
       if (barChartYear !== "all") params.append("year", barChartYear)
       if (barChartMonth !== "all") params.append("month", barChartMonth)
       
-      const response = await axios.get(`${API_BASE_URL}/api/v1/revenue/by-period?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await apiInstance.get(`/revenue/by-period?${params}`)
       
       if (response.data && response.data.status === 200) {
         setRevenueData(response.data.revenueData || [])
@@ -116,16 +106,11 @@ export function RevenueDashboardComponent() {
   const fetchPackageStats = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("token")
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
-      
       const params = new URLSearchParams()
       if (pieChartYear !== "all") params.append("year", pieChartYear)
       if (pieChartMonth !== "all") params.append("month", pieChartMonth)
       
-      const response = await axios.get(`${API_BASE_URL}/api/v1/revenue/package-stats?${params}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await apiInstance.get(`/revenue/package-stats?${params}`)
       
       if (response.data && response.data.status === 200) {
         const packageStats = response.data.packageStats || []
