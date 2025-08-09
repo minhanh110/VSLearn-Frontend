@@ -5,158 +5,90 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Eye, Trash2, Search, CheckCircle } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Eye, Edit, Trash2, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { VocabService } from "@/app/services/vocab.service"
+import { useUserRole } from "@/hooks/use-user-role"
 
-interface ApprovedVocab {
+interface ApprovedVocabItem {
   id: number
   vocab: string
   meaning?: string
-  topicName: string
-  subTopicName: string
-  region?: string
-  status: "active"
-  description?: string
-  videoLink?: string
+  pronunciation?: string
+  example?: string
+  status: string
+  topicId?: number
+  topicName?: string
   createdAt: string
   createdBy: number
   updatedAt?: string
   updatedBy?: number
+  deletedAt?: string
+  deletedBy?: number
 }
 
 export function ListApprovedVocabComponent() {
   const router = useRouter()
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedStatus, setSelectedStatus] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [approvedVocabs, setApprovedVocabs] = useState<ApprovedVocab[]>([])
+  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize] = useState(10)
+  const [vocabularies, setVocabularies] = useState<ApprovedVocabItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [selectedVocabId, setSelectedVocabId] = useState<number | null>(null)
 
-  // Mock data for approved vocabularies
-  const mockApprovedVocabs: ApprovedVocab[] = [
-    {
-      id: 1,
-      vocab: "Xin chào",
-      meaning: "Lời chào hỏi thân thiện",
-      topicName: "Chào hỏi cơ bản",
-      subTopicName: "Chào hỏi hàng ngày",
-      region: "Miền Bắc",
-      status: "active",
-      createdAt: "2024-01-15",
-      createdBy: 1,
-    },
-    {
-      id: 2,
-      vocab: "Cảm ơn",
-      meaning: "Lời cảm ơn",
-      topicName: "Chào hỏi cơ bản",
-      subTopicName: "Lời cảm ơn",
-      region: "Toàn quốc",
-      status: "active",
-      createdAt: "2024-01-20",
-      createdBy: 2,
-    },
-    {
-      id: 3,
-      vocab: "Bố",
-      meaning: "Người cha",
-      topicName: "Gia đình",
-      subTopicName: "Thành viên gia đình",
-      region: "Toàn quốc",
-      status: "active",
-      createdAt: "2024-01-25",
-      createdBy: 1,
-    },
-    {
-      id: 4,
-      vocab: "Mẹ",
-      meaning: "Người mẹ",
-      topicName: "Gia đình",
-      subTopicName: "Thành viên gia đình",
-      region: "Toàn quốc",
-      status: "active",
-      createdAt: "2024-02-01",
-      createdBy: 3,
-    },
-    {
-      id: 5,
-      vocab: "Đỏ",
-      meaning: "Màu đỏ",
-      topicName: "Màu sắc",
-      subTopicName: "Màu cơ bản",
-      region: "Toàn quốc",
-      status: "active",
-      createdAt: "2024-02-05",
-      createdBy: 2,
-    },
-    {
-      id: 6,
-      vocab: "Xanh",
-      meaning: "Màu xanh",
-      topicName: "Màu sắc",
-      subTopicName: "Màu cơ bản",
-      region: "Miền Nam",
-      status: "active",
-      createdAt: "2024-02-10",
-      createdBy: 1,
-    },
-    {
-      id: 7,
-      vocab: "Một",
-      meaning: "Số 1",
-      topicName: "Số đếm",
-      subTopicName: "Số từ 1-10",
-      region: "Toàn quốc",
-      status: "active",
-      createdAt: "2024-02-15",
-      createdBy: 3,
-    },
-    {
-      id: 8,
-      vocab: "Hai",
-      meaning: "Số 2",
-      topicName: "Số đếm",
-      subTopicName: "Số từ 1-10",
-      region: "Toàn quốc",
-      status: "active",
-      createdAt: "2024-02-20",
-      createdBy: 2,
-    },
-  ]
-
-  // Fetch approved vocabularies
+  // Kiểm tra quyền truy cập
   useEffect(() => {
-    const fetchApprovedVocabs = async () => {
-      try {
-        setLoading(true)
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Filter vocabularies based on search term
-        const filteredVocabs = mockApprovedVocabs.filter(
-          (vocab) =>
-            vocab.vocab.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            vocab.meaning?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            vocab.topicName.toLowerCase().includes(searchTerm.toLowerCase()),
-        )
-
-        setApprovedVocabs(filteredVocabs)
-      } catch (error: any) {
-        console.error("Error fetching approved vocabularies:", error)
-        alert("Không thể tải danh sách từ vựng đã phê duyệt. Vui lòng thử lại!")
-        setApprovedVocabs([])
-      } finally {
-        setLoading(false)
+    if (!roleLoading) {
+      if (role !== 'content-creator' && role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
       }
     }
+  }, [role, roleLoading, router])
 
-    fetchApprovedVocabs()
-  }, [searchTerm])
+  // Fetch approved vocabularies data (server-side pagination)
+  useEffect(() => {
+    if (role === 'content-creator' || role === 'content-approver' || role === 'general-manager') {
+      const fetchApprovedVocabularies = async () => {
+        try {
+          setLoading(true)
+          const response = await VocabService.getVocabList({
+            page: currentPage - 1,
+            size: pageSize,
+            search: searchTerm,
+            status: "active", // Chỉ lấy vocab đã được approve mặc định
+            ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
+          })
+          const data = response.data
+          setVocabularies(data.vocabList || data)
+          if (typeof data.totalPages === 'number') {
+            setTotalPages(Math.max(1, data.totalPages))
+          } else {
+            // Fallback nếu backend không trả totalPages
+            setTotalPages(1)
+          }
+        } catch (error: any) {
+          console.error("Error fetching approved vocabularies:", error)
+          alert("Không thể tải danh sách từ vựng đã duyệt. Vui lòng thử lại!")
+          setVocabularies([])
+          setTotalPages(1)
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchApprovedVocabularies()
+    }
+  }, [currentPage, searchTerm, selectedStatus, role, pageSize])
 
   const handleViewDetails = (id: number) => {
-    router.push(`/vocab-details?id=${id}`)
+    router.push(`/vocab-detail?id=${id}`)
   }
 
   const handleShowDeleteModal = (id: number) => {
@@ -169,10 +101,8 @@ export function ListApprovedVocabComponent() {
 
     try {
       // Here you would make API call to delete vocab
-      console.log(`Deleting vocab with id: ${selectedVocabId}`)
-
       // Remove from local state
-      setApprovedVocabs(approvedVocabs.filter((vocab) => vocab.id !== selectedVocabId))
+      setVocabularies(vocabularies.filter((vocab) => vocab.id !== selectedVocabId))
       alert("Xóa từ vựng thành công!")
     } catch (error: any) {
       alert("Có lỗi xảy ra khi xóa từ vựng. Vui lòng thử lại!")
@@ -182,12 +112,7 @@ export function ListApprovedVocabComponent() {
     }
   }
 
-  const totalPages = Math.ceil(approvedVocabs.length / 10)
-  const startIndex = (currentPage - 1) * 10
-  const endIndex = startIndex + 10
-  const currentVocabs = approvedVocabs.slice(startIndex, endIndex)
-
-  const selectedVocabForDelete = approvedVocabs.find((v) => v.id === selectedVocabId)
+  const selectedVocabForDelete = vocabularies.find((v) => v.id === selectedVocabId)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 relative overflow-hidden">
@@ -215,7 +140,6 @@ export function ListApprovedVocabComponent() {
           {/* Page Title */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <CheckCircle className="w-10 h-10 text-blue-600" />
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent leading-relaxed">
                 TỪ VỰNG ĐÃ PHÊ DUYỆT
               </h1>
@@ -235,7 +159,7 @@ export function ListApprovedVocabComponent() {
                     type="text"
                     placeholder="Tìm kiếm từ vựng..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => { setCurrentPage(1); setSearchTerm(e.target.value); }}
                     className="pl-12 pr-4 h-14 border-3 border-blue-300/60 rounded-2xl bg-white/90 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-200/50 transition-all duration-300 shadow-lg hover:shadow-xl font-medium text-gray-700 placeholder:text-gray-400 w-full"
                   />
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 pointer-events-none"></div>
@@ -267,12 +191,12 @@ export function ListApprovedVocabComponent() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                     <p className="text-blue-700 font-medium">Đang tải...</p>
                   </div>
-                ) : currentVocabs.length === 0 ? (
+                ) : vocabularies.length === 0 ? (
                   <div className="px-4 sm:px-8 py-8 text-center">
                     <p className="text-gray-600">Không có từ vựng nào được phê duyệt.</p>
                   </div>
                 ) : (
-                  currentVocabs.map((vocab, index) => (
+                  vocabularies.map((vocab) => (
                     <div
                       key={vocab.id}
                       className="px-4 sm:px-8 py-4 sm:py-6 hover:bg-blue-50/30 transition-colors group"
@@ -294,15 +218,12 @@ export function ListApprovedVocabComponent() {
                             <span className="text-gray-700 font-medium truncate">
                               {vocab.topicName || "Chưa phân loại"}
                             </span>
-                            {vocab.subTopicName && (
-                              <span className="text-xs text-gray-500 truncate">{vocab.subTopicName}</span>
-                            )}
                           </div>
                         </div>
 
                         {/* Region Column */}
                         <div className="text-center">
-                          <div className="text-gray-700 font-medium truncate">{vocab.region || "Toàn quốc"}</div>
+                          <div className="text-gray-700 font-medium truncate">Toàn quốc</div>
                         </div>
 
                         {/* Status Column */}
@@ -326,12 +247,12 @@ export function ListApprovedVocabComponent() {
                             className="group/btn relative flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-1 sm:py-2 px-2 sm:px-4 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
                             title="Xem chi tiết từ vựng"
                           >
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from.white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
                             <Eye className="w-3 h-3 sm:w-4 sm:h-4 relative z-10" />
                           </Button>
                           <Button
                             onClick={() => handleShowDeleteModal(vocab.id)}
-                            className="group/btn relative flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-bold py-1 sm:py-2 px-2 sm:px-4 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
+                            className="group/btn relative flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text.white font-bold py-1 sm:py-2 px-2 sm:px-4 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
                             title="Xóa từ vựng"
                           >
                             <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
@@ -357,8 +278,17 @@ export function ListApprovedVocabComponent() {
                 ←
               </Button>
 
+              {/* Dynamic page numbers */}
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const pageNum = i + 1
+                // Compute centered window around currentPage
+                const half = Math.floor(5 / 2)
+                let start = Math.max(1, currentPage - half)
+                let end = Math.min(totalPages, start + 5 - 1)
+                if (end - start + 1 < 5) {
+                  start = Math.max(1, end - 5 + 1)
+                }
+                const pageNum = start + i
+                if (pageNum > totalPages) return null
                 return (
                   <Button
                     key={pageNum}
@@ -395,7 +325,7 @@ export function ListApprovedVocabComponent() {
               <Trash2 className="w-12 h-12 text-red-600 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-red-700 mb-2">XÁC NHẬN XÓA</h3>
               <p className="text-gray-600">
-                Bạn có chắc chắn muốn xóa từ vựng{" "}
+                Bạn có chắc chắn muốn xóa từ vựng {""}
                 <span className="font-bold text-blue-600">"{selectedVocabForDelete.vocab}"</span>?
               </p>
               <p className="text-sm text-gray-500 mt-2">Hành động này không thể hoàn tác.</p>
@@ -410,7 +340,7 @@ export function ListApprovedVocabComponent() {
               </Button>
               <Button
                 onClick={handleConfirmDelete}
-                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                className="flex-1 bg.gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 Xóa
               </Button>
