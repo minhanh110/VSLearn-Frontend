@@ -1,82 +1,35 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Bell, Menu, User, Settings, LogOut, X } from 'lucide-react'
+import { Bell, Menu, User, Settings, LogOut, X, RefreshCw } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
 import { useUser } from "@/hooks/useUser"
 import { useUserRole } from "@/hooks/use-user-role"
+import { NotificationService, type Notification } from "@/app/services/notification.service"
+import authService from "@/app/services/auth.service"
 
 interface HeaderProps {
   onMenuToggle?: () => void
   showMenuButton?: boolean
 }
 
-// Simplified notification structure
-interface Notification {
-  id: number
-  message: string
-  isRead: boolean
-  time: string
-  link?: string
-}
-
-// Mock notifications data
-const mockNotifications: Notification[] = [
-  {
-    id: 1,
-    message: "Chủ đề 'Giao tiếp hàng ngày' của bạn đã được phê duyệt bởi người kiểm duyệt.",
-    isRead: false,
-    time: "5 phút trước",
-    link: "/content-creator/topics"
-  },
-  {
-    id: 2,
-    message: "Bạn có 3 từ vựng mới cần duyệt trong chủ đề 'Gia đình'.",
-    isRead: false,
-    time: "15 phút trước",
-    link: "/content-approver/vocabulary-review"
-  },
-  {
-    id: 3,
-    message: "Người dùng Nguyễn Văn A đã đăng ký gói Premium thành công.",
-    isRead: true,
-    time: "1 giờ trước",
-    link: "/general-manager/users"
-  },
-  {
-    id: 4,
-    message: "Chủ đề 'Màu sắc' cần được chỉnh sửa theo góp ý của người kiểm duyệt.",
-    isRead: true,
-    time: "2 giờ trước",
-    link: "/content-creator/topics/edit/4"
-  },
-  {
-    id: 5,
-    message: "Báo cáo doanh thu tháng 3 đã sẵn sàng để xem.",
-    isRead: true,
-    time: "1 ngày trước",
-    link: "/general-manager/reports"
-  }
-]
-
 export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
   const notificationRef = useRef<HTMLDivElement>(null)
 
-  const { userInfo, loading, isAuthenticated } = useUser()
+  const { userInfo, loading: userLoading, isAuthenticated } = useUser()
   const { role } = useUserRole()
-
-  // Calculate unread notifications
-  const unreadCount = notifications.filter(n => !n.isRead).length
 
   // Filter notifications based on active tab
   const filteredNotifications = activeTab === 'all' 
     ? notifications 
-    : notifications.filter(n => !n.isRead)
+    : notifications.filter(n => !n.isSend)
 
   // Map role sang tên tiếng Việt
   const roleLabel = (() => {
@@ -99,20 +52,67 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
   const firstName = userInfo?.firstName || ""
   const userAvatar = userInfo?.userAvatar
 
+  // Load notifications when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && userInfo?.id) {
+      loadNotifications()
+      loadUnreadCount()
+    }
+  }, [isAuthenticated, userInfo?.id])
+
+  // Auto refresh notifications every 30 seconds
+  useEffect(() => {
+    if (!isAuthenticated || !userInfo?.id) return
+
+    const interval = setInterval(() => {
+      loadUnreadCount()
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [isAuthenticated, userInfo?.id])
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true)
+      const response = await NotificationService.getMyNotifications(0, 20)
+      if (response.success && Array.isArray(response.data)) {
+        setNotifications(response.data)
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadUnreadCount = async () => {
+    try {
+      const count = await NotificationService.countMyUnsentNotifications()
+      setUnreadCount(count)
+    } catch (error) {
+      console.error('Error loading unread count:', error)
+    }
+  }
+
   // Handle notification click
-  const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
-    setNotifications(prev => 
-      prev.map(n => 
-        n.id === notification.id 
-          ? { ...n, isRead: true }
-          : n
-      )
-    )
-    
-    // Navigate to link if exists
-    if (notification.link) {
-      window.location.href = notification.link
+  const handleNotificationClick = async (notification: Notification) => {
+    try {
+      // Mark as read if not already read
+      if (!notification.isSend) {
+        await NotificationService.markAsSent(notification.id)
+        // Update local state
+        setNotifications(prev => 
+          prev.map(n => 
+            n.id === notification.id 
+              ? { ...n, isSend: true }
+              : n
+          )
+        )
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
     }
     
     // Close dropdown
@@ -120,10 +120,29 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
   }
 
   // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    )
+  const markAllAsRead = async () => {
+    try {
+      await NotificationService.markAllMyNotificationsAsSent()
+      // Update local state
+      setNotifications(prev => 
+        prev.map(notification => ({ ...notification, isSend: true }))
+      )
+      setUnreadCount(0)
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error)
+    }
+  }
+
+  // Format time ago
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) return 'Vừa xong'
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} phút trước`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} giờ trước`
+    return `${Math.floor(diffInSeconds / 86400)} ngày trước`
   }
 
   // Close notifications when clicking outside
@@ -331,14 +350,26 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                 <div className="px-6 py-4 border-b border-gray-100">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xl font-bold text-gray-900">Thông báo</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowNotifications(false)}
-                      className="p-1 hover:bg-gray-100 rounded-full"
-                    >
-                      <X className="w-5 h-5 text-gray-500" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadNotifications}
+                        disabled={loading}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                        title="Làm mới"
+                      >
+                        <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? 'animate-spin' : ''}`} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowNotifications(false)}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                      >
+                        <X className="w-5 h-5 text-gray-500" />
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* Tabs */}
@@ -368,31 +399,36 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
 
                 {/* Notifications List */}
                 <div className="max-h-96 overflow-y-auto">
-                  {filteredNotifications.length > 0 ? (
+                  {loading ? (
+                    <div className="p-8 text-center">
+                      <RefreshCw className="w-12 h-12 text-gray-300 mx-auto mb-3 animate-spin" />
+                      <p className="text-gray-500">Đang tải thông báo...</p>
+                    </div>
+                  ) : filteredNotifications.length > 0 ? (
                     <div>
                       {filteredNotifications.map((notification) => (
                         <div
                           key={notification.id}
                           onClick={() => handleNotificationClick(notification)}
                           className={`p-4 cursor-pointer transition-colors border-l-4 ${
-                            !notification.isRead
+                            !notification.isSend
                               ? 'bg-blue-50 hover:bg-blue-100 border-blue-400'
                               : 'bg-white hover:bg-gray-50 border-transparent'
                           }`}
                         >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 pr-3">
-                              <p className="text-sm text-gray-800 leading-relaxed mb-2">
-                                {notification.message}
-                              </p>
-                              <p className="text-xs text-blue-600 font-medium">
-                                {notification.time}
-                              </p>
+                                                      <div className="flex items-start justify-between">
+                              <div className="flex-1 pr-3">
+                                <p className="text-sm text-gray-800 leading-relaxed mb-2">
+                                  {notification.content}
+                                </p>
+                                <p className="text-xs text-blue-600 font-medium">
+                                  {formatTimeAgo(notification.createdAt)}
+                                </p>
+                              </div>
+                              {!notification.isSend && (
+                                <div className="w-3 h-3 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+                              )}
                             </div>
-                            {!notification.isRead && (
-                              <div className="w-3 h-3 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
-                            )}
-                          </div>
                         </div>
                       ))}
                     </div>
