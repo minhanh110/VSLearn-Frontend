@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Eye, Edit, Trash2, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { TopicService } from "@/app/services/topic.service"
+import { useUserRole } from "@/hooks/use-user-role"
 
 interface TopicItem {
   id: number
@@ -26,6 +27,7 @@ interface TopicItem {
 
 export function ListTopicsPageComponent() {
   const router = useRouter()
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all") // Mặc định là tất cả trạng thái
@@ -33,29 +35,41 @@ export function ListTopicsPageComponent() {
   const [topics, setTopics] = useState<TopicItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fetch topics data
+  // Kiểm tra quyền truy cập
   useEffect(() => {
-    const fetchTopics = async () => {
-      try {
-        setLoading(true)
-        const response = await TopicService.getTopicList({
-          page: currentPage - 1, // Backend uses 0-based indexing
-          search: searchTerm,
-          ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
-        })
-        setTopics(response.data.topicList || response.data)
-      } catch (error: any) {
-        console.error("Error fetching topics:", error)
-        // Không set fallback data, chỉ hiển thị error
-        alert("Không thể tải danh sách chủ đề. Vui lòng thử lại!")
-        setTopics([])
-      } finally {
-        setLoading(false)
+    if (!roleLoading) {
+      if (role !== 'content-creator' && role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
       }
     }
+  }, [role, roleLoading, router])
 
-    fetchTopics()
-  }, [currentPage, searchTerm, selectedStatus])
+  // Fetch topics data
+  useEffect(() => {
+    if (role === 'content-creator' || role === 'content-approver' || role === 'general-manager') {
+      const fetchTopics = async () => {
+        try {
+          setLoading(true)
+          const response = await TopicService.getTopicList({
+            page: currentPage - 1, // Backend uses 0-based indexing
+            search: searchTerm,
+            ...(selectedStatus !== "all" ? { status: selectedStatus } : {}),
+          })
+          setTopics(response.data.topicList || response.data)
+        } catch (error: any) {
+          console.error("Error fetching topics:", error)
+          // Không set fallback data, chỉ hiển thị error
+          alert("Không thể tải danh sách chủ đề. Vui lòng thử lại!")
+          setTopics([])
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchTopics()
+    }
+  }, [currentPage, searchTerm, selectedStatus, role])
 
   const statusOptions = [
     { value: "all", label: "Tất cả trạng thái" },
