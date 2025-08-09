@@ -13,9 +13,12 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, Video, Plus, X, Search, AlertCircle, CheckCircle } from "lucide-react"
+import { TopicService } from "@/app/services/topic.service"
+import { VocabService } from "@/app/services/vocab.service"
+import { WordService } from "@/app/services/word.service"
 
 // Mock data for demonstration
-const mockWords = [
+let mockWords = [
   { word: "Tôi", topicId: "1", subtopicName: "Chủ đề con 1.1" },
   { word: "là", topicId: "1", subtopicName: "Chủ đề con 1.1" },
   { word: "bác sĩ", topicId: "1", subtopicName: "Chủ đề con 1.2" },
@@ -80,7 +83,7 @@ const mockWords = [
   { word: "mười", topicId: "1", subtopicName: "Chủ đề con 1.2" },
 ]
 
-const mockTopics = [
+let mockTopics = [
   { id: "all", name: "Tất cả chủ đề", subtopics: [] },
   { id: "1", name: "Chủ đề lớn 1", subtopics: ["Chủ đề con 1.1", "Chủ đề con 1.2"] },
   { id: "2", name: "Chủ đề lớn 2", subtopics: ["Chủ đề con 2.1", "Chủ đề con 2.2"] },
@@ -95,6 +98,63 @@ export default function CreateSentencesPageContent(): ReactElement {
   const [isMenuOpen, setIsMenuOpen] = useState(false) // Add this line
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showWarningModal, setShowWarningModal] = useState(false)
+
+  // NEW: state thay cho mock data
+  const [topics, setTopics] = useState<{ id: string; name: string; subtopics: string[] }[]>([
+    { id: "all", name: "Tất cả chủ đề", subtopics: [] },
+  ])
+  const [words, setWords] = useState<{ word: string; topicId: string; subtopicName: string }[]>([])
+
+  // NEW: hydrate từ API
+  useEffect(() => {
+    const hydrateTopics = async () => {
+      try {
+        const res = await TopicService.getTopicList({ page: 0, size: 100, status: "active" })
+        const list = res.data.topicList || res.data || []
+        setTopics([
+          { id: "all", name: "Tất cả chủ đề", subtopics: [] },
+          ...list.map((t: any) => ({ id: String(t.id), name: t.topicName, subtopics: [] })),
+        ])
+      } catch {}
+    }
+    hydrateTopics()
+  }, [])
+
+  useEffect(() => {
+    const hydrateWords = async () => {
+      try {
+        const params: any = { page: 0, size: 300, status: "active" }
+        if (selectedFilter !== "all") {
+          const t = topics.find((x) => x.id === selectedFilter)
+          if (t?.name) params.topic = t.name
+        }
+        const [vocabRes, distractors] = await Promise.all([
+          VocabService.getVocabList(params),
+          WordService.getRandomWords(80),
+        ])
+        const list = vocabRes.data.vocabList || vocabRes.data || []
+        // Merge vocab + distractors, dedupe by word (case-insensitive)
+        const vocabItems = list.map((v: any) => ({
+          word: v.vocab,
+          topicId: selectedFilter !== "all" ? selectedFilter : String(v.topicId || v.topic?.id || ""),
+          subtopicName: v.subTopicName || "",
+        }))
+        const distractorItems = (distractors || []).map((w: string) => ({ word: w, topicId: "distractor", subtopicName: "" }))
+        const merged = [...vocabItems, ...distractorItems]
+        const seen = new Set<string>()
+        const dedup = merged.filter((it) => {
+          const key = (it.word || "").trim().toLowerCase()
+          if (!key || seen.has(key)) return false
+          seen.add(key)
+          return true
+        })
+        setWords(dedup)
+      } catch {
+        setWords([])
+      }
+    }
+    hydrateWords()
+  }, [selectedFilter, topics])
 
   const handleAddWordSlot = () => {
     setSentenceWords([...sentenceWords, ""])
@@ -165,7 +225,7 @@ export default function CreateSentencesPageContent(): ReactElement {
     setDragOverIndex(null)
   }
 
-  const filteredGlobalWords = mockWords.filter((item) => {
+  const filteredGlobalWords = words.filter((item) => {
     const matchesSearchTerm = item.word.toLowerCase().includes(globalSearchTerm.toLowerCase())
 
     if (selectedFilter === "all") {
@@ -304,7 +364,7 @@ export default function CreateSentencesPageContent(): ReactElement {
                             word={word}
                             onWordChange={(value) => handleWordChange(index, value)}
                             onRemove={() => handleRemoveWordSlot(index)}
-                            mockWords={mockWords.map((item) => item.word)}
+                            mockWords={words.map((item) => item.word)}
                             isDragging={isDragging}
                           />
                         </div>
@@ -354,7 +414,7 @@ export default function CreateSentencesPageContent(): ReactElement {
                     <SelectValue placeholder="Topic" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockTopics.map((topic) => (
+                    {topics.map((topic) => (
                       <SelectItem key={topic.id} value={topic.id} className="font-semibold">
                         {topic.name}
                       </SelectItem>
@@ -374,7 +434,7 @@ export default function CreateSentencesPageContent(): ReactElement {
                     >
                       <span>{item.word}</span>
                       <span className="text-gray-600 text-sm">
-                        {mockTopics.find((t) => t.id === item.topicId)?.name}
+                        {topics.find((t) => t.id === item.topicId)?.name}
                       </span>
                     </div>
                   ))
@@ -447,7 +507,6 @@ export default function CreateSentencesPageContent(): ReactElement {
     </div>
   )
 }
-
 interface WordInputChipProps {
   word: string
   onWordChange: (value: string) => void
@@ -570,3 +629,4 @@ function WordInputChip({ word, onWordChange, onRemove, mockWords, isDragging }: 
     </div>
   )
 }
+

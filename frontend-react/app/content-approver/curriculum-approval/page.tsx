@@ -1,5 +1,8 @@
 "use client"
 import CurriculumApprovalPage from "./curriculum-approval-page"
+import { useUserRole } from "@/hooks/use-user-role"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 interface TopicItem {
   id: number
@@ -28,5 +31,18 @@ interface CurriculumChangeRequest {
 }
 
 export default function Page() {
+  const { role, loading: roleLoading } = useUserRole()
+  const router = useRouter()
+
+  // Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!roleLoading) {
+      if (role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
+      }
+    }
+  }, [role, roleLoading, router])
+
   return <CurriculumApprovalPage />
 }
