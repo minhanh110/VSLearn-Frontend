@@ -4,10 +4,14 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, ChevronRight, Check, X, BookOpen, Star, History } from 'lucide-react' // Added Star and History icons
+import { ArrowLeft, ChevronRight, Check, X, BookOpen, Star, History, Edit } from 'lucide-react' // Added Star and History icons
 import { useRouter, useSearchParams } from "next/navigation"
 import { TopicService } from "@/app/services/topic.service"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { useUserRole } from "@/hooks/use-user-role"
+import authService from "@/app/services/auth.service"
+import { FlashcardService } from "@/app/services/flashcard.service"
+import { FeedbackService } from "@/app/services/feedback.service"
 
 interface TopicDetail {
   id: number
@@ -64,59 +68,69 @@ export function TopicDetailsPageComponent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const topicId = searchParams.get("id")
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [topic, setTopic] = useState<TopicDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [subtopics, setSubtopics] = useState<Subtopic[]>([])
   const [activeTab, setActiveTab] = useState<"subtopics" | "sentences" | "reviews" | "review-history">("subtopics")
 
-  // Mock sentences data for demonstration
-  const [sentences, setSentences] = useState<Sentence[]>([
-    { id: "s1", content: "Tôi là học sinh." },
-    { id: "s2", content: "Cô ấy rất đẹp." },
-    { id: "s3", content: "Chúng tôi đang học tiếng Anh." },
-    { id: "s4", content: "Bạn có thích đọc sách không?" },
-    { id: "s5", content: "Hà Nội là thủ đô của Việt Nam." },
-    { id: "s6", content: "Màu xanh là màu yêu thích của tôi." },
-    { id: "s7", content: "Hôm nay trời rất đẹp." },
-    { id: "s8", content: "Tôi muốn đi du lịch vòng quanh thế giới." },
-    { id: "s9", content: "Anh ấy là một bác sĩ giỏi." },
-    { id: "s10", content: "Chúng ta hãy cùng nhau học tập." },
-    { id: "s11", content: "Bữa tối nay có gì ngon?" },
-    { id: "s12", content: "Tôi thích nghe nhạc." },
-    { id: "s13", content: "Bạn có thể giúp tôi không?" },
-    { id: "s14", content: "Đây là một cuốn sách thú vị." },
-    { id: "s15", content: "Thời tiết hôm nay thật tuyệt vời." },
-  ])
+  const [sentences, setSentences] = useState<Sentence[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [reviewHistory, setReviewHistory] = useState<ReviewHistoryEntry[]>([])
 
-  // Mock reviews data
-  const [reviews, setReviews] = useState<Review[]>([
-    { id: 1, username: "Nguyễn Văn A", rating: 5, content: "Bài học rất hay và dễ hiểu!", date: "2024-07-20" },
-    { id: 2, username: "Trần Thị B", rating: 4, content: "Nội dung phong phú, nhưng video hơi mờ.", date: "2024-07-18" },
-    { id: 3, username: "Lê Văn C", rating: 5, content: "Tuyệt vời! Tôi đã học được rất nhiều.", date: "2024-07-15" },
-    { id: 4, username: "Phạm Thị D", rating: 3, content: "Cần thêm ví dụ thực tế.", date: "2024-07-10" },
-    { id: 5, username: "Hoàng Văn E", rating: 5, content: "Giáo viên giảng rất nhiệt tình.", date: "2024-07-05" },
-  ])
-
-  // Mock review history data
-  const [reviewHistory, setReviewHistory] = useState<ReviewHistoryEntry[]>([
-    { id: 1, action: "created", date: "2024-07-01 10:00", actor: "NGUYEN VAN A" },
-    { id: 2, action: "approved", date: "2024-07-02 14:30", actor: "NGUYEN THI B (Approver)" },
-    { id: 3, action: "rejected", date: "2024-07-03 09:00", actor: "TRAN VAN C (Approver)", reason: "Thiếu ví dụ minh họa" },
-    { id: 4, action: "approved", date: "2024-07-05 11:45", actor: "LE THI D (Approver)" },
-  ])
-
+  // Fetch topic detail
   useEffect(() => {
-    if (!topicId) return
-
     const fetchTopicDetail = async () => {
+      if (!topicId) return
       try {
         setLoading(true)
         const response = await TopicService.getTopicDetail(topicId)
-        setTopic({ ...response.data, creatorName: "NGUYEN VAN A" })
-        setSubtopics(response.data.subtopics || [])
+        const topicData = response.data
+        setTopic(topicData)
+        setSubtopics(topicData.subtopics || [])
+
+        // Load sentences built from sentence-building questions (if any)
+        try {
+          const sbQuestions = await FlashcardService.getSentenceBuildingQuestionsForTopic(Number(topicData.id))
+          const mappedSentences: Sentence[] = (sbQuestions || []).map((q, idx) => ({
+            id: String(q.id ?? idx),
+            content: (q.correctSentence && q.correctSentence.length > 0) ? q.correctSentence.join(" ") : (q.correctAnswer || q.question || "")
+          }))
+          setSentences(mappedSentences)
+        } catch {}
+
+        // Load feedback as reviews
+        try {
+          const feedbackList = await FeedbackService.getFeedbackByTopicId(Number(topicData.id))
+          const mappedReviews: Review[] = (feedbackList || []).map((f: any, idx: number) => ({
+            id: f.id ?? idx,
+            username: f.createdBy || "Người dùng",
+            rating: typeof f.rating === 'number' ? f.rating : (Number(f.rating) || 0),
+            content: f.feedbackContent || "",
+            date: f.createdAt ? new Date(f.createdAt).toLocaleDateString("vi-VN") : ""
+          }))
+          setReviews(mappedReviews)
+        } catch {}
+
+        // Build simple review history from topic timestamps and feedback (no approval log table available)
+        const history: ReviewHistoryEntry[] = []
+        history.push({ id: 1, action: "created", date: topicData.createdAt ? new Date(topicData.createdAt).toLocaleString("vi-VN") : "", actor: "Hệ thống" })
+        if (topicData.updatedAt && topicData.status) {
+          const action = topicData.status.toLowerCase() === 'active' ? 'approved' : (topicData.status.toLowerCase() === 'rejected' ? 'rejected' : undefined)
+          if (action) {
+            history.push({ id: 2, action: action as any, date: new Date(topicData.updatedAt).toLocaleString("vi-VN"), actor: "Người kiểm duyệt" })
+          }
+        }
+        if ((reviews || []).length > 0) {
+          // Add a latest feedback as part of history
+          const latest = reviews[0]
+          if (latest) {
+            history.push({ id: 3, action: "created", date: latest.date, actor: latest.username, reason: latest.content })
+          }
+        }
+        setReviewHistory(history)
       } catch (error: any) {
-        console.error("Error fetching topic detail:", error)
         alert("Không thể tải thông tin chủ đề. Vui lòng thử lại!")
       } finally {
         setLoading(false)
@@ -139,7 +153,6 @@ export function TopicDetailsPageComponent() {
 
     if (confirm("Bạn có chắc chắn muốn PHÊ DUYỆT chủ đề này?")) {
       try {
-        console.log(`Approving topic with ID: ${topicId}`)
         alert("Phê duyệt chủ đề thành công!")
         router.push("/list-topics")
       } catch (error: any) {
@@ -153,13 +166,36 @@ export function TopicDetailsPageComponent() {
 
     if (confirm("Bạn có chắc chắn muốn TỪ CHỐI chủ đề này?")) {
       try {
-        console.log(`Rejecting topic with ID: ${topicId}`)
         alert("Từ chối chủ đề thành công!")
         router.push("/list-topics")
       } catch (error: any) {
         alert(error?.response?.data?.message || "Có lỗi xảy ra khi từ chối. Vui lòng thử lại!")
       }
     }
+  }
+
+  // Kiểm tra quyền chỉnh sửa
+  const canEdit = () => {
+    if (!topic || !role) return false
+    
+    // General manager và content approver có thể chỉnh sửa tất cả
+    if (role === 'general-manager' || role === 'content-approver') return true
+    
+    // Content creator chỉ có thể chỉnh sửa topic mình tạo
+    if (role === 'content-creator') {
+      const currentUserId = authService.getCurrentUserId()
+      return currentUserId && topic.createdBy === currentUserId
+    }
+    
+    return false
+  }
+
+  // Kiểm tra quyền phê duyệt/từ chối
+  const canApproveReject = () => {
+    if (!topic || !role) return false
+    
+    // Chỉ content approver và general manager mới có quyền phê duyệt/từ chối
+    return role === 'content-approver' || role === 'general-manager'
   }
 
   if (loading) {
@@ -232,17 +268,27 @@ export function TopicDetailsPageComponent() {
                 <div className="relative bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-blue-100 p-6">
                   <h3 className="text-sm font-bold text-blue-700 mb-4">THÔNG TIN CỦA TOPIC:</h3>
                   <div className="space-y-2 text-gray-700">
+                    
                     <p className="text-sm">
-                      <span className="font-semibold text-blue-600">THỨ TỰ:</span>{" "}
-                      <span className="text-gray-500">#{topic.sortOrder}</span>
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-semibold text-blue-600">TÊN :</span>{" "}
+                      <span className="font-semibold text-blue-600">TÊN:</span>{" "}
                       <span className="text-gray-500">{topic.topicName}</span>
                     </p>
                     <p className="text-sm">
-                      <span className="font-semibold text-blue-600">NGƯỜI TẠO:</span>{" "}
-                      <span className="text-gray-500">{topic.creatorName || "N/A"}</span>
+                      <span className="font-semibold text-blue-600">TRẠNG THÁI:</span>{" "}
+                      <span className="text-gray-500 capitalize">{topic.status}</span>
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold text-blue-600">NGÀY TẠO:</span>{" "}
+                      <span className="text-gray-500">{new Date(topic.createdAt).toLocaleDateString("vi-VN")}</span>
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold text-blue-600">MIỄN PHÍ:</span>{" "}
+                      <span className="text-gray-500">{topic.isFree ? "Có" : "Không"}</span>
+                    </p>
+                    
+                    <p className="text-sm">
+                      <span className="font-semibold text-blue-600">NGƯỜI TẠO (ID):</span>{" "}
+                      <span className="text-gray-500">{topic.createdBy ?? "N/A"}</span>
                     </p>
                   </div>
                 </div>
@@ -517,23 +563,40 @@ export function TopicDetailsPageComponent() {
                   <span className="relative z-10">QUAY LẠI</span>
                 </Button>
 
-                <Button
-                  onClick={handleApprove}
-                  className="group relative flex items-center gap-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <Check className="w-5 h-5 relative z-10" />
-                  <span className="relative z-10">PHÊ DUYỆT</span>
-                </Button>
+                {canEdit() && (
+                  <>
+                    <Button
+                      onClick={handleEdit}
+                      className="group relative flex items-center gap-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <Edit className="w-5 h-5 relative z-10" />
+                      <span className="relative z-10">CHỈNH SỬA</span>
+                    </Button>
+                  </>
+                )}
 
-                <Button
-                  onClick={handleReject}
-                  className="group relative flex items-center gap-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <X className="w-5 h-5 relative z-10" />
-                  <span className="relative z-10">TỪ CHỐI</span>
-                </Button>
+                {canApproveReject() && (
+                  <>
+                    <Button
+                      onClick={handleApprove}
+                      className="group relative flex items-center gap-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <Check className="w-5 h-5 relative z-10" />
+                      <span className="relative z-10">PHÊ DUYỆT</span>
+                    </Button>
+
+                    <Button
+                      onClick={handleReject}
+                      className="group relative flex items-center gap-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-5 px-12 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <X className="w-5 h-5 relative z-10" />
+                      <span className="relative z-10">TỪ CHỐI</span>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -12,6 +12,9 @@ import { ApprovalNotice } from "@/components/approval-notice"
 import AsyncSelect from "react-select/async"
 import { VocabService } from "@/app/services/vocab.service"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { useUserRole } from "@/hooks/use-user-role"
+import authService from "@/app/services/auth.service"
+import { FlashcardService } from "@/app/services/flashcard.service"
 
 interface StatusOption {
   value: string
@@ -34,22 +37,35 @@ interface Subtopic {
   vocabs: Vocab[]
 }
 
+interface TopicDetail {
+  id: number
+  topicName: string
+  isFree: boolean
+  status: string
+  sortOrder: number
+  createdAt: string
+  createdBy: number
+  updatedAt?: string
+  updatedBy?: number
+  deletedAt?: string
+  deletedBy?: number
+  subtopics?: Subtopic[]
+}
+
+interface Sentence { id: string; content: string }
+
 export function TopicEditPageComponent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const topicId = searchParams.get("id")
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [statusOptions, setStatusOptions] = useState<StatusOption[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"subtopics" | "sentences">("subtopics")
-  const [sentences, setSentences] = useState([
-    { id: "s1", content: "Tôi là học sinh." },
-    { id: "s2", content: "Cô ấy rất đẹp." },
-    { id: "s3", content: "Chúng tôi đang học tiếng Anh." },
-    { id: "s4", content: "Bạn có thích đọc sách không?" },
-    { id: "s5", content: "Hà Nội là thủ đô của Việt Nam." },
-  ])
+  const [topic, setTopic] = useState<TopicDetail | null>(null)
+  const [sentences, setSentences] = useState<Sentence[]>([])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -61,11 +77,21 @@ export function TopicEditPageComponent() {
     creatorName: "",
   })
 
+  // Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!roleLoading) {
+      if (role !== 'content-creator' && role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
+      }
+    }
+  }, [role, roleLoading, router])
+
   // Fetch status options
   useEffect(() => {
     const fetchStatusOptions = async () => {
       try {
-        const response = await fetch("/topics/status-options")
+        const response = await fetch("http://localhost:8080/api/v1/topics/status-options")
         const data = await response.json()
         setStatusOptions(data)
       } catch (error) {
@@ -86,12 +112,24 @@ export function TopicEditPageComponent() {
       try {
         setLoading(true)
         const response = await TopicService.getTopicDetail(topicId)
-        const topic = response.data
+        const topicData = response.data
+        setTopic(topicData)
+        
+        // Kiểm tra ownership - content creator chỉ có thể chỉnh sửa topic mình tạo
+        if (role === 'content-creator') {
+          const currentUserId = authService.getCurrentUserId()
+          if (currentUserId && topicData.createdBy !== currentUserId) {
+            alert("Bạn chỉ có thể chỉnh sửa chủ đề mình tạo!")
+            router.push("/list-topics")
+            return
+          }
+        }
+        
         setFormData({
-          topicName: topic.topicName || "",
-          isFree: topic.isFree ?? true,
-          sortOrder: topic.sortOrder ?? 0,
-          subtopics: (topic.subtopics || []).map((sub: any) => ({
+          topicName: topicData.topicName || "",
+          isFree: topicData.isFree ?? true,
+          sortOrder: topicData.sortOrder ?? 0,
+          subtopics: (topicData.subtopics || []).map((sub: any) => ({
             ...sub,
             vocabs: (sub.vocabs || []).map((vocab: any) => ({
               vocab: vocab.vocab,
@@ -101,16 +139,37 @@ export function TopicEditPageComponent() {
               description: vocab.description,
             })),
           })),
-          status: topic.status || "",
-          creatorName: topic.creatorName || "NGUYEN VAN A",
+          status: topicData.status || "",
+          creatorName: topicData.creatorName || "",
         })
-      } catch (error) {
-        alert("Không thể tải chi tiết chủ đề. Vui lòng thử lại!")
+      } catch (error: any) {
+        console.error("Error fetching topic detail:", error)
+        alert("Không thể tải thông tin chủ đề. Vui lòng thử lại!")
+        router.push("/list-topics")
       } finally {
         setLoading(false)
       }
     }
-    fetchTopicDetail()
+
+    if (role === 'content-creator' || role === 'content-approver' || role === 'general-manager') {
+      fetchTopicDetail()
+    }
+  }, [topicId, role])
+
+  // Fetch sentences (sentence-building) for topic
+  useEffect(() => {
+    const fetchSentences = async () => {
+      if (!topicId) return
+      try {
+        const qs = await FlashcardService.getSentenceBuildingQuestionsForTopic(Number(topicId))
+        const mapped: Sentence[] = (qs || []).map((q, idx) => ({
+          id: String(q.id ?? idx),
+          content: (q.correctSentence && q.correctSentence.length > 0) ? q.correctSentence.join(" ") : (q.correctAnswer || q.question || "")
+        }))
+        setSentences(mapped)
+      } catch {}
+    }
+    fetchSentences()
   }, [topicId])
 
   const handleInputChange = (field: string, value: any) => {

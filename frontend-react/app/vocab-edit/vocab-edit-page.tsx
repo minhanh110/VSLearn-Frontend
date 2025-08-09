@@ -12,6 +12,8 @@ import { ArrowLeft, BookOpen, Globe, FileText, Video, Save } from "lucide-react"
 import { VocabService } from "@/app/services/vocab.service";
 import { ApprovalNotice } from "@/components/approval-notice";
 import { StatusDisplay } from "@/components/status-display";
+import { useUserRole } from "@/hooks/use-user-role"
+import authService from "@/app/services/auth.service"
 
 interface VocabularyDetail {
   id: number
@@ -34,9 +36,11 @@ export function VocabEditPageComponent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const vocabId = searchParams.get("id")
+  const { role, loading: roleLoading } = useUserRole()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [vocabulary, setVocabulary] = useState<VocabularyDetail | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -51,6 +55,16 @@ export function VocabEditPageComponent() {
   // Dynamic data
   const [regions, setRegions] = useState<{ value: string, label: string }[]>([])
 
+  // Kiểm tra quyền truy cập
+  useEffect(() => {
+    if (!roleLoading) {
+      if (role !== 'content-creator' && role !== 'content-approver' && role !== 'general-manager') {
+        router.push('/homepage')
+        return
+      }
+    }
+  }, [role, roleLoading, router])
+
   // Fetch vocabulary detail on mount
   useEffect(() => {
     if (!vocabId) {
@@ -64,6 +78,17 @@ export function VocabEditPageComponent() {
         setLoading(true)
         const response = await VocabService.getVocabDetail(vocabId)
         const vocab = response.data
+        setVocabulary(vocab)
+        
+        // Kiểm tra ownership - content creator chỉ có thể chỉnh sửa nội dung mình tạo
+        if (role === 'content-creator') {
+          const currentUserId = authService.getCurrentUserId()
+          if (currentUserId && vocab.createdBy !== currentUserId) {
+            alert("Bạn chỉ có thể chỉnh sửa nội dung mình tạo!")
+            router.push("/list-vocab")
+            return
+          }
+        }
         
         // Set form data with existing vocabulary data
         setFormData({
@@ -83,13 +108,15 @@ export function VocabEditPageComponent() {
       }
     }
 
-    fetchVocabDetail()
-  }, [vocabId, router])
+    if (role === 'content-creator' || role === 'content-approver' || role === 'general-manager') {
+      fetchVocabDetail()
+    }
+  }, [vocabId, router, role])
 
   // Fetch regions on mount
   useEffect(() => {
     // Fetch regions
-    fetch("/vocab/regions")
+    fetch("http://localhost:8080/api/v1/vocab/regions")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
